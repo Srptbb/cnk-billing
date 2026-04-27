@@ -131,7 +131,7 @@ textarea{resize:vertical;min-height:64px;}
 
 <div id="sec-list" class="sec">
 <div class="card">
-  <div class="ctitle">รายการบิลทั้งหมด</div>
+  <div class="ctitle">รายการบิลทั้งหมด <button class="btn bo bsm" style="color:#e74c3c;border-color:#e74c3c;margin-left:8px;" onclick="clearCancelledBills()">ลบรายการที่ยกเลิก</button></div>
   <div class="r3" style="margin-bottom:18px;">
     <div class="fg"><label>ค้นหาลูกค้า</label>
       <div class="aw"><input id="fs" type="text" placeholder="พิมพ์หรือเลือกลูกค้า..." autocomplete="off" oninput="acF(this.value)" onfocus="acF(this.value)"><div id="dd3" class="al"></div></div>
@@ -190,7 +190,7 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <div class="card">
-  <div class="ctitle">ใบวางบิลที่สร้างแล้ว</div>
+  <div class="ctitle">ใบวางบิลที่สร้างแล้ว <button class="btn bo bsm" style="color:#e74c3c;border-color:#e74c3c;margin-left:8px;" onclick="clearCancelled()">ลบรายการที่ยกเลิก</button></div>
   <div class="r2" style="margin-bottom:16px;">
     <div class="fg">
       <label>กรองตามลูกค้า</label>
@@ -242,7 +242,7 @@ textarea{resize:vertical;min-height:64px;}
 
 <div class="card">
   <div class="ctitle" style="justify-content:space-between;">
-    <span>ตารางเงินเข้าแต่ละวัน</span>
+    <span>กำหนดชำระเงิน</span>
     <div style="display:flex;gap:10px;align-items:center;">
       <button class="btn bo bsm" onclick="exportDash()">&#128190; Export CSV</button>
       <select id="db-filter-month" onchange="rdDash()" style="padding:6px 10px;font-size:13px;border-radius:6px;border:1.5px solid #e0e3eb;width:auto;">
@@ -1102,7 +1102,7 @@ function rdDash() {
   }
 
   // Build rows - only invoices with payDate set
-  var rows = active.filter(function(iv){ return iv.payDate; }).map(function(iv){
+  var rows = allActive.filter(function(iv){ return iv.payDate; }).map(function(iv){
     var dateKey = iv.payDate;
     var isOverdue = iv.status==='pending' && iv.payDate < today;
     var status = iv.status==='paid' ? 'paid' : (isOverdue ? 'overdue' : 'pending');
@@ -1217,6 +1217,35 @@ function confirmReceive(id) {
   iv.status = 'paid';
   localStorage.setItem('inv', JSON.stringify(invoices));
   rdDash(); rdInvList(); toast('ยืนยันรับเงินแล้ว');
+}
+
+
+function clearCancelled() {
+  var cancelled = invoices.filter(function(iv){ return iv.status === 'cancelled'; });
+  if (!cancelled.length) { toast('ไม่มีรายการที่ยกเลิก'); return; }
+  var pwd = prompt('กรุณาใส่รหัสเพื่อยืนยัน:');
+  if (pwd === null) return;
+  if (pwd !== 'CNK130269') { toast('รหัสไม่ถูกต้อง'); return; }
+  if (!confirm('ยืนยันลบรายการที่ยกเลิกทั้งหมด ' + cancelled.length + ' รายการ? ไม่สามารถกู้คืนได้')) return;
+  invoices = invoices.filter(function(iv){ return iv.status !== 'cancelled'; });
+  localStorage.setItem('inv', JSON.stringify(invoices));
+  cancelled.forEach(function(iv){ apiPost('delete','invoices',null,iv.id).catch(function(e){console.error(e);}); });
+  rdInvList();
+  toast('ลบรายการที่ยกเลิกแล้ว ' + cancelled.length + ' รายการ');
+}
+
+function clearCancelledBills() {
+  var cancelled = bills.filter(function(b){ return b.status === 'cancelled'; });
+  if (!cancelled.length) { toast('ไม่มีรายการที่ยกเลิก'); return; }
+  var pwd = prompt('กรุณาใส่รหัสเพื่อยืนยัน:');
+  if (pwd === null) return;
+  if (pwd !== 'CNK130269') { toast('รหัสไม่ถูกต้อง'); return; }
+  if (!confirm('ยืนยันลบใบส่งของที่ยกเลิกทั้งหมด ' + cancelled.length + ' รายการ? ไม่สามารถกู้คืนได้')) return;
+  bills = bills.filter(function(b){ return b.status !== 'cancelled'; });
+  localStorage.setItem('b', JSON.stringify(bills));
+  cancelled.forEach(function(b){ apiPost('delete','bills',null,b.id).catch(function(e){console.error(e);}); });
+  rdL();
+  toast('ลบรายการที่ยกเลิกแล้ว ' + cancelled.length + ' รายการ');
 }
 
 
