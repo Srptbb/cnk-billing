@@ -381,7 +381,11 @@ function apiPost(action,table,data,id){
 function loadAll(){
   showLoading(true);
   apiGet('customers',function(d){
-    custs=d;
+    // Normalize contacts field to string
+    custs=d.map(function(c){
+      if (c.c && typeof c.c !== 'string') c.c = Array.isArray(c.c) ? c.c.join(',') : String(c.c);
+      return c;
+    });
     apiGet('bills',function(d2){
       bills=d2;
       apiGet('invoices',function(d3){
@@ -457,7 +461,8 @@ function acCt(v){
   var c=custs.find(function(c){return c.id===cid;});
   var dd=document.getElementById('dd2');
   if(!c||!c.c){dd.classList.remove('on');return;}
-  var all=c.c.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var rawC = typeof c.c === 'string' ? c.c : (Array.isArray(c.c) ? c.c.join(',') : String(c.c||''));
+  var all=rawC.split(',').map(function(s){return s.trim();}).filter(Boolean);
   var list=v?all.filter(function(x){return x.toLowerCase().includes(v.toLowerCase());}):all;
   if(!list.length){dd.classList.remove('on');return;}
   dd.innerHTML=list.map(function(x){return '<div class="ai" onclick="pkCt(\''+x.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')">'+h(x)+'</div>';}).join('');
