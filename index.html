@@ -567,7 +567,12 @@ function deleteImgsForBill(billId){
   delete store[String(billId)];
   localStorage.setItem('bill_img_store',JSON.stringify(store));
 }
-function svB2(b){bills.push(b);localStorage.setItem('b',JSON.stringify(bills));apiPost('save','bills',b).catch(function(e){console.error(e);});}
+function svB2(b){
+  saveImgForBill(b.id, b.items||[]);
+  bills.push(b);
+  localStorage.setItem('b',JSON.stringify(bills));
+  apiPost('save','bills',b).catch(function(e){console.error(e);});
+}
 function saveB(){
   var cn=document.getElementById('cn').value.trim();if(!cn){toast('กรุณากรอกชื่อลูกค้า');return;}
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
