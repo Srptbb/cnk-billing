@@ -387,19 +387,14 @@ function loadAll(){
       return c;
     });
     apiGet('bills',function(d2){
-      // Merge images back from localStorage into bills
+      // Merge images from local store back into bills
       bills=d2.map(function(b){
-        var storedImgs = localStorage.getItem('bill_imgs_'+b.id);
-        if (storedImgs) {
-          try {
-            var imgs = JSON.parse(storedImgs);
-            if (b.items) {
-              b.items = b.items.map(function(it, i){
-                if (imgs[i]) it.img = imgs[i];
-                return it;
-              });
-            }
-          } catch(e){}
+        var imgs = getImgsForBill(b.id);
+        if (b.items && Object.keys(imgs).length) {
+          b.items = b.items.map(function(it, i){
+            if (imgs[String(i)]) it.img = imgs[String(i)];
+            return it;
+          });
         }
         return b;
       });
@@ -543,8 +538,34 @@ function onImg(e){
     var tr=document.querySelector('#ib tr[data-i="'+iRow+'"]');if(!tr)return;
     tr.dataset.img=src;
     tr.querySelectorAll('td')[4].innerHTML='<img src="'+src+'" class="ipv" onclick="trI('+iRow+')">';
+    // Save image to temp store immediately
+    var store=JSON.parse(localStorage.getItem('bill_img_store')||'{}');
+    if(!store['_temp'])store['_temp']={};
+    store['_temp'][String(iRow)]=src;
+    localStorage.setItem('bill_img_store',JSON.stringify(store));
   };
   r.readAsDataURL(f);
+}
+
+function saveImgForBill(billId,items){
+  var store=JSON.parse(localStorage.getItem('bill_img_store')||'{}');
+  var imgs={};
+  items.forEach(function(it,i){if(it.img)imgs[String(i)]=it.img;});
+  if(Object.keys(imgs).length){store[String(billId)]=imgs;}
+  else{delete store[String(billId)];}
+  delete store['_temp'];
+  localStorage.setItem('bill_img_store',JSON.stringify(store));
+}
+
+function getImgsForBill(billId){
+  var store=JSON.parse(localStorage.getItem('bill_img_store')||'{}');
+  return store[String(billId)]||{};
+}
+
+function deleteImgsForBill(billId){
+  var store=JSON.parse(localStorage.getItem('bill_img_store')||'{}');
+  delete store[String(billId)];
+  localStorage.setItem('bill_img_store',JSON.stringify(store));
 }
 function svB2(b){bills.push(b);localStorage.setItem('b',JSON.stringify(bills));apiPost('save','bills',b).catch(function(e){console.error(e);});}
 function saveB(){
@@ -1266,7 +1287,7 @@ function clearCancelledBills() {
   localStorage.setItem('b', JSON.stringify(bills));
   cancelled.forEach(function(b){ 
     apiPost('delete','bills',null,b.id).catch(function(e){console.error(e);});
-    localStorage.removeItem('bill_imgs_'+b.id);
+    deleteImgsForBill(b.id);
   });
   rdL();
   toast('ลบรายการที่ยกเลิกแล้ว ' + cancelled.length + ' รายการ');
