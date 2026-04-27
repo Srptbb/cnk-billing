@@ -378,28 +378,51 @@ function apiPost(action,table,data,id){
     .catch(function(e){console.error('apiPost error:',e);return {error:e.message};});
 }
 
+function normalizeBill(b) {
+  // Parse items if stored as string
+  if (typeof b.items === 'string') {
+    try { b.items = JSON.parse(b.items); } catch(e) { b.items = []; }
+  }
+  if (!Array.isArray(b.items)) b.items = [];
+  // Merge images from localStorage
+  var imgs = getImgsForBill(b.id);
+  if (Object.keys(imgs).length) {
+    b.items = b.items.map(function(it,i){
+      if (imgs[String(i)]) it.img = imgs[String(i)];
+      return it;
+    });
+  }
+  return b;
+}
+
+function normalizeInvoice(iv) {
+  if (typeof iv.bills === 'string') {
+    try { iv.bills = JSON.parse(iv.bills); } catch(e) { iv.bills = []; }
+  }
+  if (!Array.isArray(iv.bills)) iv.bills = [];
+  if (typeof iv.billNos === 'string') {
+    try { iv.billNos = JSON.parse(iv.billNos); } catch(e) { iv.billNos = []; }
+  }
+  return iv;
+}
+
 function loadAll(){
   showLoading(true);
+  // Set timeout to hide loading bar if something fails
+  var timeout = setTimeout(function(){ showLoading(false); }, 15000);
+  
   apiGet('customers',function(d){
-    // Normalize contacts field to string
-    custs=d.map(function(c){
-      if (c.c && typeof c.c !== 'string') c.c = Array.isArray(c.c) ? c.c.join(',') : String(c.c);
+    custs = d.map(function(c){
+      if (c.c && typeof c.c !== 'string') {
+        c.c = Array.isArray(c.c) ? c.c.join(',') : String(c.c);
+      }
       return c;
     });
     apiGet('bills',function(d2){
-      // Merge images from local store back into bills
-      bills=d2.map(function(b){
-        var imgs = getImgsForBill(b.id);
-        if (b.items && Object.keys(imgs).length) {
-          b.items = b.items.map(function(it, i){
-            if (imgs[String(i)]) it.img = imgs[String(i)];
-            return it;
-          });
-        }
-        return b;
-      });
+      bills = d2.map(normalizeBill);
       apiGet('invoices',function(d3){
-        invoices=d3;
+        invoices = d3.map(normalizeInvoice);
+        clearTimeout(timeout);
         showLoading(false);
         genNo();
       });
