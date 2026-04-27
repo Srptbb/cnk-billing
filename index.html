@@ -352,11 +352,27 @@ function apiGet(table,cb){
     .catch(function(e){console.error(e);cb([]);});
 }
 
+function stripImages(data) {
+  // Remove base64 image data before sending to Sheets (too large)
+  if (!data) return data;
+  var clean = JSON.parse(JSON.stringify(data));
+  if (clean.items && Array.isArray(clean.items)) {
+    clean.items = clean.items.map(function(it) {
+      var c = JSON.parse(JSON.stringify(it));
+      delete c.img;
+      return c;
+    });
+  }
+  return clean;
+}
+
 function apiPost(action,table,data,id){
+  // Strip images before sending to Sheets
+  var cleanData = stripImages(data);
   // Use GET with _method param to avoid CORS preflight
   var params = '?_method='+action+'&table='+encodeURIComponent(table);
   if (id) params += '&id='+encodeURIComponent(id);
-  if (data) params += '&data='+encodeURIComponent(JSON.stringify(data));
+  if (cleanData) params += '&data='+encodeURIComponent(JSON.stringify(cleanData));
   return fetch(API+params)
     .then(function(r){return r.json();})
     .catch(function(e){console.error('apiPost error:',e);return {error:e.message};});
