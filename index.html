@@ -387,7 +387,22 @@ function loadAll(){
       return c;
     });
     apiGet('bills',function(d2){
-      bills=d2;
+      // Merge images back from localStorage into bills
+      bills=d2.map(function(b){
+        var storedImgs = localStorage.getItem('bill_imgs_'+b.id);
+        if (storedImgs) {
+          try {
+            var imgs = JSON.parse(storedImgs);
+            if (b.items) {
+              b.items = b.items.map(function(it, i){
+                if (imgs[i]) it.img = imgs[i];
+                return it;
+              });
+            }
+          } catch(e){}
+        }
+        return b;
+      });
       apiGet('invoices',function(d3){
         invoices=d3;
         showLoading(false);
@@ -646,9 +661,15 @@ function svC(){
 }
 function dlC(id){
   if(!confirm('ลบลูกค้านี้?'))return;
-  custs=custs.filter(function(c){return c.id!==id;});
-  apiPost('delete','customers',null,id).catch(function(e){console.error(e);});
-  localStorage.setItem('c',JSON.stringify(custs));rdC();toast('ลบลูกค้าแล้ว');
+  toast('กำลังลบ...');
+  apiPost('delete','customers',null,id).then(function(res){
+    custs=custs.filter(function(c){return c.id!==id;});
+    localStorage.setItem('c',JSON.stringify(custs));
+    rdC();toast('ลบลูกค้าแล้ว');
+  }).catch(function(e){
+    console.error(e);
+    toast('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
+  });
 }
 function prvB(){
   var cn=document.getElementById('cn').value.trim();if(!cn){toast('กรุณากรอกข้อมูลก่อน');return;}
@@ -1243,7 +1264,10 @@ function clearCancelledBills() {
   if (!confirm('ยืนยันลบใบส่งของที่ยกเลิกทั้งหมด ' + cancelled.length + ' รายการ? ไม่สามารถกู้คืนได้')) return;
   bills = bills.filter(function(b){ return b.status !== 'cancelled'; });
   localStorage.setItem('b', JSON.stringify(bills));
-  cancelled.forEach(function(b){ apiPost('delete','bills',null,b.id).catch(function(e){console.error(e);}); });
+  cancelled.forEach(function(b){ 
+    apiPost('delete','bills',null,b.id).catch(function(e){console.error(e);});
+    localStorage.removeItem('bill_imgs_'+b.id);
+  });
   rdL();
   toast('ลบรายการที่ยกเลิกแล้ว ' + cancelled.length + ' รายการ');
 }
