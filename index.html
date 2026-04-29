@@ -444,34 +444,27 @@ function onGoogleLogin(response) {
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-content').style.display = 'block';
-  // Save profile (update lastSeen)
-  var existing = getProfileForEmail(currentUser.email);
-  saveProfile(currentUser.email, existing ? existing.displayName : (currentUser.name||'').split(' ')[0]);
-  // Show user info in nav
   var navUser = document.getElementById('nav-user');
   navUser.style.display = 'flex';
   document.getElementById('nav-avatar').src = currentUser.picture||'';
-  document.getElementById('nav-name').textContent = getCreatedBy();
-  // Show profile menu only for admin
   if (isAdmin()) {
     var ptab = document.getElementById('nav-profile-tab');
     if (ptab) ptab.style.display = 'flex';
   }
-  // Load profiles and set displayName on currentUser
+  // Load profiles from Sheets, then set displayName
   loadProfiles(function(profiles) {
     var p = profiles[currentUser.email];
     if (p && p.displayName) {
+      // Found saved displayName - use it
       currentUser.displayName = p.displayName;
     } else {
-      // First time - use first name from Google, save it
+      // First time login - use first name, save to Sheets
       currentUser.displayName = (currentUser.name||'').split(' ')[0] || currentUser.email;
       saveProfile(currentUser.email, currentUser.displayName);
     }
-    // Update session storage with displayName
     sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
     document.getElementById('nav-name').textContent = currentUser.displayName;
   });
-  // Load data
   loadAll();
 }
 
