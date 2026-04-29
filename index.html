@@ -92,7 +92,6 @@ textarea{resize:vertical;min-height:64px;}
   <div id="nav-user" style="display:none;align-items:center;gap:10px;margin-right:12px;">
     <img id="nav-avatar" style="width:32px;height:32px;border-radius:50%;border:2px solid #4f8ef7;" alt="">
     <span id="nav-name" style="color:#fff;font-size:13px;font-weight:500;"></span>
-    <button id="nav-profile-btn" onclick="goTo('profile',this)" style="display:none;padding:5px 12px;border-radius:6px;border:1px solid #4f8ef7;background:transparent;color:#4f8ef7;font-size:12px;cursor:pointer;font-family:Sarabun,sans-serif;">&#9881; โปรไฟล์</button>
     <button onclick="signOut()" style="padding:5px 12px;border-radius:6px;border:1px solid #555;background:transparent;color:#aab0c6;font-size:12px;cursor:pointer;font-family:Sarabun,sans-serif;">ออกจากระบบ</button>
   </div>
   <button class="nav-tab act" onclick="goTo('create',this)">ใบส่งของ</button>
@@ -451,10 +450,13 @@ function showApp() {
   document.getElementById('nav-name').textContent = getCreatedBy();
   // Show profile menu only for admin
   if (isAdmin()) {
-    document.getElementById('nav-profile-btn').style.display = 'flex';
     var ptab = document.getElementById('nav-profile-tab');
     if (ptab) ptab.style.display = 'flex';
   }
+  // Load profiles from Sheets first for cross-device name sync
+  loadProfiles(function() {
+    document.getElementById('nav-name').textContent = getCreatedBy();
+  });
   // Load data
   loadAll();
 }
@@ -485,6 +487,25 @@ function saveProfile(email, displayName) {
   var profiles = JSON.parse(localStorage.getItem('cnk_profiles')||'{}');
   profiles[email] = { email: email, displayName: displayName, lastSeen: new Date().toISOString() };
   localStorage.setItem('cnk_profiles', JSON.stringify(profiles));
+  // Sync to Sheets for cross-device persistence
+  apiPost('save','profiles',{id:email,email:email,displayName:displayName,lastSeen:new Date().toISOString()}).catch(function(e){
+    // If already exists, update instead
+    apiPost('update','profiles',{displayName:displayName,lastSeen:new Date().toISOString()},email).catch(function(e2){console.error(e2);});
+  });
+}
+
+function loadProfiles(cb) {
+  apiGet('profiles', function(data) {
+    var profiles = JSON.parse(localStorage.getItem('cnk_profiles')||'{}');
+    // Merge Sheets data into localStorage
+    data.forEach(function(p) {
+      if (p.email) {
+        profiles[p.email] = p;
+      }
+    });
+    localStorage.setItem('cnk_profiles', JSON.stringify(profiles));
+    if (cb) cb(profiles);
+  });
 }
 
 function getAllProfiles() {
@@ -593,6 +614,8 @@ function loadAll(){
   // Set timeout to hide loading bar if something fails
   var timeout = setTimeout(function(){ showLoading(false); }, 15000);
   
+  // Also sync profiles from Sheets
+  loadProfiles(null);
   apiGet('customers',function(d){
     custs = d.map(function(c){
       if (c.c && typeof c.c !== 'string') {
