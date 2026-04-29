@@ -432,7 +432,11 @@ function onGoogleLogin(response) {
     return;
   }
 
-  currentUser = { email: email, name: name, picture: picture };
+  // Check if we have a saved displayName in localStorage profiles
+  var savedProfiles = JSON.parse(localStorage.getItem('cnk_profiles')||'{}');
+  var savedProfile = savedProfiles[email];
+  var displayName = savedProfile ? savedProfile.displayName : name.split(' ')[0];
+  currentUser = { email: email, name: name, picture: picture, displayName: displayName };
   sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
   showApp();
 }
@@ -453,9 +457,19 @@ function showApp() {
     var ptab = document.getElementById('nav-profile-tab');
     if (ptab) ptab.style.display = 'flex';
   }
-  // Load profiles from Sheets first for cross-device name sync
-  loadProfiles(function() {
-    document.getElementById('nav-name').textContent = getCreatedBy();
+  // Load profiles and set displayName on currentUser
+  loadProfiles(function(profiles) {
+    var p = profiles[currentUser.email];
+    if (p && p.displayName) {
+      currentUser.displayName = p.displayName;
+    } else {
+      // First time - use first name from Google, save it
+      currentUser.displayName = (currentUser.name||'').split(' ')[0] || currentUser.email;
+      saveProfile(currentUser.email, currentUser.displayName);
+    }
+    // Update session storage with displayName
+    sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
+    document.getElementById('nav-name').textContent = currentUser.displayName;
   });
   // Load data
   loadAll();
@@ -471,11 +485,7 @@ function signOut() {
 
 function getCreatedBy() {
   if (!currentUser) return 'Unknown';
-  // Use custom display name if set, else first name from Google
-  var profile = getProfileForEmail(currentUser.email);
-  if (profile && profile.displayName) return profile.displayName;
-  var firstName = (currentUser.name||'').split(' ')[0];
-  return firstName || currentUser.email;
+  return currentUser.displayName || (currentUser.name||'').split(' ')[0] || currentUser.email;
 }
 
 function getProfileForEmail(email) {
@@ -1658,8 +1668,10 @@ function saveDisplayName(emailOrBtn) {
   var name = el.value.trim();
   if (!name) { toast('กรุณากรอกชื่อ'); return; }
   saveProfile(email, name);
-  // If changing own name, update nav
+  // If changing own name, update currentUser and session
   if (currentUser && email === currentUser.email) {
+    currentUser.displayName = name;
+    sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
     document.getElementById('nav-name').textContent = name;
   }
   toast('บันทึกชื่อ '+name+' แล้ว');
