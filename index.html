@@ -641,7 +641,8 @@ function loadAll(){
         invoices = d3.map(normalizeInvoice);
         clearTimeout(timeout);
         showLoading(false);
-        genNo();
+        // Fetch today's bills from Sheets to ensure genNo has accurate max seq
+        fetchTodayBills(function(){ genNo(); });
       }, 3); // โหลดแค่ 3 เดือนล่าสุด
     }, 3); // โหลดแค่ 3 เดือนล่าสุด
   });
@@ -677,21 +678,49 @@ function setType(t){
   el.style.color=t==='credit'?'#2980b9':'#27ae60';
   genNo();
 }
-function genNo(){
-  var d=document.getElementById('bdate').value;if(!d)return;
-  var ds=d.replace(/-/g,'').slice(2);
-  var pfx=ctp==='credit'?'DN':'DNSL';
-  // Find highest sequence number for this date+type to avoid duplicates
-  var maxSeq=0;
+function fetchTodayBills(cb) {
+  // Load today's bills from Sheets to get accurate bill numbers
+  var todayMonth = td().slice(0,7); // YYYY-MM
+  apiGet('bills', function(todayData) {
+    // Merge today's Sheets bills into bills array (avoid duplicates)
+    var existingIds = {};
+    bills.forEach(function(b){ existingIds[b.id] = true; });
+    todayData.forEach(function(b){
+      if (!existingIds[b.id]) {
+        bills.push(normalizeBill(b));
+        existingIds[b.id] = true;
+      } else {
+        // Update existing bill with Sheets version (more authoritative)
+        var idx = bills.findIndex ? bills.findIndex(function(x){return x.id===b.id;}) : -1;
+        if (idx >= 0) bills[idx] = normalizeBill(b);
+      }
+    });
+    if (cb) cb();
+  });
+}
+
+function getMaxSeq(ds, type) {
+  // Check both in-memory bills AND Sheets (via all loaded bills)
+  var pfx = type==='credit' ? 'DN' : 'DNSL';
+  var maxSeq = 0;
   bills.forEach(function(b){
-    if(b.date && b.date.replace(/-/g,'').slice(2)===ds && b.type===ctp){
-      // Extract sequence from bill number e.g. DN-260426-003 -> 3
-      var parts=(b.no||'').split('-');
-      var seq=parseInt(parts[parts.length-1])||0;
-      if(seq>maxSeq)maxSeq=seq;
+    if (!b.no) return;
+    // Match prefix and date
+    var expected = pfx + '-' + ds + '-';
+    if (b.no.indexOf(expected) === 0) {
+      var seq = parseInt(b.no.slice(expected.length)) || 0;
+      if (seq > maxSeq) maxSeq = seq;
     }
   });
-  document.getElementById('bno').value=pfx+'-'+ds+'-'+String(maxSeq+1).padStart(3,'0');
+  return maxSeq;
+}
+
+function genNo(){
+  var d = document.getElementById('bdate').value; if(!d) return;
+  var ds = d.replace(/-/g,'').slice(2);
+  var pfx = ctp==='credit' ? 'DN' : 'DNSL';
+  var maxSeq = getMaxSeq(ds, ctp);
+  document.getElementById('bno').value = pfx+'-'+ds+'-'+String(maxSeq+1).padStart(3,'0');
 }
 function acC(v){
   var dd=document.getElementById('dd1');
