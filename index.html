@@ -627,7 +627,16 @@ function loadAll(){
       return c;
     });
     apiGet('bills',function(d2){
-      bills = d2.map(normalizeBill);
+      var sheetsB = d2.map(normalizeBill);
+      // Merge with localStorage bills - in case some weren't saved to Sheets yet
+      var localB = JSON.parse(localStorage.getItem('b')||'[]');
+      var sheetsIds = {};
+      sheetsB.forEach(function(b){ sheetsIds[b.id]=true; });
+      // Add local bills not yet in Sheets
+      localB.forEach(function(b){
+        if(!sheetsIds[b.id]) sheetsB.push(normalizeBill(b));
+      });
+      bills = sheetsB;
       apiGet('invoices',function(d3){
         invoices = d3.map(normalizeInvoice);
         clearTimeout(timeout);
