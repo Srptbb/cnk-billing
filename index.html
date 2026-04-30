@@ -978,42 +978,163 @@ function canB(id){
   if(b){b.status='cancelled';localStorage.setItem('b',JSON.stringify(bills));apiPost('update','bills',{status:'cancelled'},id).catch(function(e){console.error(e);});rdL();toast('ยกเลิกบิลแล้ว');}
 }
 function opEM(id){
-  eId=id;var b=bills.find(function(b){return b.id===id;});if(!b)return;
+  eId=id;
+  var b=bills.find(function(b){return b.id===id;});
+  if(!b)return;
   document.getElementById('eno').textContent=b.no;
   document.getElementById('en').value=b.cn;
   document.getElementById('ec').value=b.cc||'';
   document.getElementById('er').value=b.remark||'';
-  var tbl='<table class="itbl"><thead><tr><th style="width:50%">รายการ</th><th style="width:15%">จำนวน</th><th style="width:20%">ราคา</th><th>รวม</th></tr></thead><tbody>';
-  b.items.forEach(function(it,i){
-    tbl+='<tr><td><input type="text" id="ed'+i+'" value="'+ha(it.d)+'"></td><td><input type="number" id="eq'+i+'" value="'+it.q+'" style="width:60px" oninput="calcE('+i+')"></td><td><input type="number" id="ep'+i+'" value="'+it.p+'" style="width:90px" oninput="calcE('+i+')"></td><td id="et'+i+'" style="font-weight:600;">'+fmt(it.t)+'</td></tr>';
-  });
-  tbl+='</tbody></table>';
-  document.getElementById('ei').innerHTML=tbl;
+  renderEditItems(b.items);
   document.getElementById('me').classList.add('on');
 }
+
+function renderEditItems(items){
+  var wrap = document.getElementById('ei');
+  var html = '<table class="itbl" style="margin-bottom:8px;"><thead><tr>'+
+    '<th style="width:38%">รายการ</th>'+
+    '<th style="width:9%">จำนวน</th>'+
+    '<th style="width:14%">ราคา</th>'+
+    '<th style="width:12%">รวม</th>'+
+    '<th style="width:18%;text-align:center;">รูป</th>'+
+    '<th style="width:9%"></th>'+
+    '</tr></thead><tbody id="ei-body">';
+  items.forEach(function(it,i){
+    var imgCell = it.img
+      ? '<img src="'+it.img+'" style="width:44px;height:44px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="trigEditImg('+i+')" title="คลิกเพื่อเปลี่ยนรูป">'
+      : '<div class="iph" onclick="trigEditImg('+i+')" style="width:44px;height:44px;font-size:13px;">[รูป]</div>';
+    html += '<tr data-ei="'+i+'" data-img="'+(it.img||'')+'">'+
+      '<td><input type="text" id="ed'+i+'" value="'+it.d.replace(/"/g,'&quot;')+'"></td>'+
+      '<td><input type="number" id="eq'+i+'" value="'+it.q+'" style="width:54px;text-align:center;" oninput="calcE('+i+')"></td>'+
+      '<td><input type="number" id="ep'+i+'" value="'+it.p+'" style="width:80px;text-align:right;" oninput="calcE('+i+')"></td>'+
+      '<td id="et'+i+'" style="font-weight:600;font-size:13px;">'+fmt(it.q*it.p)+'</td>'+
+      '<td style="text-align:center;">'+imgCell+'</td>'+
+      '<td style="text-align:center;"><button class="delbtn" onclick="delEditRow('+i+')">X</button></td>'+
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<button class="btn bo bsm" onclick="addEditRow()" style="margin-top:4px;">+ เพิ่มรายการ</button>';
+  wrap.innerHTML = html;
+}
+
 function calcE(i){
   var q=parseFloat(document.getElementById('eq'+i)&&document.getElementById('eq'+i).value)||0;
   var p=parseFloat(document.getElementById('ep'+i)&&document.getElementById('ep'+i).value)||0;
-  var el=document.getElementById('et'+i);if(el)el.textContent=fmt(q*p);
+  var el=document.getElementById('et'+i);
+  if(el)el.textContent=fmt(q*p);
 }
-function clEM(){document.getElementById('me').classList.remove('on');eId=null;}
+
+function addEditRow(){
+  var tbody=document.getElementById('ei-body');
+  if(!tbody)return;
+  var rows=tbody.querySelectorAll('tr');
+  var i=rows.length;
+  var tr=document.createElement('tr');
+  tr.dataset.ei=i;
+  tr.dataset.img='';
+  tr.innerHTML=
+    '<td><input type="text" id="ed'+i+'" placeholder="รายการสินค้า"></td>'+
+    '<td><input type="number" id="eq'+i+'" value="1" style="width:54px;text-align:center;" oninput="calcE('+i+')"></td>'+
+    '<td><input type="number" id="ep'+i+'" value="0" style="width:80px;text-align:right;" oninput="calcE('+i+')"></td>'+
+    '<td id="et'+i+'" style="font-weight:600;font-size:13px;">0.00</td>'+
+    '<td style="text-align:center;"><div class="iph" onclick="trigEditImg('+i+')" style="width:44px;height:44px;font-size:13px;">[รูป]</div></td>'+
+    '<td style="text-align:center;"><button class="delbtn" onclick="delEditRow('+i+')">X</button></td>';
+  tbody.appendChild(tr);
+}
+
+function delEditRow(i){
+  var rows=document.getElementById('ei-body').querySelectorAll('tr');
+  if(rows.length<=1){toast('ต้องมีอย่างน้อย 1 รายการ');return;}
+  rows[i].remove();
+  // Re-index remaining rows
+  var newRows=document.getElementById('ei-body').querySelectorAll('tr');
+  newRows.forEach(function(tr,idx){
+    tr.dataset.ei=idx;
+    // Update input ids
+    var inputs=tr.querySelectorAll('input');
+    if(inputs[0])inputs[0].id='ed'+idx;
+    if(inputs[1]){inputs[1].id='eq'+idx;inputs[1].setAttribute('oninput','calcE('+idx+')');}
+    if(inputs[2]){inputs[2].id='ep'+idx;inputs[2].setAttribute('oninput','calcE('+idx+')');}
+    var tot=tr.querySelector('td:nth-child(4)');
+    if(tot)tot.id='et'+idx;
+    // Update img button
+    var imgBtn=tr.querySelector('.iph');
+    if(imgBtn)imgBtn.setAttribute('onclick','trigEditImg('+idx+')');
+    var imgEl=tr.querySelector('img');
+    if(imgEl)imgEl.setAttribute('onclick','trigEditImg('+idx+')');
+    // Update del button
+    var delBtn=tr.querySelector('.delbtn');
+    if(delBtn)delBtn.setAttribute('onclick','delEditRow('+idx+')');
+  });
+}
+
+var editImgRow=null;
+function trigEditImg(i){
+  editImgRow=i;
+  var inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';
+  inp.onchange=function(e){
+    var f=e.target.files[0];if(!f)return;
+    compressImage(f,1200,0.75,function(compressed){
+      // Show uploading state
+      var tbody=document.getElementById('ei-body');
+      var rows=tbody.querySelectorAll('tr');
+      var tr=rows[editImgRow];
+      if(!tr)return;
+      var cell=tr.querySelectorAll('td')[4];
+      cell.innerHTML='<div style="text-align:center;font-size:11px;color:#888;">&#8987; กำลังอัปโหลด...</div>';
+      // Upload to Cloudinary
+      var parts=compressed.split(',');
+      var mime=parts[0].match(/:(.*?);/)[1];
+      var byteStr=atob(parts[1]);
+      var arr=new Uint8Array(byteStr.length);
+      for(var x=0;x<byteStr.length;x++)arr[x]=byteStr.charCodeAt(x);
+      var blob=new Blob([arr],{type:mime});
+      var fd=new FormData();
+      fd.append('file',blob,'edit_'+Date.now()+'.jpg');
+      fd.append('upload_preset','cnk_bills');
+      fd.append('folder','cnk_bills');
+      fetch('https://api.cloudinary.com/v1_1/daxjl6uik/image/upload',{method:'POST',body:fd})
+        .then(function(r){return r.json();})
+        .then(function(res){
+          if(res.error){cell.innerHTML='<div style="color:#e74c3c;font-size:11px;">อัปโหลดไม่สำเร็จ</div>';return;}
+          tr.dataset.img=res.secure_url;
+          cell.innerHTML='<img src="'+res.secure_url+'" style="width:44px;height:44px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="trigEditImg('+editImgRow+')">';
+          toast('อัปโหลดรูปสำเร็จ');
+        })
+        .catch(function(){cell.innerHTML='<div style="color:#e74c3c;font-size:11px;">อัปโหลดไม่สำเร็จ</div>';});
+    });
+  };
+  inp.click();
+}
+
+
+
 function svE(){
   var b=bills.find(function(b){return b.id===eId;});if(!b)return;
   b.cn=document.getElementById('en').value.trim();
   b.cc=document.getElementById('ec').value.trim();
   b.remark=document.getElementById('er').value.trim();
-  b.items=b.items.map(function(it,i){
-    var q=parseFloat(document.getElementById('eq'+i)&&document.getElementById('eq'+i).value)||it.q;
-    var p=parseFloat(document.getElementById('ep'+i)&&document.getElementById('ep'+i).value)||it.p;
-    var d=document.getElementById('ed'+i)?document.getElementById('ed'+i).value.trim():it.d;
-    return{d:d,q:q,p:p,t:q*p,img:it.img||''};
+  // Collect items from edit table
+  var newItems=[];
+  var rows=document.getElementById('ei-body').querySelectorAll('tr');
+  rows.forEach(function(tr,i){
+    var d=document.getElementById('ed'+i)?document.getElementById('ed'+i).value.trim():'';
+    var q=parseFloat(document.getElementById('eq'+i)?document.getElementById('eq'+i).value:0)||0;
+    var p=parseFloat(document.getElementById('ep'+i)?document.getElementById('ep'+i).value:0)||0;
+    if(d) newItems.push({d:d,q:q,p:p,t:q*p,img:tr.dataset.img||''});
   });
+  if(!newItems.length){toast('ต้องมีอย่างน้อย 1 รายการ');return;}
+  b.items=newItems;
   b.sub=b.items.reduce(function(s,i){return s+i.t;},0);
   b.grand=b.sub+b.vat;
   localStorage.setItem('b',JSON.stringify(bills));
   apiPost('update','bills',b,b.id).catch(function(e){console.error(e);});
   clEM();rdL();toast('แก้ไขบิลสำเร็จ');
 }
+
+
+
 function rdC(){
   var c=document.getElementById('cl');
   if(!custs.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p>';return;}
