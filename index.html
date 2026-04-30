@@ -651,7 +651,13 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('.aw'))document.querySelectorAll('.al').forEach(function(d){d.classList.remove('on');});
 });
 
-function td(){return new Date().toISOString().split('T')[0];}
+function td(){
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = String(now.getMonth()+1).padStart(2,'0');
+  var d = String(now.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
+}
 function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function ha(s){return String(s||'').replace(/"/g,'&quot;');}
 function fmt(n){return (n||0).toLocaleString('th-TH',{minimumFractionDigits:2});}
