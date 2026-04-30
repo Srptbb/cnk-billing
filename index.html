@@ -533,7 +533,7 @@ window.onload=function(){
   document.getElementById('login-logo').src=LG;
   document.getElementById('bdate').value=td();
   document.getElementById('btp').value='ใบส่งของ (เครดิต)';
-  genNo();addR();
+  addR();
   // Init auth after Google GSI loaded
   if (typeof google !== 'undefined' && google.accounts) {
     initAuth();
@@ -672,8 +672,17 @@ function genNo(){
   var d=document.getElementById('bdate').value;if(!d)return;
   var ds=d.replace(/-/g,'').slice(2);
   var pfx=ctp==='credit'?'DN':'DNSL';
-  var n=bills.filter(function(b){return b.date.replace(/-/g,'').slice(2)===ds&&b.type===ctp&&b.status!=='cancelled';}).length;
-  document.getElementById('bno').value=pfx+'-'+ds+'-'+String(n+1).padStart(3,'0');
+  // Find highest sequence number for this date+type to avoid duplicates
+  var maxSeq=0;
+  bills.forEach(function(b){
+    if(b.date && b.date.replace(/-/g,'').slice(2)===ds && b.type===ctp){
+      // Extract sequence from bill number e.g. DN-260426-003 -> 3
+      var parts=(b.no||'').split('-');
+      var seq=parseInt(parts[parts.length-1])||0;
+      if(seq>maxSeq)maxSeq=seq;
+    }
+  });
+  document.getElementById('bno').value=pfx+'-'+ds+'-'+String(maxSeq+1).padStart(3,'0');
 }
 function acC(v){
   var dd=document.getElementById('dd1');
