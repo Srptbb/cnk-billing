@@ -70,6 +70,7 @@ textarea{resize:vertical;min-height:64px;}
 #tst.on{opacity:1;transform:translateY(0);}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <!-- Login Overlay -->
@@ -99,6 +100,7 @@ textarea{resize:vertical;min-height:64px;}
   <button class="nav-tab" onclick="goTo('invoice',this)">ใบวางบิล</button>
   <button class="nav-tab" onclick="goTo('customers',this)">ลูกค้า</button>
   <button class="nav-tab" onclick="goTo('dashboard',this)">ภาพรวม</button>
+  <button id="nav-analytics-tab" class="nav-tab" onclick="goTo('analytics',this)" style="display:none;">&#128202; Analytics</button>
   <button id="nav-profile-tab" class="nav-tab" onclick="goTo('profile',this)" style="display:none;">&#9881; โปรไฟล์</button>
 </nav>
 <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:#4f8ef7;color:#fff;text-align:center;padding:8px;font-size:13px;font-family:Sarabun,sans-serif;">&#8987; กำลังโหลดข้อมูลจาก Google Sheets...</div>
@@ -291,6 +293,46 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 </div>
 
+<div id="sec-analytics" class="sec">
+<div class="card">
+  <div class="ctitle" style="justify-content:space-between;">
+    <span>&#128202; Analytics — สรุปยอดขาย</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <select id="an-year" onchange="rdAnalytics()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1.5px solid #e0e3eb;width:auto;"></select>
+      <div id="an-loading" style="display:none;font-size:13px;color:#888;">&#8987; กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <!-- Section 1: Monthly Revenue Chart -->
+  <div style="margin-bottom:28px;">
+    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">&#128181; ยอดขายและการรับเงินรายเดือน</div>
+    <canvas id="an-chart" style="max-height:320px;"></canvas>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;" id="an-summary-cards"></div>
+  </div>
+
+  <!-- Section 2: Customer Analysis -->
+  <div style="margin-bottom:28px;">
+    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">&#128101; วิเคราะห์ลูกค้า</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">Top 10 ลูกค้า ตามยอดซื้อ</div>
+        <div id="an-top-custs"></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">ลูกค้าที่ไม่ได้สั่งมากกว่า 60 วัน</div>
+        <div id="an-inactive"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Insights -->
+  <div>
+    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">&#128161; Insights</div>
+    <div id="an-insights" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;"></div>
+  </div>
+</div>
+</div>
+
 </div><!-- end main-content inner -->
 </div><!-- end main-content -->
 
@@ -450,6 +492,8 @@ function showApp() {
   if (isAdmin()) {
     var ptab = document.getElementById('nav-profile-tab');
     if (ptab) ptab.style.display = 'flex';
+    var atab = document.getElementById('nav-analytics-tab');
+    if (atab) atab.style.display = 'flex';
   }
   // Load profiles from Sheets, then set displayName
   loadProfiles(function(profiles) {
@@ -674,6 +718,7 @@ function goTo(id,btn){
   if(id==='invoice'){rdInvList();document.getElementById('inv-date').value=td();genInvNo();}
   if(id==='dashboard')rdDash();
   if(id==='profile')rdProfile();
+  if(id==='analytics')rdAnalytics();
 }
 function setType(t){
   ctp=t;
@@ -1850,6 +1895,214 @@ function saveDisplayName(emailOrBtn) {
     document.getElementById('nav-name').textContent = name;
   }
   toast('บันทึกชื่อ '+name+' แล้ว');
+}
+
+
+// ===== ANALYTICS =====
+var anChart = null;
+var anAllBills = [];
+var anAllInvoices = [];
+
+function rdAnalytics() {
+  if (!isAdmin()) return;
+  var yearSel = document.getElementById('an-year');
+  var loading = document.getElementById('an-loading');
+
+  // Build year options
+  var curYear = new Date().getFullYear();
+  if (!yearSel.options.length) {
+    for (var y = curYear; y >= curYear-3; y--) {
+      var opt = document.createElement('option');
+      opt.value = y; opt.text = 'ปี พ.ศ. '+(y+543);
+      if (y === curYear) opt.selected = true;
+      yearSel.appendChild(opt);
+    }
+  }
+  var selYear = parseInt(yearSel.value);
+
+  loading.style.display = 'block';
+
+  // Load ALL bills and invoices for the year (no month limit)
+  apiGet('bills', function(b) {
+    anAllBills = b.map(normalizeBill);
+    apiGet('invoices', function(iv) {
+      anAllInvoices = iv.map(normalizeInvoice);
+      loading.style.display = 'none';
+      renderAnalytics(selYear);
+    });
+  });
+}
+
+function renderAnalytics(year) {
+  var months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var today = td();
+
+  // Filter by year
+  var yearBills = anAllBills.filter(function(b){
+    return b.date && b.date.startsWith(year+'-') && b.status !== 'cancelled';
+  });
+  var yearInv = anAllInvoices.filter(function(iv){
+    return iv.date && iv.date.startsWith(year+'-') && iv.status !== 'cancelled';
+  });
+
+  // Monthly data arrays
+  var mSales = Array(12).fill(0);      // ยอดขายรวม (bills)
+  var mCollected = Array(12).fill(0);  // ยอดเก็บได้จริง (paid invoices by paidDate)
+  var mPending = Array(12).fill(0);    // ยอดค้าง (pending invoices)
+  var mExpected = Array(12).fill(0);   // ยอดคาดว่าจะเข้า (by payDate)
+  var mReceived = Array(12).fill(0);   // ยอดเงินเข้าจริง (by paidDate)
+
+  // Sales from bills
+  yearBills.forEach(function(b){
+    var m = parseInt((b.date||'').split('-')[1]) - 1;
+    if (m >= 0 && m < 12) mSales[m] += b.grand||0;
+  });
+
+  // Invoice analysis
+  yearInv.forEach(function(iv){
+    var invMonth = parseInt((iv.date||'').split('-')[1]) - 1;
+    if (iv.status === 'paid') {
+      // เก็บได้จริง (by invoice date)
+      if (invMonth >= 0 && invMonth < 12) mCollected[invMonth] += iv.total||0;
+      // เงินเข้าจริง (by paidDate)
+      if (iv.paidDate && iv.paidDate.startsWith(year+'-')) {
+        var pm = parseInt(iv.paidDate.split('-')[1]) - 1;
+        if (pm >= 0 && pm < 12) mReceived[pm] += iv.total||0;
+      }
+    } else {
+      // ค้างชำระ
+      if (invMonth >= 0 && invMonth < 12) mPending[invMonth] += iv.total||0;
+      // คาดว่าจะเข้า (by payDate, future)
+      if (iv.payDate && iv.payDate >= today && iv.payDate.startsWith(year+'-')) {
+        var pm2 = parseInt(iv.payDate.split('-')[1]) - 1;
+        if (pm2 >= 0 && pm2 < 12) mExpected[pm2] += iv.total||0;
+      }
+    }
+  });
+
+  // === CHART ===
+  var ctx = document.getElementById('an-chart').getContext('2d');
+  if (anChart) anChart.destroy();
+  anChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'ยอดขาย', data: mSales, backgroundColor: 'rgba(26,26,46,0.8)', borderRadius: 4 },
+        { label: 'เงินเข้าจริง', data: mReceived, backgroundColor: 'rgba(39,174,96,0.8)', borderRadius: 4 },
+        { label: 'คาดว่าจะเข้า', data: mExpected, backgroundColor: 'rgba(52,152,219,0.6)', borderRadius: 4 },
+        { label: 'ค้างชำระ', data: mPending, backgroundColor: 'rgba(230,81,0,0.7)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { ticks: { callback: function(v){ return (v/1000).toFixed(0)+'K'; } } }
+      }
+    }
+  });
+
+  // === SUMMARY CARDS ===
+  var totalSales = mSales.reduce(function(a,b){return a+b;},0);
+  var totalCollected = mCollected.reduce(function(a,b){return a+b;},0);
+  var totalPending = mPending.reduce(function(a,b){return a+b;},0);
+  var totalReceived = mReceived.reduce(function(a,b){return a+b;},0);
+  var totalExpected = mExpected.reduce(function(a,b){return a+b;},0);
+  var collectRate = totalSales > 0 ? Math.round(totalCollected/totalSales*100) : 0;
+
+  document.getElementById('an-summary-cards').innerHTML = [
+    {label:'ยอดขายรวม',val:fmt(totalSales)+' ฿',color:'#1a1a2e'},
+    {label:'เงินเข้าจริง',val:fmt(totalReceived)+' ฿',color:'#27ae60'},
+    {label:'คาดว่าจะเข้า',val:fmt(totalExpected)+' ฿',color:'#2980b9'},
+    {label:'ยอดค้างชำระ',val:fmt(totalPending)+' ฿',color:'#e65100'},
+    {label:'อัตราเก็บเงิน',val:collectRate+'%',color: collectRate>=80?'#27ae60':collectRate>=60?'#f39c12':'#e74c3c'},
+    {label:'เฉลี่ยต่อบิล',val:fmt(yearBills.length?totalSales/yearBills.length:0)+' ฿',color:'#1a1a2e'}
+  ].map(function(c){
+    return '<div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;border-left:4px solid '+c.color+';">'+
+      '<div style="font-size:12px;color:#888;margin-bottom:4px;">'+c.label+'</div>'+
+      '<div style="font-size:18px;font-weight:700;color:'+c.color+';">'+c.val+'</div>'+
+    '</div>';
+  }).join('');
+
+  // === CUSTOMER ANALYSIS ===
+  var custMap = {};
+  yearBills.forEach(function(b){
+    var n = b.cn||'ไม่ระบุ';
+    if (!custMap[n]) custMap[n] = {name:n, total:0, count:0, lastDate:''};
+    custMap[n].total += b.grand||0;
+    custMap[n].count++;
+    if ((b.date||'') > custMap[n].lastDate) custMap[n].lastDate = b.date;
+  });
+
+  // Payment performance from invoices
+  yearInv.forEach(function(iv){
+    var n = iv.custName||'ไม่ระบุ';
+    if (!custMap[n]) custMap[n] = {name:n, total:0, count:0, lastDate:''};
+    if (iv.status==='paid' && iv.payDate && iv.paidDate) {
+      var daysLate = Math.round((new Date(iv.paidDate)-new Date(iv.payDate))/(1000*60*60*24));
+      if (!custMap[n].payStats) custMap[n].payStats = {late:0,ontime:0};
+      if (daysLate > 3) custMap[n].payStats.late++;
+      else custMap[n].payStats.ontime++;
+    }
+  });
+
+  var sortedCusts = Object.values(custMap).sort(function(a,b){return b.total-a.total;});
+
+  // Top 10
+  var top10 = sortedCusts.slice(0,10);
+  var maxTotal = top10.length ? top10[0].total : 1;
+  document.getElementById('an-top-custs').innerHTML = top10.map(function(c,i){
+    var pct = Math.round(c.total/maxTotal*100);
+    var ps = c.payStats;
+    var payLabel = ps ? (ps.late > ps.ontime ? '<span style="color:#e74c3c;font-size:10px;">จ่ายช้า</span>' : '<span style="color:#27ae60;font-size:10px;">จ่ายตรง</span>') : '';
+    return '<div style="margin-bottom:10px;">'+
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">'+
+        '<span><strong>'+(i+1)+'.</strong> '+h(c.name)+' '+payLabel+'</span>'+
+        '<span style="font-weight:700;">'+fmt(c.total)+' ฿</span>'+
+      '</div>'+
+      '<div style="background:#e0e3eb;border-radius:4px;height:6px;">'+
+        '<div style="background:#1a1a2e;width:'+pct+'%;height:6px;border-radius:4px;"></div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:#aaa;margin-top:2px;">'+c.count+' บิล</div>'+
+    '</div>';
+  }).join('') || '<p style="color:#aaa;font-size:13px;">ไม่มีข้อมูล</p>';
+
+  // Inactive customers (>60 days)
+  var cutoff60 = new Date(); cutoff60.setDate(cutoff60.getDate()-60);
+  var cutoffStr = cutoff60.toISOString().split('T')[0];
+  var inactive = sortedCusts.filter(function(c){ return c.lastDate && c.lastDate < cutoffStr; })
+    .sort(function(a,b){return a.lastDate.localeCompare(b.lastDate);});
+  document.getElementById('an-inactive').innerHTML = inactive.length
+    ? inactive.slice(0,8).map(function(c){
+        var days = Math.round((new Date()-new Date(c.lastDate))/(1000*60*60*24));
+        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f5;font-size:13px;">'+
+          '<span>'+h(c.name)+'</span>'+
+          '<span style="color:#e74c3c;font-weight:600;">'+days+' วันที่แล้ว</span>'+
+        '</div>';
+      }).join('')
+    : '<p style="color:#27ae60;font-size:13px;">ลูกค้าทุกเจ้ายังสั่งงานอยู่ &#10003;</p>';
+
+  // === INSIGHTS ===
+  var bestMonth = mSales.indexOf(Math.max.apply(null,mSales));
+  var worstMonth = mSales.indexOf(Math.min.apply(null,mSales.filter(function(x){return x>0;})));
+  var avgBill = yearBills.length ? totalSales/yearBills.length : 0;
+  var newCusts = Object.values(custMap).filter(function(c){return c.count===1;}).length;
+
+  document.getElementById('an-insights').innerHTML = [
+    {icon:'&#127941;', label:'เดือนขายดีสุด', val: mSales[bestMonth]>0 ? months[bestMonth]+' ('+fmt(mSales[bestMonth])+' ฿)' : '-', color:'#27ae60'},
+    {icon:'&#128337;', label:'เดือนขายน้อยสุด', val: worstMonth>=0&&mSales[worstMonth]>0 ? months[worstMonth]+' ('+fmt(mSales[worstMonth])+' ฿)' : '-', color:'#e65100'},
+    {icon:'&#128181;', label:'ค่าเฉลี่ยต่อบิล', val: fmt(avgBill)+' ฿ ('+yearBills.length+' บิล)', color:'#2980b9'},
+    {icon:'&#128101;', label:'จำนวนลูกค้าทั้งหมด', val: Object.keys(custMap).length+' เจ้า (ใหม่ '+newCusts+' เจ้า)', color:'#1a1a2e'},
+    {icon:'&#9989;', label:'อัตราเก็บเงินสำเร็จ', val: collectRate+'%', color:collectRate>=80?'#27ae60':collectRate>=60?'#f39c12':'#e74c3c'},
+    {icon:'&#128679;', label:'ลูกค้าไม่ได้สั่ง 60+ วัน', val: inactive.length+' เจ้า', color:inactive.length>0?'#e74c3c':'#27ae60'}
+  ].map(function(ins){
+    return '<div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;">'+
+      '<div style="font-size:20px;margin-bottom:6px;">'+ins.icon+'</div>'+
+      '<div style="font-size:12px;color:#888;margin-bottom:4px;">'+ins.label+'</div>'+
+      '<div style="font-size:14px;font-weight:700;color:'+ins.color+';">'+ins.val+'</div>'+
+    '</div>';
+  }).join('');
 }
 
 
