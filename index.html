@@ -635,17 +635,39 @@ function apiPost(action,table,data,id){
     .catch(function(e){console.error('apiPost error:',e);return {error:e.message};});
 }
 
+function fixDate(d) {
+  // Fix timezone issue: if date comes back as ISO string with time, extract local date
+  if (!d) return d;
+  var s = String(d);
+  if (s.indexOf('T') > 0) {
+    // e.g. "2026-04-29T17:00:00.000Z" -> create date and get local YYYY-MM-DD
+    var dt = new Date(s);
+    var y = dt.getFullYear();
+    var m = String(dt.getMonth()+1).padStart(2,'0');
+    var day = String(dt.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+  return s.slice(0,10); // Take only YYYY-MM-DD part
+}
+
 function normalizeBill(b) {
+  // Fix date fields
+  if (b.date) b.date = fixDate(b.date);
+  if (b.ts) b.ts = b.ts; // keep ts as-is for sorting
   // Parse items if stored as string
   if (typeof b.items === 'string') {
     try { b.items = JSON.parse(b.items); } catch(e) { b.items = []; }
   }
   if (!Array.isArray(b.items)) b.items = [];
-  // Images are Drive URLs stored directly in items.img - no merging needed
   return b;
 }
 
 function normalizeInvoice(iv) {
+  // Fix date fields
+  if (iv.date) iv.date = fixDate(iv.date);
+  if (iv.payDate) iv.payDate = fixDate(iv.payDate);
+  if (iv.paidDate) iv.paidDate = fixDate(iv.paidDate);
+  if (iv.chequeDate) iv.chequeDate = fixDate(iv.chequeDate);
   if (typeof iv.bills === 'string') {
     try { iv.bills = JSON.parse(iv.bills); } catch(e) { iv.bills = []; }
   }
