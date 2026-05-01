@@ -389,7 +389,7 @@ textarea{resize:vertical;min-height:64px;}
 // ===== AUTH =====
 var CLIENT_ID = '276578795260-266m8p2htv9cgu8pqhv8eg5rfb4qua6u.apps.googleusercontent.com';
 // Whitelist: add allowed Google emails here
-var ALLOWED_EMAILS = ['sorapot.tb@gmail.com','sorapot01@gmail.com']; // empty = allow all Google accounts, add emails to restrict
+var ALLOWED_EMAILS = ['sorapot.tb@gmail.com', 'sorapot01@gmail.com', 'cnkdiemold@gmail.com']; // empty = allow all Google accounts, add emails to restrict
 var currentUser = null;
 
 function initAuth() {
@@ -1110,6 +1110,8 @@ function trigEditImg(i){
 
 
 
+function clEM(){document.getElementById('me').classList.remove('on');eId=null;}
+
 function svE(){
   var b=bills.find(function(b){return b.id===eId;});if(!b)return;
   b.cn=document.getElementById('en').value.trim();
@@ -1758,12 +1760,18 @@ function confirmCR(){
 function closeCR(){ document.getElementById('m-cr').classList.remove('on'); }
 
 function confirmReceive(id) {
-  if (!confirm('ยืนยันว่าได้รับเงิน/เช็คแล้วใช่ไหม?')) return;
   var iv = invoices.find(function(iv){return iv.id===id;});
   if (!iv) return;
-  iv.status = 'paid';
-  localStorage.setItem('inv', JSON.stringify(invoices));
-  rdDash(); rdInvList(); toast('ยืนยันรับเงินแล้ว');
+  document.getElementById('cr-inv-no').textContent = iv.no;
+  document.getElementById('cr-inv-cust').textContent = iv.custName + ' — ' + fmt(iv.total) + ' บาท';
+  document.getElementById('cr-method').textContent = iv.payMethod ? 'วิธีชำระ: ' + iv.payMethod : '';
+  document.getElementById('cr-date').value = td();
+  document.getElementById('cr-cheque-date').value = '';
+  document.getElementById('cr-note').value = '';
+  document.getElementById('cr-id').value = id;
+  var isCheque = iv.payMethod === 'เช็ค';
+  document.getElementById('cr-cheque-wrap').style.display = isCheque ? 'flex' : 'none';
+  document.getElementById('m-cr').classList.add('on');
 }
 
 
