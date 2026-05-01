@@ -2166,76 +2166,131 @@ function renderCustTable(yearInv, search, monthFilter, statusFilter, sort) {
   var today = td();
   var thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  // Build month dropdown
+  // Build rows from invoices (invoice date -1 month = work month)
+  // Plus cash bills (bill date = work month)
+  var rows = [];
+
+  // From invoices - shift date back 1 month
+  yearInv.forEach(function(iv){
+    var invDate = iv.date||'';
+    var parts = invDate.split('-');
+    var y = parseInt(parts[0]), m = parseInt(parts[1])-1; // 0-indexed
+    // Shift back 1 month
+    var workMonth = m - 1;
+    var workYear = y;
+    if (workMonth < 0) { workMonth = 11; workYear--; }
+    var workYM = workYear+'-'+String(workMonth+1).padStart(2,'0');
+
+    var isOverdue = iv.status==='pending' && iv.payDate && iv.payDate < today;
+    var status = iv.status==='paid'?'paid':(isOverdue?'overdue':'pending');
+
+    rows.push({
+      custName: iv.custName||'-',
+      no: iv.no||'-',
+      total: iv.total||0,
+      status: status,
+      payDate: iv.payDate||'',
+      paidDate: iv.paidDate||'',
+      payMethod: iv.payMethod||'-',
+      workYM: workYM,
+      workMonthLabel: thaiMonths[workMonth]+' '+(workYear+543),
+      type: 'credit'
+    });
+  });
+
+  // From cash bills
+  if (window.anMonthData && window.anMonthData.yearBills) {
+    window.anMonthData.yearBills.forEach(function(b){
+      if (b.type === 'credit') return; // skip credit - handled by invoice
+      var billDate = b.date||'';
+      var parts = billDate.split('-');
+      var y = parseInt(parts[0]), m = parseInt(parts[1])-1;
+      var workYM = y+'-'+String(m+1).padStart(2,'0');
+      rows.push({
+        custName: b.cn||'-',
+        no: b.no||'-',
+        total: b.grand||0,
+        status: 'paid', // cash = paid immediately
+        payDate: b.date||'',
+        paidDate: b.date||'',
+        payMethod: 'เงินสด',
+        workYM: workYM,
+        workMonthLabel: thaiMonths[m]+' '+(y+543),
+        type: 'cash'
+      });
+    });
+  }
+
+  anCustAll = rows;
+
+  // Build month dropdown from workYM
   var months = {};
-  yearInv.forEach(function(iv){ if(iv.date) months[iv.date.slice(0,7)]=true; });
+  rows.forEach(function(r){ if(r.workYM) months[r.workYM]=r.workMonthLabel; });
   var mSel = document.getElementById('an-cust-month');
   if (mSel) {
     var curM = mSel.value;
     mSel.innerHTML = '<option value="">ทุกเดือน</option>';
     Object.keys(months).sort().forEach(function(ym){
-      var p=ym.split('-');
-      var lbl = thaiMonths[parseInt(p[1])-1]+' '+(parseInt(p[0])+543);
-      mSel.innerHTML += '<option value="'+ym+'"'+(curM===ym?' selected':'')+'>'+lbl+'</option>';
+      mSel.innerHTML += '<option value="'+ym+'"'+(curM===ym?' selected':'')+'>'+months[ym]+'</option>';
     });
+    if (curM) mSel.value = curM;
   }
-
-  anCustAll = yearInv;
 
   // Get current filters
   var s = search !== null ? search : (document.getElementById('an-cust-search')?document.getElementById('an-cust-search').value.toLowerCase():'');
-  var mf = monthFilter !== null ? monthFilter : (document.getElementById('an-cust-month')?document.getElementById('an-cust-month').value:'');
+  var mf = monthFilter !== null ? monthFilter : (mSel?mSel.value:'');
   var sf = statusFilter !== null ? statusFilter : (document.getElementById('an-cust-status')?document.getElementById('an-cust-status').value:'');
 
-  var rows = yearInv.filter(function(iv){
-    var isOverdue = iv.status==='pending' && iv.payDate && iv.payDate < today;
-    var status = iv.status==='paid'?'paid':(isOverdue?'overdue':'pending');
-    var matchS = !s || (iv.custName||'').toLowerCase().includes(s);
-    var matchM = !mf || (iv.date||'').slice(0,7)===mf;
-    var matchSt = !sf || status===sf;
+  var filtered = rows.filter(function(r){
+    var matchS = !s || r.custName.toLowerCase().includes(s);
+    var matchM = !mf || r.workYM === mf;
+    var matchSt = !sf || r.status === sf;
     return matchS && matchM && matchSt;
   });
 
   // Sort
   var sk = anCustSort.key;
-  rows.sort(function(a,b){
+  filtered.sort(function(a,b){
     var va = a[sk]||'', vb = b[sk]||'';
-    if (sk==='total') { va=a.total||0; vb=b.total||0; return (va-vb)*anCustSort.dir; }
-    return va.localeCompare(vb)*anCustSort.dir;
+    if (sk==='total') return (a.total-b.total)*anCustSort.dir;
+    return String(va).localeCompare(String(vb))*anCustSort.dir;
   });
 
   var tbody = document.getElementById('an-cust-tbody');
   if (!tbody) return;
 
-  if (!rows.length) {
+  if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#aaa;">ไม่พบข้อมูล</td></tr>';
     document.getElementById('an-cust-count').textContent = '';
     return;
   }
 
-  tbody.innerHTML = rows.map(function(iv){
-    var isOverdue = iv.status==='pending' && iv.payDate && iv.payDate < today;
-    var statusKey = iv.status==='paid'?'paid':(isOverdue?'overdue':'pending');
-    var statusHtml = {
-      paid: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#e8f5e9;color:#1b5e20;">รับแล้ว</span>',
-      pending: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#fff3e0;color:#e65100;">รอรับ</span>',
-      overdue: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#fce4ec;color:#880e4f;">เกินกำหนด</span>'
-    }[statusKey];
-    var p = (iv.date||'').split('-');
-    var monthLabel = p[1]?thaiMonths[parseInt(p[1])-1]+' '+(parseInt(p[0])+543):'-';
+  var statusHtmlMap = {
+    paid: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#e8f5e9;color:#1b5e20;">รับแล้ว</span>',
+    pending: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#fff3e0;color:#e65100;">รอรับ</span>',
+    overdue: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#fce4ec;color:#880e4f;">เกินกำหนด</span>'
+  };
+
+  tbody.innerHTML = filtered.map(function(r){
+    var typeBadge = r.type==='cash'
+      ? '<span style="padding:2px 6px;border-radius:3px;font-size:10px;background:#e3f2fd;color:#0d47a1;margin-left:4px;">เงินสด</span>'
+      : '';
     return '<tr style="border-bottom:1px solid #f0f2f5;">'+
-      '<td style="padding:10px 12px;font-weight:600;">'+h(iv.custName||'-')+'</td>'+
-      '<td style="padding:10px 12px;color:#888;">'+h(iv.no||'-')+'</td>'+
-      '<td style="padding:10px 12px;text-align:center;color:#888;">'+monthLabel+'</td>'+
-      '<td style="padding:10px 12px;text-align:right;font-weight:700;">'+fmt(iv.total)+' ฿</td>'+
-      '<td style="padding:10px 12px;text-align:center;">'+statusHtml+'</td>'+
-      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+(iv.payDate?fmtD(iv.payDate):'-')+'</td>'+
-      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+(iv.paidDate?fmtD(iv.paidDate):'-')+'</td>'+
-      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+(iv.payMethod||'-')+'</td>'+
+      '<td style="padding:10px 12px;font-weight:600;">'+h(r.custName)+typeBadge+'</td>'+
+      '<td style="padding:10px 12px;color:#888;font-size:12px;">'+h(r.no)+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;color:#888;font-size:12px;">'+r.workMonthLabel+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-weight:700;">'+fmt(r.total)+' ฿</td>'+
+      '<td style="padding:10px 12px;text-align:center;">'+(statusHtmlMap[r.status]||r.status)+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+(r.payDate?fmtD(r.payDate):'-')+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+(r.paidDate?fmtD(r.paidDate):'-')+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+h(r.payMethod)+'</td>'+
     '</tr>';
   }).join('');
 
-  document.getElementById('an-cust-count').textContent = 'แสดง '+rows.length+' รายการ';
+  // Summary row
+  var totalAmt = filtered.reduce(function(s,r){return s+r.total;},0);
+  document.getElementById('an-cust-count').textContent =
+    'แสดง '+filtered.length+' รายการ | ยอดรวม '+fmt(totalAmt)+' ฿';
 }
 
 function filterCustTable() {
