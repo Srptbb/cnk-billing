@@ -1979,11 +1979,11 @@ function updateSummaryCards() {
   }
 
   var totalSales = sumM(d.mSales);
-  var totalCollected = sumM(d.mCollected);
   var totalPending = sumM(d.mPending);
   var totalReceived = sumM(d.mReceived);
   var totalExpected = sumM(d.mExpected);
-  var collectRate = totalSales > 0 ? Math.round(totalCollected/totalSales*100) : 0;
+  var totalCash = sumM(d.mCash||Array(12).fill(0));
+  var collectRate = totalSales > 0 ? Math.round(totalReceived/totalSales*100) : 0;
 
   // Count bills in selected months
   var selBills = all ? d.yearBills : d.yearBills.filter(function(b){
@@ -1998,9 +1998,9 @@ function updateSummaryCards() {
   document.getElementById('an-summary-cards').innerHTML =
     '<div style="grid-column:1/-1;font-size:12px;color:#888;margin-bottom:4px;">ยอดรวม: <strong>'+label+'</strong></div>' + [
     {label:'ยอดขายรวม',val:fmt(totalSales)+' ฿',color:'#1a1a2e'},
-    {label:'เงินเข้าจริง',val:fmt(totalReceived)+' ฿',color:'#27ae60'},
+    {label:'เงินเข้าจริง',val:fmt(totalReceived)+' ฿',sub:'(รวมเงินสด '+fmt(totalCash)+' ฿)',color:'#27ae60'},
     {label:'คาดว่าจะเข้า',val:fmt(totalExpected)+' ฿',color:'#2980b9'},
-    {label:'ยอดค้างชำระ',val:fmt(totalPending)+' ฿',color:'#e65100'},
+    {label:'ค้างชำระ (เครดิต)',val:fmt(totalPending)+' ฿',color:'#e65100'},
     {label:'อัตราเก็บเงิน',val:collectRate+'%',color:collectRate>=80?'#27ae60':collectRate>=60?'#f39c12':'#e74c3c'},
     {label:'เฉลี่ยต่อบิล',val:fmt(selBills.length?totalSales/selBills.length:0)+' ฿ ('+selBills.length+' บิล)',color:'#1a1a2e'}
   ].map(function(c){
@@ -2045,6 +2045,7 @@ function renderAnalytics(year) {
   var thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var today = td();
 
+  // Filter by year - ALL bills and invoices
   var yearBills = anAllBills.filter(function(b){
     return b.date && b.date.startsWith(year+'-') && b.status !== 'cancelled';
   });
@@ -2052,44 +2053,81 @@ function renderAnalytics(year) {
     return iv.date && iv.date.startsWith(year+'-') && iv.status !== 'cancelled';
   });
 
-  var mSales     = Array(12).fill(0);
-  var mCollected = Array(12).fill(0);
-  var mPending   = Array(12).fill(0);
-  var mExpected  = Array(12).fill(0);
-  var mReceived  = Array(12).fill(0);
+  var mSales     = Array(12).fill(0);  // ยอดขาย: bills ทั้งหมด by bill date
+  var mCash      = Array(12).fill(0);  // เงินสด: bills type=cash by bill date
+  var mPending   = Array(12).fill(0);  // ค้างชำระ: credit bills ใน pending invoices by bill date
+  var mExpected  = Array(12).fill(0);  // คาดว่าจะเข้า: pending invoice by payDate
+  var mReceived  = Array(12).fill(0);  // เงินเข้าจริง: paid invoice by paidDate + cash bills by bill date
 
+  // Build map: billNo -> bill for quick lookup
+  var billMap = {};
+  yearBills.forEach(function(b){ if(b.no) billMap[b.no] = b; });
+
+  // Also need ALL bills for invoice lookup (invoice might ref older bills)
+  var allBillMap = {};
+  anAllBills.forEach(function(b){ if(b.no) allBillMap[b.no] = b; });
+
+  // 1. ยอดขาย = all bills by bill date
   yearBills.forEach(function(b){
     var m = parseInt((b.date||'').split('-')[1]) - 1;
-    if (m >= 0 && m < 12) mSales[m] += b.grand||0;
+    if (m >= 0 && m < 12) {
+      mSales[m] += b.grand||0;
+      // เงินสด = รับเงินทันที
+      if (b.type !== 'credit') {
+        mCash[m] += b.grand||0;
+        mReceived[m] += b.grand||0;
+      }
+    }
   });
 
+  // 2. วิเคราะห์ invoice สำหรับ credit bills
   yearInv.forEach(function(iv){
-    var invMonth = parseInt((iv.date||'').split('-')[1]) - 1;
+    // หา bill dates จาก bills ใน invoice นี้
+    var invBills = [];
+    if (Array.isArray(iv.bills)) {
+      iv.bills.forEach(function(ib){
+        var b = allBillMap[ib.no] || ib;
+        if (b) invBills.push(b);
+      });
+    }
+
     if (iv.status === 'paid') {
-      if (invMonth >= 0 && invMonth < 12) mCollected[invMonth] += iv.total||0;
-      if (iv.paidDate && iv.paidDate.startsWith(year+'-')) {
+      // เงินเข้าจริง by paidDate
+      if (iv.paidDate) {
         var pm = parseInt(iv.paidDate.split('-')[1]) - 1;
         if (pm >= 0 && pm < 12) mReceived[pm] += iv.total||0;
       }
     } else {
-      // ค้างชำระ - อยู่ในเดือนที่วางบิลจนกว่าจะรับเงิน
-      if (invMonth >= 0 && invMonth < 12) mPending[invMonth] += iv.total||0;
-      // คาดว่าจะเข้า (มีกำหนดวันแล้ว)
-      if (iv.payDate && iv.payDate >= today && iv.payDate.startsWith(year+'-')) {
+      // ค้างชำระ - อิงจาก bill date ของแต่ละบิลใน invoice
+      invBills.forEach(function(ib){
+        var billDate = ib.date || '';
+        // ถ้า bill date อยู่ในปีนี้
+        var bm = parseInt(billDate.split('-')[1]) - 1;
+        if (billDate.startsWith(year+'-') && bm >= 0 && bm < 12) {
+          mPending[bm] += ib.grand || ib.t || 0;
+        } else if (!billDate.startsWith(year+'-') && billDate) {
+          // bill จากปีก่อน แต่ยังค้างอยู่ -> ใส่เดือน 1 (เป็น indicator)
+        }
+      });
+
+      // คาดว่าจะเข้า by payDate
+      if (iv.payDate && iv.payDate >= today) {
         var pm2 = parseInt(iv.payDate.split('-')[1]) - 1;
-        if (pm2 >= 0 && pm2 < 12) mExpected[pm2] += iv.total||0;
+        if (iv.payDate.startsWith(year+'-') && pm2 >= 0 && pm2 < 12) {
+          mExpected[pm2] += iv.total||0;
+        }
       }
     }
   });
 
   // Store for checkbox filter
-  window.anMonthData = { mSales:mSales, mCollected:mCollected, mPending:mPending,
+  window.anMonthData = { mSales:mSales, mCash:mCash, mPending:mPending,
     mReceived:mReceived, mExpected:mExpected, yearBills:yearBills, yearInv:yearInv };
 
   // === MONTH CHECKBOXES ===
   var monthChecksEl = document.getElementById('an-month-checks');
   monthChecksEl.innerHTML = thaiMonths.map(function(m, i) {
-    return '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 10px;border-radius:6px;border:1.5px solid var(--color-border-tertiary,#e0e3eb);font-size:13px;background:var(--color-background-primary);">'+
+    return '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 10px;border-radius:6px;border:1.5px solid #e0e3eb;font-size:13px;background:#fff;">'+
       '<input type="checkbox" data-mi="'+i+'" onchange="updateSummaryCards()" style="cursor:pointer;">'+m+'</label>';
   }).join('');
 
@@ -2101,25 +2139,23 @@ function renderAnalytics(year) {
     data: {
       labels: thaiMonths,
       datasets: [
-        { label: 'ยอดขาย', data: mSales, backgroundColor: 'rgba(26,26,46,0.85)', borderRadius: 4 },
+        { label: 'ยอดขายรวม', data: mSales, backgroundColor: 'rgba(26,26,46,0.85)', borderRadius: 4 },
         { label: 'เงินเข้าจริง', data: mReceived, backgroundColor: 'rgba(39,174,96,0.85)', borderRadius: 4 },
         { label: 'คาดว่าจะเข้า', data: mExpected, backgroundColor: 'rgba(41,128,185,0.7)', borderRadius: 4 },
-        { label: 'ค้างชำระ', data: mPending, backgroundColor: 'rgba(230,81,0,0.75)', borderRadius: 4 }
+        { label: 'ค้างชำระ (เครดิต)', data: mPending, backgroundColor: 'rgba(230,81,0,0.75)', borderRadius: 4 }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { position: 'top', labels: { font: { family: 'Sarabun' } } } },
-      scales: {
-        y: { ticks: { callback: function(v){ return v>=1000?(v/1000).toFixed(0)+'K':v; } } }
-      }
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Sarabun,sans-serif' } } } },
+      scales: { y: { ticks: { callback: function(v){ return v>=1000?(v/1000).toFixed(0)+'K':v; } } } }
     }
   });
 
   updateSummaryCards();
   renderCustTable(yearInv, null, null, null, null);
   renderTopCusts(yearBills, yearInv);
-  renderInsights(mSales, yearBills, yearInv);
+  renderInsights(mSales, mReceived, mPending, yearBills, yearInv);
 }
 
 
@@ -2255,7 +2291,7 @@ function renderTopCusts(yearBills, yearInv) {
     : '<p style="color:#27ae60;font-size:13px;">ลูกค้าทุกเจ้ายังสั่งงานอยู่</p>';
 }
 
-function renderInsights(mSales, yearBills, yearInv) {
+function renderInsights(mSales, mReceived, mPending, yearBills, yearInv) {
   var thaiMonths=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var nonZero = mSales.filter(function(v){return v>0;});
   var bestM = mSales.indexOf(Math.max.apply(null,mSales));
