@@ -198,7 +198,17 @@ textarea{resize:vertical;min-height:64px;}
     <div id="inv-bills-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
     <div style="background:#f0f2f5;border-radius:8px;padding:14px 18px;margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>จำนวนใบที่เลือก</span><span id="inv-count">0 ใบ</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:700;border-top:2px solid #dde0e8;margin-top:8px;padding-top:10px;"><span>ยอดรวมสุทธิ</span><span id="inv-total">0.00 ฿</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;border-top:1px solid #dde0e8;margin-top:8px;padding-top:10px;"><span>ยอดก่อนส่วนลด</span><span id="inv-subtotal">0.00 ฿</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:14px;white-space:nowrap;">ส่วนลด</span>
+        <input id="inv-disc-val" type="number" min="0" value="0" oninput="calcInvTotal()" style="width:90px;padding:5px 8px;border:1.5px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;">
+        <select id="inv-disc-type" onchange="calcInvTotal()" style="padding:5px 8px;border:1.5px solid #dde0e8;border-radius:6px;font-size:13px;">
+          <option value="thb">฿</option>
+          <option value="pct">%</option>
+        </select>
+        <span id="inv-disc-amt" style="font-size:13px;color:#e74c3c;min-width:60px;text-align:right;">-0.00 ฿</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:700;border-top:2px solid #dde0e8;padding-top:10px;"><span>ยอดรวมสุทธิ</span><span id="inv-total">0.00 ฿</span></div>
     </div>
     <div class="fg" style="margin-bottom:14px;">
       <label>หมายเหตุ</label>
@@ -844,7 +854,7 @@ function acC(v){
   dd.classList.add('on');
 }
 function pkC(id){
-  var c=custs.find(function(c){return c.id===id;});if(!c)return;
+  var c=custs.find(function(c){return String(c.id)===String(id);});if(!c)return;
   document.getElementById('cn').value=c.n;
   document.getElementById('ca').value=c.a||'';
   document.getElementById('cc').value='';
@@ -1059,8 +1069,16 @@ function rdL(){
   var sv=(document.getElementById('fs').value||'').toLowerCase();
   var tv=document.getElementById('ft').value;
   var stv=document.getElementById('fst').value;
+  var fCust = document.getElementById('bl-f-cust') ? document.getElementById('bl-f-cust').value.toLowerCase() : '';
+  var fFrom = document.getElementById('bl-f-from') ? document.getElementById('bl-f-from').value : '';
+  var fTo   = document.getElementById('bl-f-to')   ? document.getElementById('bl-f-to').value   : '';
+  var fType = document.getElementById('bl-f-type') ? document.getElementById('bl-f-type').value : '';
   var list=bills.filter(function(b){
-    return(!sv||b.cn.toLowerCase().includes(sv)||b.no.toLowerCase().includes(sv))&&(!tv||b.type===tv)&&(!stv||b.status===stv);
+    var matchCust2 = !fCust || (b.cn||'').toLowerCase().includes(fCust);
+    var matchFrom = !fFrom || (b.date||'') >= fFrom;
+    var matchTo   = !fTo   || (b.date||'') <= fTo;
+    var matchType2 = !fType || b.type === fType;
+    return matchCust2 && matchFrom && matchTo && matchType2 && (!sv||b.cn.toLowerCase().includes(sv)||b.no.toLowerCase().includes(sv))&&(!tv||b.type===tv)&&(!stv||b.status===stv);
   }).sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
   var c=document.getElementById('bl');
   if(!list.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบบิล</p>';return;}
@@ -1257,7 +1275,7 @@ function rdC(){
 function opCM(id,pf){
   eCId=id||null;
   document.getElementById('mct').textContent=id?'แก้ไขลูกค้า':'เพิ่มลูกค้าใหม่';
-  if(id){var c=custs.find(function(c){return c.id===id;});document.getElementById('mn').value=c.n||'';document.getElementById('ma').value=c.a||'';document.getElementById('mc2').value=c.c||'';document.getElementById('mt2').value=c.t||'';document.getElementById('mty').value=c.ty||'credit';document.getElementById('mno').value=c.no||'';document.getElementById('cm-tax').checked=c.tax3||false;}
+  if(id){var c=custs.find(function(c){return String(c.id)===String(id);});document.getElementById('mn').value=c.n||'';document.getElementById('ma').value=c.a||'';document.getElementById('mc2').value=c.c||'';document.getElementById('mt2').value=c.t||'';document.getElementById('mty').value=c.ty||'credit';document.getElementById('mno').value=c.no||'';document.getElementById('cm-tax').checked=c.tax3||false;}
   else{['mn','ma','mc2','mt2','mno'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('mn').value=pf||'';document.getElementById('mty').value='credit';document.getElementById('cm-tax').checked=false;}
   document.getElementById('mc').classList.add('on');
   setTimeout(function(){document.getElementById('mn').focus();},100);
@@ -1403,11 +1421,20 @@ function loadInvBills(custId) {
 }
 
 function calcInvTotal() {
-  var total = 0; var count = 0;
+  var subtotal = 0; var count = 0;
   document.querySelectorAll('#inv-bills-list input[type=checkbox]:checked').forEach(function(cb){
-    total += parseFloat(cb.dataset.grand)||0; count++;
+    subtotal += parseFloat(cb.dataset.grand)||0; count++;
   });
+  var discVal = parseFloat(document.getElementById('inv-disc-val').value)||0;
+  var discType = document.getElementById('inv-disc-type').value;
+  var discAmt = discType==='pct' ? subtotal*(discVal/100) : discVal;
+  if (discAmt > subtotal) discAmt = subtotal;
+  var total = subtotal - discAmt;
   document.getElementById('inv-count').textContent = count + ' ใบ';
+  var subEl = document.getElementById('inv-subtotal');
+  if (subEl) subEl.textContent = fmt(subtotal) + ' ฿';
+  var discEl = document.getElementById('inv-disc-amt');
+  if (discEl) discEl.textContent = discAmt>0 ? '-'+fmt(discAmt)+' ฿' : '-0.00 ฿';
   document.getElementById('inv-total').textContent = fmt(total) + ' ฿';
 }
 
@@ -1424,7 +1451,11 @@ function saveInvoice() {
   var rawTotal = selBills.reduce(function(s,b){return s+b.grand;},0);
   var c = custs.find(function(c){return c.id===selCustId;});
   var tax3amt = c.tax3 ? rawTotal*0.03 : 0;
-  var total = rawTotal - tax3amt;
+  var discVal = parseFloat(document.getElementById('inv-disc-val').value)||0;
+  var discType = document.getElementById('inv-disc-type').value;
+  var discAmt = discType==='pct' ? rawTotal*(discVal/100) : discVal;
+  if (discAmt > rawTotal) discAmt = rawTotal;
+  var total = rawTotal - tax3amt - discAmt;
   var iv = {
     id: Date.now(),
     no: document.getElementById('inv-no').value,
@@ -1432,8 +1463,9 @@ function saveInvoice() {
     custName: c.n, custAddr: c.a||'', custTel: c.t||'',
     billNos: selBills.map(function(b){return b.no;}),
     bills: selBills.map(function(b){return {no:b.no, date:b.date, grand:b.grand};}),
-    rawTotal: rawTotal, tax3amt: tax3amt, total: total,
+    rawTotal: rawTotal, tax3amt: tax3amt, discAmt: discAmt, discType: discType, discVal: discVal, total: total,
     remark: document.getElementById('inv-remark').value.trim(),
+    actualDate: document.getElementById('inv-actual-date').value||'',
     status: 'pending',
     payMethod: '', payDate: '',
     ts: new Date().toISOString()
@@ -1445,6 +1477,8 @@ function saveInvoice() {
   // Reset
   document.getElementById('inv-cname').value='';
   document.getElementById('inv-remark').value='';
+  document.getElementById('inv-actual-date').value='';
+  document.getElementById('inv-disc-val').value='0';
   document.getElementById('inv-bills-wrap').style.display='none';
   selCustId=null;
   genInvNo();
@@ -1458,14 +1492,19 @@ function previewInvoice() {
   var rawTotal = selBills.reduce(function(s,b){return s+b.grand;},0);
   var c = custs.find(function(c){return c.id===selCustId;});
   var tax3amt = c.tax3 ? rawTotal*0.03 : 0;
-  var total = rawTotal - tax3amt;
+  var discVal = parseFloat(document.getElementById('inv-disc-val').value)||0;
+  var discType = document.getElementById('inv-disc-type').value;
+  var discAmt = discType==='pct' ? rawTotal*(discVal/100) : discVal;
+  if (discAmt > rawTotal) discAmt = rawTotal;
+  var total = rawTotal - tax3amt - discAmt;
   doPrintInvoice({
     no: document.getElementById('inv-no').value,
     date: document.getElementById('inv-date').value,
     custName: c.n, custAddr: c.a||'', custTel: c.t||'',
     bills: selBills.map(function(b){return {no:b.no, date:b.date, grand:b.grand};}),
-    rawTotal: rawTotal, tax3amt: tax3amt, total: total,
-    remark: document.getElementById('inv-remark').value.trim()
+    rawTotal: rawTotal, tax3amt: tax3amt, discAmt: discAmt, discType: discType, discVal: discVal, total: total,
+    remark: document.getElementById('inv-remark').value.trim(),
+    actualDate: document.getElementById('inv-actual-date').value||''
   });
 }
 
@@ -1538,6 +1577,7 @@ function rdInvList() {
         '<div class="bno">'+h(iv.no)+' '+statusBdg+'</div>' +
         '<div class="bm">'+fmtD(iv.date)+' | '+h(iv.custName)+'</div>' +
         '<div class="bm">'+iv.bills.length+' ใบ: '+iv.bills.map(function(b){return h(b.no);}).join(', ')+'</div>' +
+      (iv.actualDate?'<div class="bm" style="color:#555;">&#128203; วางบิลจริง: '+fmtD(iv.actualDate)+'</div>':'') +
       (iv.payDate?'<div class="bm" style="color:#2980b9;">&#128197; กำหนดจ่าย: '+fmtD(iv.payDate)+' ('+h(iv.payMethod||'-')+')</div>':'<div class="bm" style="color:#e65100;">&#9888; ยังไม่ได้กำหนดวันจ่าย</div>') +
         (iv.payMethod?'<div class="bm">ชำระโดย: '+h(iv.payMethod)+(iv.payDate?' วันที่ '+fmtD(iv.payDate):'')+'</div>':'') +
       '</div>' +
@@ -1607,7 +1647,7 @@ function doPrintInvoice(iv) {
   doc.write('<div class="hd">');
   doc.write('<img src="'+LG+'" alt="CNK">');
   doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div>');
-  doc.write('<div class="hr2"><h2 style="color:#f57f17;">ใบวางบิล</h2><p>เลขที่: '+h(iv.no)+'</p><p>วันที่: '+fmtDF(iv.date)+'</p></div>');
+  doc.write('<div class="hr2"><h2 style="color:#f57f17;">ใบวางบิล</h2><p>เลขที่: '+h(iv.no)+'</p><p>วันที่เปิด: '+fmtDF(iv.date)+'</p>'+(iv.actualDate?'<p>วันที่วางบิล: '+fmtDF(iv.actualDate)+'</p>':'')+'</div>');
   doc.write('</div>');
 
   // Customer
@@ -1624,8 +1664,13 @@ function doPrintInvoice(iv) {
   doc.write('<th style="width:25%;text-align:right;">จำนวนเงิน</th>');
   doc.write('</tr></thead><tbody>'+rows+'</tbody>');
   doc.write('<tfoot>');
-  if(iv.tax3amt>0){
+  if((iv.discAmt&&iv.discAmt>0)||iv.tax3amt>0){
     doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;">ยอดรวมก่อนหัก</td><td style="text-align:right;padding:8px 12px;">'+fmt(iv.rawTotal)+' บาท</td></tr>');
+  }
+  if(iv.discAmt&&iv.discAmt>0){
+    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e74c3c;">ส่วนลด</td><td style="text-align:right;padding:8px 12px;color:#e74c3c;">-'+fmt(iv.discAmt)+' บาท</td></tr>');
+  }
+  if(iv.tax3amt>0){
     doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e65100;">หัก ณ ที่จ่าย 3%</td><td style="text-align:right;padding:8px 12px;color:#e65100;">-'+fmt(iv.tax3amt)+' บาท</td></tr>');
   }
   doc.write('<tr class="tfoot-row"><td colspan="2" style="text-align:right;">ยอดสุทธิที่รับจริง</td><td style="text-align:right;">'+fmt(iv.total)+' บาท</td></tr>');
