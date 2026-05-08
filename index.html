@@ -724,12 +724,11 @@ function stripImages(data) {
 }
 
 function apiPost(action,table,data,id){
-  // Strip images before sending to Sheets
   var cleanData = stripImages(data);
-  // Use GET with _method param to avoid CORS preflight
   var params = '?_method='+action+'&table='+encodeURIComponent(table);
   if (id) params += '&id='+encodeURIComponent(id);
   if (cleanData) params += '&data='+encodeURIComponent(JSON.stringify(cleanData));
+  console.log('[apiPost]', API+params);
   return fetch(API+params)
     .then(function(r){return r.json();})
     .catch(function(e){console.error('apiPost error:',e);return {error:e.message};});
@@ -1341,7 +1340,9 @@ function svC(){
     var cust=custs.find(function(c){return String(c.id)===String(eCId);});
     if(cust) Object.assign(cust,data);
     localStorage.setItem('c',JSON.stringify(custs));
-    apiPost('update','customers',data,eCId).catch(function(e){console.error(e);});
+    apiPost('update','customers',data,eCId).then(function(res){
+      console.log('[svC] update response:', JSON.stringify(res));
+    }).catch(function(e){console.error('[svC] update error:', e);});
     // ซิงค์ชื่อ/ที่อยู่ไปยังบิลเก่า
     var custIdStr=String(eCId);
     bills.forEach(function(b){
