@@ -1320,7 +1320,7 @@ function rdC(){
     out+='<tr><td><strong>'+h(c.n)+'</strong>'+(c.a?'<br><small style="color:#999;">'+h(c.a)+'</small>':'')+
       '</td><td>'+h(c.c||'-')+'</td><td><span class="bdg '+(c.ty==='credit'?'bc':'bcs')+'">'+(c.ty==='credit'?'เครดิต':'เงินสด')+'</span></td>'+
       '<td style="color:#888;font-size:13px;">'+h(c.no||'-')+'</td>'+
-      '<td><button class="btn bo bsm" onclick="opCM('+c.id+')">แก้ไข</button> <button class="btn bo bsm" style="color:#e74c3c;" onclick="dlC('+c.id+')">ลบ</button></td></tr>';
+      '<td><button class="btn bo bsm" onclick="opCM(\''+c.id+'\')">แก้ไข</button> <button class="btn bo bsm" style="color:#e74c3c;" onclick="dlC(\''+c.id+'\')">ลบ</button></td></tr>';
   });
   out+='</tbody></table>';c.innerHTML=out;
 }
@@ -1337,6 +1337,7 @@ function svC(){
   var n=document.getElementById('mn').value.trim();if(!n){toast('กรุณากรอกชื่อลูกค้า');return;}
   var data={n:n,a:document.getElementById('ma').value.trim(),c:document.getElementById('mc2').value.trim(),t:document.getElementById('mt2').value.trim(),ty:document.getElementById('mty').value,no:document.getElementById('mno').value.trim(),tax3:document.getElementById('cm-tax').checked};
   if(eCId){
+    console.log('[svC] updating customer eCId=', eCId, 'type=', typeof eCId);
     var cust=custs.find(function(c){return String(c.id)===String(eCId);});
     if(cust) Object.assign(cust,data);
     localStorage.setItem('c',JSON.stringify(custs));
@@ -1369,12 +1370,11 @@ function dlC(id){
   if(!confirm('ลบลูกค้านี้?'))return;
   toast('กำลังลบ...');
   apiPost('delete','customers',null,id).then(function(res){
-    custs=custs.filter(function(c){return c.id!==id;});
+    custs=custs.filter(function(c){return String(c.id)!==String(id);});
     localStorage.setItem('c',JSON.stringify(custs));
     rdC();toast('ลบลูกค้าแล้ว');
   }).catch(function(e){
-    console.error(e);
-    toast('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
+    console.error(e);toast('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
   });
 }
 function prvB(){
