@@ -336,10 +336,10 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
       </button>
     </nav>
     <div class="sidebar-footer">
-      <div class="avatar">ศ</div>
+      <div class="avatar" id="sf-avatar">?</div>
       <div>
-        <div class="user-name">Srp</div>
-        <div class="user-role">Admin · Sales</div>
+        <div class="user-name" id="sf-name">กำลังโหลด...</div>
+        <div class="user-role" id="sf-role"></div>
       </div>
     </div>
   </div>
@@ -552,7 +552,43 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
-const BY = 'Srp';
+let BY = 'ผู้ใช้';
+
+// Load displayName from profiles via sessionStorage (shared with index.html)
+function loadUserProfile() {
+  try {
+    const saved = sessionStorage.getItem('cnk_user');
+    if (saved) {
+      const user = JSON.parse(saved);
+      const displayName = user.displayName || user.name?.split(' ')[0] || 'ผู้ใช้';
+      const email = user.email || '';
+      BY = displayName;
+      document.getElementById('sf-name').textContent = displayName;
+      // Avatar: first char
+      const initEl = document.getElementById('sf-avatar');
+      if (initEl) initEl.textContent = displayName[0]?.toUpperCase() || '?';
+      // Role: show email subdomain or blank
+      const roleEl = document.getElementById('sf-role');
+      if (roleEl) roleEl.textContent = email;
+    } else {
+      // Fallback: load from profiles sheet
+      fetch(API + '?action=getAll&table=profiles')
+        .then(r => r.json())
+        .then(profiles => {
+          if (profiles && profiles.length) {
+            const p = profiles[0];
+            const name = p.displayName || p.email || 'ผู้ใช้';
+            BY = name;
+            document.getElementById('sf-name').textContent = name;
+            const initEl = document.getElementById('sf-avatar');
+            if (initEl) initEl.textContent = name[0]?.toUpperCase() || '?';
+            const roleEl = document.getElementById('sf-role');
+            if (roleEl) roleEl.textContent = p.email || '';
+          }
+        }).catch(() => {});
+    }
+  } catch(e) {}
+}
 
 const TARGETS = {"ช.วิวรรธน์":{"shop":"Pra","target":2400},"เมย์ฟลาวเวอร์":{"shop":"Pra","target":16300},"ถนอมวงศ์":{"shop":"Pra","target":11800},"วิสันต์":{"shop":"Pra","target":3700},"แกรนด์พริ้นท์ติ้ง":{"shop":"Pra","target":4550},"แพคเกจดี":{"shop":"Pra","target":8333},"แท่นทอง":{"shop":"Pra","target":7300},"ซิลล์":{"shop":"Pra","target":3000},"วินแพ็คเกจ":{"shop":"Pra","target":7000},"เฮียป่องปั้มกล่อง":{"shop":"Pra","target":1000},"เฮียบุญโรจน์":{"shop":"Pra","target":6567},"อุดมลาภการพิมพ์":{"shop":"Pra","target":1800},"ดีเอฟ":{"shop":"Pra","target":1200},"กวีการพิมพ์":{"shop":"Pra","target":1150},"คุณหนุ่ม":{"shop":"Pra","target":3233},"78":{"shop":"Pra","target":1567},"ภัคดี":{"shop":"Pra","target":817},"ไพศาล":{"shop":"Pra","target":800},"พระจันทร์พิมพ์ทอง":{"shop":"Pra","target":1000},"เฮียไพโรจน์":{"shop":"Pra","target":4133},"แรบบิท":{"shop":"Pra","target":300},"นิยมกิจ บรรจุภัณฑ์":{"shop":"Pra","target":800},"NC":{"shop":"Pra","target":2867},"อาจพงษ์":{"shop":"Pra","target":7000},"สุขสวัสดิ์ 70":{"shop":"Pra","target":3600},"ทวีศักดิ์":{"shop":"Pra","target":2100},"คุณแบงค์":{"shop":"Pra","target":2000},"คุณนก":{"shop":"Pra","target":900},"เฮียจิน":{"shop":"Pra","target":500},"คอนวอย":{"shop":"Pra","target":300},"วาริน":{"shop":"Pra","target":500},"บริษัท พีเอสเอส พริ้นติ้ง แอนด์แพคเกจจิ้ง จำกัด":{"shop":"Ka","target":15167},"หจก. เอส.ออฟเซ็ทกราฟฟิคดีไซน์":{"shop":"Ka","target":7767},"บริษัท พี.เอส. ซัคเซส พริ้นติ้ง จำกัด":{"shop":"Ka","target":5100},"Image Art co., ltd":{"shop":"Ka","target":25167},"บริษัท ฐิติพรการพิมพ์ จำกัด":{"shop":"Ka","target":22217},"บริษัท เสริมมิตร พริ้นติ้ง จำกัด":{"shop":"Ka","target":8817},"บริษัท กิตติชัย พริ้นติ้ง จำกัด":{"shop":"Ka","target":9833},"พิมพ์งามดี":{"shop":"Ka","target":8733},"บริษัท ทริปเปิ้ล เอส พริ้นท์ติ้ง จำกัด":{"shop":"Ka","target":2800},"บริษัท ส.โรจนกิจ ปริ้นติ้ง จำกัด":{"shop":"Ka","target":4250},"คุณตุ๊กตา":{"shop":"Ka","target":700},"โรงปั้มอ๊อด53":{"shop":"Ka","target":12133},"โพธิ์ทองการพิมพ์":{"shop":"Ka","target":1100},"คุณนก66":{"shop":"Ka","target":1300},"หจก. รุ่งเรืองสาส์นการพิมพ์":{"shop":"Ka","target":3900},"ธัญญรัตน์":{"shop":"Ka","target":2350},"เล็กพาณิชย์":{"shop":"Ka","target":10867},"คุณวงศ์เดือน":{"shop":"Ka","target":3650},"สุวรรณการพิมพ์":{"shop":"Ka","target":1533},"ศ.พยุงการพิมพ์":{"shop":"Ka","target":1100},"เฮียวิทย์":{"shop":"Ka","target":1600},"หจก. ประยูรสาส์นไทย การพิมพ์":{"shop":"Ka","target":2300},"หจก. เพเพอร์คราฟท์ แพ็คเกจจิ้ง":{"shop":"Ka","target":2767},"หจก. จรัส พริ้นติ้ง":{"shop":"Ka","target":2975},"จันทร์ การพิมพ์":{"shop":"Ka","target":850},"หจก. ซี.ไดคัตติ้ง":{"shop":"Ka","target":2950},"บริษัท ริชแมกซ์ อินเตอร์พริ้นท์ จำกัด":{"shop":"Ka","target":11567},"บริษัท ริงโก้ จำกัด":{"shop":"Ka","target":1500},"บริษัท เอส.อาร์. แสตมป์ปิ้ง พลัส จำกัด":{"shop":"Ka","target":2100},"มันเดย์":{"shop":"Ka","target":3300},"วัฒนกันต์":{"shop":"Ka","target":1400},"ประเสริฐ ป33":{"shop":"Ka","target":2300},"VS printing":{"shop":"Ka","target":2350},"บริษัท โกลด์เด้นลีดเดอร์ จำกัด":{"shop":"Ka","target":5050},"คุณนัด":{"shop":"Ka","target":4400},"คุณจู้":{"shop":"Ka","target":2650},"ทองเอก":{"shop":"Ka","target":1200},"ไทยอาร์ต":{"shop":"Ka","target":900},"พฤหัสษา":{"shop":"Ka","target":3400},"บริษัท พี.อาร์.พริ้นติ้ง แอนด์ กราฟฟิค ดีไซน์ จำกัด":{"shop":"Ka","target":5850},"VIP":{"shop":"Ka","target":3400},"สมคิด":{"shop":"Ka","target":2000},"สมหมาย ท่าพระ":{"shop":"Ka","target":1800},"หจก.สุชาติ พริ้นติ้ง":{"shop":"Ka","target":1300},"เจริญรัตน์":{"shop":"Ka","target":2000},"บริษัท เอพริล เรน พริ้นติ้ง จำกัด":{"shop":"Ka","target":767},"โชคประเก็น":{"shop":"Ka","target":3700}};
 
@@ -831,6 +867,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 document.getElementById('lf-date').value = new Date().toISOString().slice(0,10);
 document.getElementById('alert-banner').style.display = 'flex';
 
+loadUserProfile();
 loadAll();
 </script>
 </body>
