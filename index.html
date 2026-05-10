@@ -617,7 +617,7 @@ function showApp() {
   if(isSales()&&!isAdmin()){
     document.querySelectorAll('.nav-tab').forEach(function(t){
       var oc=t.getAttribute('onclick')||'';
-      if(['create','list','invoice','customers','dashboard','analytics','profile'].some(function(id){return oc.indexOf("'"+id+"'")!==-1;})){t.style.display='none';}
+      if(['create','list','invoice','dashboard','analytics','profile'].some(function(id){return oc.indexOf("'"+id+"'")!==-1;})){t.style.display='none';}
     });
     document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});
     document.getElementById('sec-crm').classList.add('on');
