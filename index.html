@@ -24,16 +24,7 @@ body{font-family:'Sarabun',sans-serif;background:#f0f2f5;color:#1a1a2e;}
 .nav-avatar-img{width:32px;height:32px;border-radius:50%;border:2px solid #4f8ef760;object-fit:cover;}
 .nav-avatar-initial{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4f8ef7,#1a6ed8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
 .nav-uname{color:#fff;font-size:13px;font-weight:500;}
-.nav-chevron{color:#aab0c6;font-size:12px;margin-left:2px;}
-.nav-dd{display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);width:200px;border:0.5px solid #e0e3eb;z-index:300;}
-.nav-dd.on{display:block;}
-.nav-dd-hdr{padding:12px 16px;border-bottom:1px solid #f0f2f5;}
-.nav-dd-name{font-size:14px;font-weight:700;color:#1a1a2e;}
-.nav-dd-email{font-size:11px;color:#aaa;margin-top:1px;}
-.nav-dd-item{padding:10px 16px;font-size:13px;color:#333;display:flex;align-items:center;gap:9px;cursor:pointer;font-family:'Sarabun',sans-serif;border:none;background:none;width:100%;text-align:left;}
-.nav-dd-item:hover{background:#f7f8fa;}
-.nav-dd-div{height:1px;background:#f0f2f5;}
-.nav-dd-item.danger{color:#e74c3c;}
+
 .main{padding:28px;max-width:980px;margin:0 auto;}
 .sec{display:none;} .sec.on{display:block;}
 .card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:24px;margin-bottom:20px;}
@@ -119,21 +110,9 @@ textarea{resize:vertical;min-height:64px;}
 
   <!-- Avatar dropdown -->
   <div class="nav-user-area" id="nav-user">
-    <button class="nav-avatar-btn" onclick="toggleNavDD(event)" id="nav-avatar-btn">
-      <div class="nav-avatar-initial" id="nav-avatar-initial">?</div>
-      <img class="nav-avatar-img" id="nav-avatar" alt="" style="display:none;">
-      <span class="nav-uname" id="nav-name"></span>
-      <span class="nav-chevron">▾</span>
-    </button>
-    <div class="nav-dd" id="nav-dd">
-      <div class="nav-dd-hdr">
-        <div class="nav-dd-name" id="dd-dname"></div>
-        <div class="nav-dd-email" id="dd-demail"></div>
-      </div>
-      <button class="nav-dd-item" id="nav-profile-item" onclick="goProfileDD()" style="display:none;">⚙ โปรไฟล์</button>
-      <div class="nav-dd-div" id="nav-profile-div" style="display:none;"></div>
-      <button class="nav-dd-item danger" onclick="signOut()">↩ ออกจากระบบ</button>
-    </div>
+    <div class="nav-avatar-initial" id="nav-avatar-initial">?</div>
+    <img class="nav-avatar-img" id="nav-avatar" alt="" style="display:none;">
+    <span class="nav-uname" id="nav-name"></span>
   </div>
 </nav>
 
@@ -645,16 +624,11 @@ function showApp() {
   if(pic && imgEl){imgEl.src=pic;imgEl.style.display='block';if(initEl)initEl.style.display='none';}
   else if(initEl){initEl.textContent=(currentUser.displayName||currentUser.name||'?')[0].toUpperCase();initEl.style.display='flex';if(imgEl)imgEl.style.display='none';}
   // Dropdown info
-  var ddname=document.getElementById('dd-dname');var ddemail=document.getElementById('dd-demail');
-  if(ddname)ddname.textContent=currentUser.displayName||currentUser.name||'';
-  if(ddemail)ddemail.textContent=currentUser.email||'';
+
   if (isAdmin()) {
     var atab = document.getElementById('nav-analytics-tab');
     if (atab) atab.style.display = 'flex';
-    var pitem = document.getElementById('nav-profile-item');
-    if(pitem) pitem.style.display='flex';
-    var pdiv = document.getElementById('nav-profile-div');
-    if(pdiv) pdiv.style.display='block';
+
   }
   if (isAdmin() || isSales()) {
     var ctab = document.getElementById('nav-crm-tab');
@@ -673,7 +647,6 @@ function showApp() {
     }
     sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
     document.getElementById('nav-name').textContent = currentUser.displayName;
-    var ddname=document.getElementById('dd-dname');if(ddname)ddname.textContent=currentUser.displayName;
     var initEl=document.getElementById('nav-avatar-initial');
     if(initEl&&!currentUser.picture)initEl.textContent=(currentUser.displayName||'?')[0].toUpperCase();
   });
@@ -971,20 +944,7 @@ function _trigLoad(id) {
 
 function openCRM() { window.open('cnk_crm.html','_blank'); }
 
-function toggleNavDD(e) {
-  e.stopPropagation();
-  document.getElementById('nav-dd').classList.toggle('on');
-}
-document.addEventListener('click', function(){
-  var dd = document.getElementById('nav-dd');
-  if(dd) dd.classList.remove('on');
-});
 
-function goProfileDD() {
-  document.getElementById('nav-dd').classList.remove('on');
-  _showSec('profile');
-  rdProfile();
-}
 
 // Legacy goTo kept for any inline onclick that still uses it
 function goTo(id,btn){
