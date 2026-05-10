@@ -102,7 +102,7 @@ textarea{resize:vertical;min-height:64px;}
   <button class="nav-tab" onclick="goTo('dashboard',this)">ภาพรวม</button>
   <button id="nav-analytics-tab" class="nav-tab" onclick="goTo('analytics',this)" style="display:none;">&#128202; Analytics</button>
   <button id="nav-profile-tab" class="nav-tab" onclick="goTo('profile',this)" style="display:none;">&#9881; โปรไฟล์</button>
-  <button id="nav-crm-tab" class="nav-tab" onclick="goTo('crm',this)" style="display:none;">🎯 CRM</button>
+  <button id="nav-crm-tab" class="nav-tab" onclick="goTo('crm',this)" style="display:none;">&#127919; CRM</button>
 </nav>
 <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:#4f8ef7;color:#fff;text-align:center;padding:8px;font-size:13px;font-family:Sarabun,sans-serif;">&#8987; กำลังโหลดข้อมูลจาก Google Sheets...</div>
 <div id="tst"></div>
@@ -614,20 +614,15 @@ function showApp() {
     sessionStorage.setItem('cnk_user', JSON.stringify(currentUser));
     document.getElementById('nav-name').textContent = currentUser.displayName;
   });
-  // Sales-only: hide billing menus, go to CRM
   if (isSales() && !isAdmin()) {
-    ['create','list','invoice','customers','dashboard','analytics','profile'].forEach(function(id) {
-      var tabs = document.querySelectorAll('.nav-tab');
-      tabs.forEach(function(t) {
-        if(t.getAttribute('onclick') && t.getAttribute('onclick').indexOf("'" + id + "'") !== -1) {
-          t.style.display = 'none';
-        }
-      });
+    document.querySelectorAll('.nav-tab').forEach(function(t){
+      var oc=t.getAttribute('onclick')||'';
+      if(['create','list','invoice','customers','dashboard','analytics','profile'].some(function(id){return oc.indexOf("'"+id+"'")!==-1;})){t.style.display='none';}
     });
-    document.querySelectorAll('.sec').forEach(function(s){ s.classList.remove('on'); });
+    document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});
     document.getElementById('sec-crm').classList.add('on');
-    var frame = document.getElementById('crm-frame');
-    if(frame) frame.src = 'cnk_crm.html';
+    var frame=document.getElementById('crm-frame');
+    if(frame)frame.src='cnk_crm.html';
     return;
   }
   loadAll();
@@ -885,10 +880,7 @@ function goTo(id,btn){
   if(id==='dashboard')rdDash();
   if(id==='profile')rdProfile();
   if(id==='analytics')rdAnalytics();
-  if(id==='crm'){
-    var frame = document.getElementById('crm-frame');
-    if(frame && !frame.src) frame.src = 'cnk_crm.html';
-  }
+  if(id==='crm'){var frame=document.getElementById('crm-frame');if(frame&&!frame.src)frame.src='cnk_crm.html';}
 }
 function setType(t){
   ctp=t;
@@ -1470,11 +1462,7 @@ function doPrint(bill){
   doc.write('<tfoot>'+vatR+'<tr class="tr2"><td colspan="'+cs+'" style="text-align:right;padding:9px 10px;">ยอดรวมสุทธิ</td><td style="text-align:right;padding:9px 10px;">'+fmt(bill.grand)+' บาท</td>'+(hasImg?'<td></td>':'')+'</tr></tfoot></table></div>');
   if(bill.remark)doc.write('<div class="rmk">หมายเหตุ: '+h(bill.remark)+'</div>');
   doc.write('<div class="sg2"><table style="width:100%;"><tbody><tr>'+signs+'</tr></tbody></table></div>');
-  doc.write('
-<div id="sec-crm" class="sec" style="padding:0;height:calc(100vh - 60px);">
-  <iframe id="crm-frame" src="" style="width:100%;height:100%;border:none;display:block;"></iframe>
-</div>
-</body></html>');
+  doc.write('</body></html>');
   doc.close();
   ifr.contentDocument.title='';setTimeout(function(){ifr.contentWindow.print();setTimeout(function(){document.body.removeChild(ifr);},1000);},600);
 }
@@ -2660,6 +2648,7 @@ function toast(msg){
   setTimeout(function(){el.classList.remove('on');},2500);
 }
 
+<div id="sec-crm" class="sec" style="padding:0;height:calc(100vh - 60px);"><iframe id="crm-frame" src="" style="width:100%;height:100%;border:none;display:block;"></iframe></div>
 </script>
 </body>
 </html>
