@@ -621,7 +621,7 @@ function showApp() {
     });
     document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});
     document.getElementById('sec-crm').classList.add('on');
-    var f=document.getElementById('crm-frame');if(f)f.src='cnk_crm.html';
+    window.open('cnk_crm.html','_blank');
     return;
   }
   loadAll();
@@ -877,7 +877,7 @@ function goTo(id,btn){
   if(id==='dashboard')rdDash();
   if(id==='profile')rdProfile();
   if(id==='analytics')rdAnalytics();
-  if(id==='crm'){var f=document.getElementById('crm-frame');if(f&&!f.src)f.src='cnk_crm.html';}
+  if(id==='crm'){window.open('cnk_crm.html','_blank');return;}
 }
 function setType(t){
   ctp=t;
