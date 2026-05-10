@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNK CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0f1f4;
+  --surface: #ffffff;
+  --surface2: #f7f8fa;
+  --border: #e4e6eb;
+  --border2: #d0d3db;
+  --text: #111827;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --orange: #f54f00;
+  --orange2: #ff7a00;
+  --orange-light: #fff4ee;
+  --orange-border: #ffd4b3;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --red-border: #fecaca;
+  --orange-mid: #ea580c;
+  --orange-mid-light: #fff7ed;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --green-border: #bbf7d0;
+  --blue: #1d4ed8;
+  --blue-light: #eff6ff;
+  --yellow: #d97706;
+  --yellow-light: #fffbeb;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+/* ── APP SHELL ── */
+.app { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 230px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.sidebar-brand {
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.brand-accent {
+  width: 4px; height: 32px;
+  background: linear-gradient(180deg, var(--orange), var(--orange2));
+  border-radius: 2px; flex-shrink: 0;
+}
+.brand-name { font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.brand-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+.nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px;
+  cursor: pointer; color: var(--text2);
+  font-size: 13px; font-weight: 600;
+  border: none; background: none; width: 100%; text-align: left;
+  transition: all 0.15s;
+}
+.nav-item:hover { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--orange-light); color: var(--orange); }
+.nav-icon { font-size: 17px; width: 22px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--red); color: white;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 20px; min-width: 22px; text-align: center;
+}
+
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--orange2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: white; flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 700; }
+.user-role { font-size: 10px; color: var(--text3); }
+
+/* ── MAIN ── */
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar-left h2 { font-size: 17px; font-weight: 800; }
+.topbar-left p { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.topbar-right { display: flex; gap: 8px; align-items: center; }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background: linear-gradient(90deg, var(--orange) 0%, var(--orange2) 100%);
+  padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.alert-left { }
+.alert-title { font-size: 13px; font-weight: 700; color: white; }
+.alert-sub { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; }
+.alert-right { display: flex; align-items: center; gap: 16px; }
+.alert-big { font-size: 28px; font-weight: 800; color: white; font-family: var(--mono); }
+.alert-big-label { font-size: 10px; color: rgba(255,255,255,0.7); margin-top: 2px; text-align: right; }
+
+/* ── CONTENT ── */
+.content { padding: 20px 24px; flex: 1; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 7px 14px; border-radius: 8px;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--bg); color: var(--text); border-color: var(--border2); }
+.btn-orange { background: var(--orange); color: white; border-color: var(--orange); }
+.btn-orange:hover { background: var(--orange-mid); border-color: var(--orange-mid); color: white; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-ghost-orange { background: var(--orange-light); color: var(--orange); border-color: var(--orange-border); }
+
+/* ── STAT CARDS ── */
+.stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+  border-top: 3px solid;
+}
+.stat-card.orange { border-top-color: var(--orange); }
+.stat-card.green { border-top-color: var(--green); }
+.stat-card.red { border-top-color: var(--red); }
+.stat-card.blue { border-top-color: var(--blue); }
+.stat-label { font-size: 10px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+.stat-value { font-size: 24px; font-weight: 800; margin: 5px 0 2px; font-family: var(--mono); }
+.stat-value.orange { color: var(--orange); }
+.stat-value.green { color: var(--green); }
+.stat-value.red { color: var(--red); }
+.stat-value.blue { color: var(--blue); }
+.stat-sub { font-size: 10px; color: var(--text3); }
+
+/* ── SECTION ── */
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; }
+.section { margin-bottom: 20px; }
+
+/* ── PACE ROWS ── */
+.pace-row {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+  display: grid; grid-template-columns: 180px 1fr 80px 90px;
+  align-items: center; gap: 14px;
+  border-left: 4px solid; transition: box-shadow 0.15s;
+}
+.pace-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.pace-row.green { border-left-color: var(--green); }
+.pace-row.orange { border-left-color: var(--orange-mid); }
+.pace-row.red { border-left-color: var(--red); }
+.pace-row.none { border-left-color: var(--border); opacity: 0.6; }
+
+.cust-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cust-target { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+.bar-bg { height: 16px; background: var(--bg); border-radius: 20px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 20px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.6s ease; }
+.bar-fill.green { background: var(--green); }
+.bar-fill.orange { background: var(--orange-mid); }
+.bar-fill.red { background: var(--red); }
+.bar-pct { font-size: 9px; font-weight: 700; color: white; }
+.bar-labels { display: flex; justify-content: space-between; margin-top: 3px; font-size: 9px; color: var(--text3); font-family: var(--mono); }
+
+.num-right { text-align: right; }
+.num-main { font-size: 13px; font-weight: 700; font-family: var(--mono); }
+.num-sub { font-size: 9px; color: var(--text3); margin-top: 2px; }
+.num-gap { font-size: 12px; font-weight: 700; font-family: var(--mono); }
+.num-gap.red { color: var(--red); }
+.num-gap.green { color: var(--green); }
+
+/* ── FLAG CARDS ── */
+.flag-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 13px 16px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 14px;
+  border-left: 4px solid; cursor: pointer; transition: box-shadow 0.15s;
+}
+.flag-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.flag-card.red { border-left-color: var(--red); }
+.flag-card.orange { border-left-color: var(--orange-mid); }
+.flag-card.yellow { border-left-color: var(--yellow); }
+.flag-info { flex: 1; min-width: 0; }
+.flag-name { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.flag-reason { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.flag-meta { text-align: right; flex-shrink: 0; min-width: 90px; }
+.flag-val { font-size: 16px; font-weight: 800; font-family: var(--mono); }
+.flag-val.red { color: var(--red); }
+.flag-val.orange { color: var(--orange-mid); }
+.flag-val.yellow { color: var(--yellow); }
+.flag-val-label { font-size: 9px; color: var(--text3); }
+.flag-peak { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+
+/* ── TAGS ── */
+.tag { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.tag-red { background: var(--red-light); color: var(--red); }
+.tag-orange { background: var(--orange-mid-light); color: var(--orange-mid); }
+.tag-green { background: var(--green-light); color: var(--green); }
+.tag-blue { background: var(--blue-light); color: var(--blue); }
+.tag-gray { background: var(--bg); color: var(--text3); }
+.tag-yellow { background: var(--yellow-light); color: var(--yellow); }
+
+/* ── TABLE ── */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.table-filters { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
+.search-box {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px;
+  color: var(--text); font-family: 'Sarabun', sans-serif; font-size: 13px; outline: none;
+}
+.search-box:focus { border-color: var(--orange); }
+.filter-sel {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px;
+  color: var(--text); font-family: 'Sarabun', sans-serif; font-size: 12px; outline: none;
+}
+table { width: 100%; border-collapse: collapse; }
+th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; background: var(--bg); border-bottom: 1px solid var(--border); }
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
+
+/* ── LOG PAGE ── */
+.log-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+.log-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; }
+.log-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.log-cust { font-size: 14px; font-weight: 700; }
+.log-date { font-size: 11px; color: var(--text3); }
+.log-body { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.log-footer { margin-top: 10px; display: flex; justify-content: space-between; }
+.log-by { font-size: 10px; color: var(--text3); }
+.log-followup { font-size: 10px; color: var(--yellow); font-weight: 600; }
+
+.add-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; position: sticky; top: 20px; }
+.add-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; }
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 5px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px;
+  color: var(--text); font-family: 'Sarabun', sans-serif; font-size: 13px; outline: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--orange); }
+.form-textarea { resize: vertical; min-height: 70px; }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: 480px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-title { font-size: 16px; font-weight: 800; }
+.modal-close { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.modal-section-title { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+.modal-section { margin-bottom: 16px; }
+.mini-bars { display: flex; gap: 4px; align-items: flex-end; height: 60px; }
+.mini-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.mini-bar-bg { flex: 1; width: 100%; background: var(--bg); border-radius: 3px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; min-height: 40px; }
+.mini-bar-fill { width: 100%; border-radius: 3px; }
+.mini-bar-label { font-size: 8px; color: var(--text3); }
+.mini-bar-val { font-size: 8px; color: var(--text2); font-family: var(--mono); }
+.mini-log-item { background: var(--bg); border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+.mini-log-date { font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+.mini-log-text { font-size: 12px; color: var(--text2); }
+
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.meta-item { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.meta-label { font-size: 10px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.meta-value { font-size: 14px; font-weight: 700; margin-top: 3px; font-family: var(--mono); }
+
+/* ── LOADING ── */
+.loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 50px; color: var(--text3); }
+.spinner { width: 22px; height: 22px; border: 2px solid var(--border2); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; padding: 40px; color: var(--text3); font-size: 13px; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-accent"></div>
+      <div>
+        <div class="brand-name">CNK CRM</div>
+        <div class="brand-sub">ระบบติดตามยอดขาย</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" onclick="nav('pace',this)">
+        <span class="nav-icon">📈</span> Sales Pace
+      </button>
+      <button class="nav-item" onclick="nav('flag',this)">
+        <span class="nav-icon">🚨</span> Red Flag
+        <span class="nav-badge" id="badge-flag">—</span>
+      </button>
+      <button class="nav-item" onclick="nav('customers',this)">
+        <span class="nav-icon">👥</span> ลูกค้าทั้งหมด
+      </button>
+      <button class="nav-item" onclick="nav('logs',this)">
+        <span class="nav-icon">📝</span> บันทึกการติดต่อ
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="avatar">ศ</div>
+      <div>
+        <div class="user-name">Srp</div>
+        <div class="user-role">Admin · Sales</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <h2 id="page-title">📈 Sales Pace</h2>
+        <p id="page-sub">กำลังโหลด...</p>
+      </div>
+      <div class="topbar-right">
+        <div id="day-pill" style="background:var(--orange-light);border:1px solid var(--orange-border);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:var(--orange)">—</div>
+        <button class="btn btn-sm" onclick="loadAll()">🔄 รีเฟรช</button>
+      </div>
+    </div>
+
+    <!-- ALERT BANNER (Pace only) -->
+    <div class="alert-banner" id="alert-banner">
+      <div class="alert-left">
+        <div class="alert-title" id="alert-title">กำลังคำนวณ...</div>
+        <div class="alert-sub" id="alert-sub">—</div>
+      </div>
+      <div class="alert-right">
+        <div>
+          <div class="alert-big" id="alert-pct">—%</div>
+          <div class="alert-big-label">pace ของเป้า</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGES -->
+    <div class="content">
+
+      <!-- SALES PACE -->
+      <div id="page-pace" class="page active">
+        <div class="stat-grid">
+          <div class="stat-card orange"><div class="stat-label">เป้ารวม/เดือน</div><div class="stat-value orange" id="s-target">—</div><div class="stat-sub">ทุกลูกค้า</div></div>
+          <div class="stat-card green"><div class="stat-label">ยอดจริงวันนี้</div><div class="stat-value green" id="s-actual">—</div><div class="stat-sub">จากระบบบิล</div></div>
+          <div class="stat-card orange"><div class="stat-label">Pace (ประมาณการ)</div><div class="stat-value orange" id="s-pace">—</div><div class="stat-sub">ถ้าขายอัตรานี้ถึงสิ้นเดือน</div></div>
+          <div class="stat-card red"><div class="stat-label">ต้องดันอีก</div><div class="stat-value red" id="s-gap">—</div><div class="stat-sub">เป้า − ยอดจริง</div></div>
+        </div>
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title">รายลูกค้า</div>
+            <div style="display:flex;gap:6px">
+              <select class="filter-sel" id="pace-shop" onchange="renderPace()">
+                <option value="">ทุกร้าน</option>
+                <option value="Pra">Pra</option>
+                <option value="Ka">Ka</option>
+              </select>
+              <select class="filter-sel" id="pace-status" onchange="renderPace()">
+                <option value="">ทุกสถานะ</option>
+                <option value="red">🔴 ต่ำกว่าเกณฑ์</option>
+                <option value="orange">🟠 จับตา</option>
+                <option value="green">🟢 ปกติดี</option>
+              </select>
+              <select class="filter-sel" id="pace-sort" onchange="renderPace()">
+                <option value="gap">เรียงตาม Gap</option>
+                <option value="pct">เรียงตาม Pace %</option>
+                <option value="target">เรียงตามเป้า</option>
+              </select>
+            </div>
+          </div>
+          <div id="pace-list"><div class="loading"><div class="spinner"></div> กำลังโหลด...</div></div>
+        </div>
+      </div>
+
+      <!-- RED FLAG -->
+      <div id="page-flag" class="page">
+        <div class="stat-grid">
+          <div class="stat-card red"><div class="stat-label">ด่วนมาก</div><div class="stat-value red" id="f-red">—</div><div class="stat-sub">หายนาน/ยอดลดฮวบ</div></div>
+          <div class="stat-card orange"><div class="stat-label">ต้องติดตาม</div><div class="stat-value orange" id="f-orange">—</div><div class="stat-sub">เริ่มผิดปกติ</div></div>
+          <div class="stat-card green"><div class="stat-label">ติดต่อแล้ว</div><div class="stat-value green" id="f-yellow">—</div><div class="stat-sub">ภายใน 7 วัน</div></div>
+          <div class="stat-card blue"><div class="stat-label">รวม Flag</div><div class="stat-value blue" id="f-total">—</div><div class="stat-sub">ลูกค้าที่ต้องดูแล</div></div>
+        </div>
+        <div id="flag-content"><div class="loading"><div class="spinner"></div> กำลังโหลด...</div></div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div id="page-customers" class="page">
+        <div class="table-wrap">
+          <div class="table-filters">
+            <input class="search-box" placeholder="🔍 ค้นหาชื่อลูกค้า..." oninput="filterCusts(this.value)">
+            <select class="filter-sel" id="c-status" onchange="filterCusts(document.querySelector('.search-box').value)">
+              <option value="">ทุกสถานะ</option>
+              <option value="red">🔴 ด่วนมาก</option>
+              <option value="orange">🟠 ติดตาม</option>
+            </select>
+            <select class="filter-sel" id="c-shop" onchange="filterCusts(document.querySelector('.search-box').value)">
+              <option value="">ทุกร้าน</option>
+              <option value="Pra">Pra</option>
+              <option value="Ka">Ka</option>
+            </select>
+          </div>
+          <div id="cust-table"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- LOGS -->
+      <div id="page-logs" class="page">
+        <div class="log-layout">
+          <div id="log-list"><div class="loading"><div class="spinner"></div> กำลังโหลด...</div></div>
+          <div class="add-panel">
+            <div class="add-title">➕ บันทึกการติดต่อ</div>
+            <div class="form-group">
+              <label class="form-label">ลูกค้า</label>
+              <select class="form-select" id="lf-cust"><option value="">— เลือกลูกค้า —</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">วันที่</label>
+              <input type="date" class="form-input" id="lf-date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">วิธีติดต่อ</label>
+              <select class="form-select" id="lf-method">
+                <option value="call">📞 โทรศัพท์</option>
+                <option value="line">💬 Line</option>
+                <option value="visit">🚗 เข้าพบ</option>
+                <option value="other">📧 อื่นๆ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ผลการติดต่อ</label>
+              <select class="form-select" id="lf-result">
+                <option value="reached">✅ ติดต่อได้ — มีงาน</option>
+                <option value="reached_wait">🔄 ติดต่อได้ — ยังไม่มีงาน</option>
+                <option value="unreached">❌ ติดต่อไม่ได้</option>
+                <option value="problem">⚠️ มีปัญหา</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">บันทึก</label>
+              <textarea class="form-textarea" id="lf-note" placeholder="คุยเรื่องอะไร ผลเป็นยังไง..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">นัด Follow-up</label>
+              <input type="date" class="form-input" id="lf-followup">
+            </div>
+            <button class="btn btn-orange" style="width:100%" onclick="saveLog()">💾 บันทึก</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Customer Detail -->
+<div class="modal-overlay" id="modal-cust">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mc-name">—</div>
+      <button class="modal-close" onclick="closeModal('modal-cust')">✕</button>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-item"><div class="meta-label">ร้าน</div><div class="meta-value" id="mc-shop">—</div></div>
+      <div class="meta-item"><div class="meta-label">ยอดสูงสุด</div><div class="meta-value" id="mc-peak">—</div></div>
+      <div class="meta-item"><div class="meta-label">สถานะ</div><div class="meta-value" id="mc-status">—</div></div>
+      <div class="meta-item"><div class="meta-label">หายไป</div><div class="meta-value" id="mc-gone">—</div></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">ยอดขายรายเดือน</div>
+      <div class="mini-bars" id="mc-bars"><div class="loading" style="padding:20px"><div class="spinner"></div></div></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">ประวัติการติดต่อ</div>
+      <div id="mc-logs"><div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">ยังไม่มีบันทึก</div></div>
+    </div>
+    <button class="btn btn-orange" style="width:100%;margin-top:4px" id="mc-log-btn">📝 บันทึกการติดต่อ</button>
+  </div>
+</div>
+
+<!-- MODAL: Quick Log -->
+<div class="modal-overlay" id="modal-qlog">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">📝 <span id="ql-name">—</span></div>
+      <button class="modal-close" onclick="closeModal('modal-qlog')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">วิธีติดต่อ</label>
+      <select class="form-select" id="ql-method"><option value="call">📞 โทรศัพท์</option><option value="line">💬 Line</option><option value="visit">🚗 เข้าพบ</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ผลการติดต่อ</label>
+      <select class="form-select" id="ql-result">
+        <option value="reached">✅ ติดต่อได้ — มีงาน</option>
+        <option value="reached_wait">🔄 ติดต่อได้ — ยังไม่มีงาน</option>
+        <option value="unreached">❌ ติดต่อไม่ได้</option>
+        <option value="problem">⚠️ มีปัญหา</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">บันทึก</label>
+      <textarea class="form-textarea" id="ql-note" placeholder="คุยเรื่องอะไร ผลเป็นยังไง..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">นัด Follow-up</label>
+      <input type="date" class="form-input" id="ql-followup">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn" style="flex:1" onclick="closeModal('modal-qlog')">ยกเลิก</button>
+      <button class="btn btn-orange" style="flex:1" onclick="saveQuickLog()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
+const BY = 'Srp';
+
+const TARGETS = {"ช.วิวรรธน์":{"shop":"Pra","target":2400},"เมย์ฟลาวเวอร์":{"shop":"Pra","target":16300},"ถนอมวงศ์":{"shop":"Pra","target":11800},"วิสันต์":{"shop":"Pra","target":3700},"แกรนด์พริ้นท์ติ้ง":{"shop":"Pra","target":4550},"แพคเกจดี":{"shop":"Pra","target":8333},"แท่นทอง":{"shop":"Pra","target":7300},"ซิลล์":{"shop":"Pra","target":3000},"วินแพ็คเกจ":{"shop":"Pra","target":7000},"เฮียป่องปั้มกล่อง":{"shop":"Pra","target":1000},"เฮียบุญโรจน์":{"shop":"Pra","target":6567},"อุดมลาภการพิมพ์":{"shop":"Pra","target":1800},"ดีเอฟ":{"shop":"Pra","target":1200},"กวีการพิมพ์":{"shop":"Pra","target":1150},"คุณหนุ่ม":{"shop":"Pra","target":3233},"78":{"shop":"Pra","target":1567},"ภัคดี":{"shop":"Pra","target":817},"ไพศาล":{"shop":"Pra","target":800},"พระจันทร์พิมพ์ทอง":{"shop":"Pra","target":1000},"เฮียไพโรจน์":{"shop":"Pra","target":4133},"แรบบิท":{"shop":"Pra","target":300},"นิยมกิจ บรรจุภัณฑ์":{"shop":"Pra","target":800},"NC":{"shop":"Pra","target":2867},"อาจพงษ์":{"shop":"Pra","target":7000},"สุขสวัสดิ์ 70":{"shop":"Pra","target":3600},"ทวีศักดิ์":{"shop":"Pra","target":2100},"คุณแบงค์":{"shop":"Pra","target":2000},"คุณนก":{"shop":"Pra","target":900},"เฮียจิน":{"shop":"Pra","target":500},"คอนวอย":{"shop":"Pra","target":300},"วาริน":{"shop":"Pra","target":500},"บริษัท พีเอสเอส พริ้นติ้ง แอนด์แพคเกจจิ้ง จำกัด":{"shop":"Ka","target":15167},"หจก. เอส.ออฟเซ็ทกราฟฟิคดีไซน์":{"shop":"Ka","target":7767},"บริษัท พี.เอส. ซัคเซส พริ้นติ้ง จำกัด":{"shop":"Ka","target":5100},"Image Art co., ltd":{"shop":"Ka","target":25167},"บริษัท ฐิติพรการพิมพ์ จำกัด":{"shop":"Ka","target":22217},"บริษัท เสริมมิตร พริ้นติ้ง จำกัด":{"shop":"Ka","target":8817},"บริษัท กิตติชัย พริ้นติ้ง จำกัด":{"shop":"Ka","target":9833},"พิมพ์งามดี":{"shop":"Ka","target":8733},"บริษัท ทริปเปิ้ล เอส พริ้นท์ติ้ง จำกัด":{"shop":"Ka","target":2800},"บริษัท ส.โรจนกิจ ปริ้นติ้ง จำกัด":{"shop":"Ka","target":4250},"คุณตุ๊กตา":{"shop":"Ka","target":700},"โรงปั้มอ๊อด53":{"shop":"Ka","target":12133},"โพธิ์ทองการพิมพ์":{"shop":"Ka","target":1100},"คุณนก66":{"shop":"Ka","target":1300},"หจก. รุ่งเรืองสาส์นการพิมพ์":{"shop":"Ka","target":3900},"ธัญญรัตน์":{"shop":"Ka","target":2350},"เล็กพาณิชย์":{"shop":"Ka","target":10867},"คุณวงศ์เดือน":{"shop":"Ka","target":3650},"สุวรรณการพิมพ์":{"shop":"Ka","target":1533},"ศ.พยุงการพิมพ์":{"shop":"Ka","target":1100},"เฮียวิทย์":{"shop":"Ka","target":1600},"หจก. ประยูรสาส์นไทย การพิมพ์":{"shop":"Ka","target":2300},"หจก. เพเพอร์คราฟท์ แพ็คเกจจิ้ง":{"shop":"Ka","target":2767},"หจก. จรัส พริ้นติ้ง":{"shop":"Ka","target":2975},"จันทร์ การพิมพ์":{"shop":"Ka","target":850},"หจก. ซี.ไดคัตติ้ง":{"shop":"Ka","target":2950},"บริษัท ริชแมกซ์ อินเตอร์พริ้นท์ จำกัด":{"shop":"Ka","target":11567},"บริษัท ริงโก้ จำกัด":{"shop":"Ka","target":1500},"บริษัท เอส.อาร์. แสตมป์ปิ้ง พลัส จำกัด":{"shop":"Ka","target":2100},"มันเดย์":{"shop":"Ka","target":3300},"วัฒนกันต์":{"shop":"Ka","target":1400},"ประเสริฐ ป33":{"shop":"Ka","target":2300},"VS printing":{"shop":"Ka","target":2350},"บริษัท โกลด์เด้นลีดเดอร์ จำกัด":{"shop":"Ka","target":5050},"คุณนัด":{"shop":"Ka","target":4400},"คุณจู้":{"shop":"Ka","target":2650},"ทองเอก":{"shop":"Ka","target":1200},"ไทยอาร์ต":{"shop":"Ka","target":900},"พฤหัสษา":{"shop":"Ka","target":3400},"บริษัท พี.อาร์.พริ้นติ้ง แอนด์ กราฟฟิค ดีไซน์ จำกัด":{"shop":"Ka","target":5850},"VIP":{"shop":"Ka","target":3400},"สมคิด":{"shop":"Ka","target":2000},"สมหมาย ท่าพระ":{"shop":"Ka","target":1800},"หจก.สุชาติ พริ้นติ้ง":{"shop":"Ka","target":1300},"เจริญรัตน์":{"shop":"Ka","target":2000},"บริษัท เอพริล เรน พริ้นติ้ง จำกัด":{"shop":"Ka","target":767},"โชคประเก็น":{"shop":"Ka","target":3700}};
+
+let allPaceRows = [], allFlags = [], allLogs = [];
+let currentCust = '';
+const now = new Date();
+const day = now.getDate();
+const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+async function apiGet(params) {
+  const url = API + '?' + new URLSearchParams(params);
+  const r = await fetch(url);
+  return r.json();
+}
+
+async function loadAll() {
+  document.getElementById('day-pill').textContent = `วันที่ ${day}/${daysInMonth} — ${Math.round(day/daysInMonth*100)}% ของเดือน`;
+  document.getElementById('page-sub').textContent = `อัปเดต ${now.toLocaleTimeString('th-TH')}`;
+
+  const [dashData, billData, logData] = await Promise.all([
+    apiGet({ action: 'getCrmDashboard' }),
+    apiGet({ action: 'getAll', table: 'bills', months: 1 }),
+    apiGet({ action: 'getCrmLogs' })
+  ]);
+
+  allFlags = dashData.flags || [];
+  allLogs = Array.isArray(logData) ? logData : [];
+
+  const actualMap = {};
+  (Array.isArray(billData) ? billData : []).forEach(b => {
+    if (b.status === 'cancelled') return;
+    if (String(b.date||'').slice(0,7) !== thisMonth) return;
+    const cn = String(b.cn||'').trim();
+    if (!cn) return;
+    actualMap[cn] = (actualMap[cn]||0) + (Number(b.grand)||0);
+  });
+
+  allPaceRows = Object.entries(TARGETS).map(([name, info]) => {
+    const actual = actualMap[name] || 0;
+    const target = info.target;
+    const pace = day > 0 ? Math.round((actual/day)*daysInMonth) : 0;
+    const pct = target > 0 ? Math.round((pace/target)*100) : 0;
+    const status = pct >= 90 ? 'green' : pct >= 60 ? 'orange' : 'red';
+    return { name, shop: info.shop, target, actual, pace, pct, gap: target-actual, status };
+  });
+
+  updateBanner();
+  renderPace();
+  renderFlags();
+  renderCustomers();
+  renderLogs();
+  populateCustSelect();
+
+  document.getElementById('badge-flag').textContent = allFlags.filter(f=>f.status==='red').length || '0';
+}
+
+function updateBanner() {
+  const totalTarget = allPaceRows.reduce((s,r)=>s+r.target,0);
+  const totalActual = allPaceRows.reduce((s,r)=>s+r.actual,0);
+  const totalPace   = allPaceRows.reduce((s,r)=>s+r.pace,0);
+  const pct = Math.round((totalPace/totalTarget)*100);
+  document.getElementById('s-target').textContent = fmt(totalTarget);
+  document.getElementById('s-actual').textContent = fmt(totalActual);
+  document.getElementById('s-pace').textContent   = fmt(totalPace);
+  document.getElementById('s-gap').textContent    = fmt(totalTarget-totalActual);
+  document.getElementById('alert-pct').textContent = pct + '%';
+  document.getElementById('alert-title').textContent = `ต้องดันยอดอีก ${fmt(totalTarget-totalActual)} ฿ ภายในสิ้นเดือน`;
+  document.getElementById('alert-sub').textContent = `ยอดจริงวันนี้ ${fmt(totalActual)} ฿ — pace ${fmt(totalPace)} ฿ — เป้า ${fmt(totalTarget)} ฿`;
+}
+
+function renderPace() {
+  const shop   = document.getElementById('pace-shop').value;
+  const status = document.getElementById('pace-status').value;
+  const sort   = document.getElementById('pace-sort').value;
+  let rows = allPaceRows.filter(r => (!shop||r.shop===shop) && (!status||r.status===status));
+  rows.sort((a,b) => sort==='gap'?b.gap-a.gap:sort==='pct'?a.pct-b.pct:b.target-a.target);
+  if (!rows.length) { document.getElementById('pace-list').innerHTML='<div class="empty">ไม่พบข้อมูล</div>'; return; }
+
+  const pra = rows.filter(r=>r.shop==='Pra');
+  const ka  = rows.filter(r=>r.shop==='Ka');
+  let html = '';
+  if (pra.length) html += `<div class="section-title" style="margin-bottom:8px">Pra — ${pra.length} ราย</div>` + pra.map(paceRowHTML).join('') + '<div style="height:12px"></div>';
+  if (ka.length)  html += `<div class="section-title" style="margin-bottom:8px">Ka — ${ka.length} ราย</div>` + ka.map(paceRowHTML).join('');
+  document.getElementById('pace-list').innerHTML = html;
+}
+
+function paceRowHTML(r) {
+  const barPct = Math.min(r.pct,100);
+  const gapCls = r.gap>0?'red':'green';
+  const gapTxt = r.gap>0?`-${fmt(r.gap)}`:`+${fmt(Math.abs(r.gap))}`;
+  return `<div class="pace-row ${r.status}">
+    <div><div class="cust-name">${r.name}</div><div class="cust-target">เป้า ${fmt(r.target)} ฿/เดือน</div></div>
+    <div>
+      <div class="bar-bg"><div class="bar-fill ${r.status}" style="width:${barPct}%">${barPct>15?`<span class="bar-pct">${r.pct}%</span>`:''}</div></div>
+      <div class="bar-labels"><span>pace ${fmt(r.pace)} ฿</span><span>เป้า ${fmt(r.target)} ฿</span></div>
+    </div>
+    <div class="num-right"><div class="num-main">${fmt(r.actual)}</div><div class="num-sub">ยอดจริง ฿</div></div>
+    <div class="num-right"><div class="num-gap ${gapCls}">${gapTxt}</div><div class="num-sub">${r.gap>0?'ต้องดันอีก':'เกินเป้า'}</div></div>
+  </div>`;
+}
+
+function renderFlags() {
+  const red = allFlags.filter(f=>f.status==='red');
+  const orange = allFlags.filter(f=>f.status==='orange');
+  const yellow = allFlags.filter(f=>f.status==='yellow');
+  document.getElementById('f-red').textContent = red.length;
+  document.getElementById('f-orange').textContent = orange.length;
+  document.getElementById('f-yellow').textContent = yellow.length;
+  document.getElementById('f-total').textContent = allFlags.length;
+
+  let html = '';
+  if (red.length) html += `<div class="section"><div class="section-head"><div class="section-title">🔴 ด่วนมาก — ${red.length} ราย</div></div>${red.map(flagCardHTML).join('')}</div>`;
+  if (orange.length) {
+    const show = orange.slice(0,15);
+    html += `<div class="section"><div class="section-head"><div class="section-title">🟠 ต้องติดตาม — ${orange.length} ราย</div></div>${show.map(flagCardHTML).join('')}${orange.length>15?`<div class="empty" style="padding:12px">และอีก ${orange.length-15} ราย — ดูทั้งหมดที่ "ลูกค้าทั้งหมด"</div>`:''}</div>`;
+  }
+  if (yellow.length) html += `<div class="section"><div class="section-head"><div class="section-title">🟡 ติดต่อแล้ว — รอดูผล</div></div>${yellow.map(flagCardHTML).join('')}</div>`;
+  if (!allFlags.length) html = '<div class="empty">✅ ไม่มี Red Flag</div>';
+  document.getElementById('flag-content').innerHTML = html;
+}
+
+function flagCardHTML(f) {
+  const shopTag = f.shop==='Pra'?'<span class="tag tag-red">Pra</span>':'<span class="tag tag-blue">Ka</span>';
+  const val = f.monthsGone>0?f.monthsGone+' เดือน':'-'+f.dropPct+'%';
+  const valCls = f.status;
+  return `<div class="flag-card ${f.status}" onclick="openCust('${esc(f.custName)}')">
+    <div class="flag-info">
+      <div class="flag-name">${f.custName} ${shopTag}</div>
+      <div class="flag-reason">${f.reason}</div>
+    </div>
+    <div class="flag-meta">
+      <div class="flag-val ${valCls}">${val}</div>
+      <div class="flag-val-label">${f.monthsGone>0?'ที่หายไป':'ยอดลด'}</div>
+      <div class="flag-peak">peak ${fmt(f.peakAmount)} ฿</div>
+    </div>
+    <button class="btn btn-ghost-orange btn-sm" onclick="event.stopPropagation();openQLog('${esc(f.custName)}')">📝 บันทึก</button>
+  </div>`;
+}
+
+function renderCustomers() {
+  buildCustTable(allFlags);
+}
+
+function buildCustTable(flags) {
+  if (!flags.length) { document.getElementById('cust-table').innerHTML='<div class="empty">ไม่พบข้อมูล</div>'; return; }
+  const rows = flags.map(f => {
+    const shopTag = f.shop==='Pra'?'<span class="tag tag-red">Pra</span>':'<span class="tag tag-blue">Ka</span>';
+    const stTag = f.status==='red'?'<span class="tag tag-red">🔴 ด่วน</span>':f.status==='orange'?'<span class="tag tag-orange">🟠 ติดตาม</span>':'<span class="tag tag-yellow">🟡 รอดูผล</span>';
+    const lc = f.lastContact?`<span style="color:var(--green);font-size:11px;font-weight:600">✅ ${f.lastContact.date}</span>`:`<span style="color:var(--text3);font-size:11px">—</span>`;
+    return `<tr onclick="openCust('${esc(f.custName)}')">
+      <td><strong>${f.custName}</strong></td>
+      <td>${shopTag}</td>
+      <td>${stTag}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:700">${fmt(f.peakAmount)} ฿</td>
+      <td style="text-align:center;font-family:var(--mono)">${f.monthsGone>0?f.monthsGone+' เดือน':'—'}</td>
+      <td>${lc}</td>
+      <td><button class="btn btn-ghost-orange btn-sm" onclick="event.stopPropagation();openQLog('${esc(f.custName)}')">📝</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cust-table').innerHTML = `<table><thead><tr><th>ลูกค้า</th><th>ร้าน</th><th>สถานะ</th><th style="text-align:right">ยอดสูงสุด</th><th style="text-align:center">หายไป</th><th>ติดต่อล่าสุด</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function filterCusts(q) {
+  const st = document.getElementById('c-status').value;
+  const sh = document.getElementById('c-shop').value;
+  buildCustTable(allFlags.filter(f=>(!q||f.custName.includes(q))&&(!st||f.status===st)&&(!sh||f.shop===sh)));
+}
+
+function renderLogs() {
+  if (!allLogs.length) { document.getElementById('log-list').innerHTML='<div class="empty">📝 ยังไม่มีบันทึก</div>'; return; }
+  document.getElementById('log-list').innerHTML = allLogs.slice(0,30).map(l=>`
+    <div class="log-card">
+      <div class="log-header">
+        <div class="log-cust">${l.custName||'—'}</div>
+        <div class="log-date">${l.date||'—'}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${mLabel(l.method)} · ${rLabel(l.result)}</div>
+      <div class="log-body">${l.note||'—'}</div>
+      <div class="log-footer">
+        <div class="log-by">บันทึกโดย: ${l.by||'—'}</div>
+        ${l.followupDate?`<div class="log-followup">📅 Follow-up: ${l.followupDate}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function populateCustSelect() {
+  const names = [...new Set(allFlags.map(f=>f.custName))].sort();
+  const html = '<option value="">— เลือกลูกค้า —</option>' + names.map(n=>`<option value="${esc(n)}">${n}</option>`).join('');
+  document.getElementById('lf-cust').innerHTML = html;
+}
+
+async function openCust(name) {
+  currentCust = name;
+  document.getElementById('mc-name').textContent = name;
+  const f = allFlags.find(x=>x.custName===name)||{};
+  document.getElementById('mc-shop').textContent = f.shop||'—';
+  document.getElementById('mc-peak').textContent = f.peakAmount?fmt(f.peakAmount)+' ฿':'—';
+  document.getElementById('mc-status').innerHTML = f.status==='red'?'<span class="tag tag-red">🔴 ด่วนมาก</span>':f.status==='orange'?'<span class="tag tag-orange">🟠 ติดตาม</span>':'<span class="tag tag-green">✅ ปกติ</span>';
+  document.getElementById('mc-gone').textContent = f.monthsGone>0?f.monthsGone+' เดือน':f.dropPct>0?'ยอดลด '+f.dropPct+'%':'—';
+  document.getElementById('mc-log-btn').onclick = ()=>{ closeModal('modal-cust'); openQLog(name); };
+  document.getElementById('modal-cust').classList.add('open');
+
+  try {
+    const hist = await apiGet({ action:'getCrmSalesHistory', custName:name });
+    const byM = {};
+    (hist||[]).forEach(r=>{ byM[r.month]=(byM[r.month]||0)+r.amount; });
+    const months = Object.keys(byM).sort().slice(-10);
+    const maxV = Math.max(...months.map(m=>byM[m]),1);
+    document.getElementById('mc-bars').innerHTML = months.map(m=>{
+      const v=byM[m]||0; const h=Math.max(4,Math.round((v/maxV)*50));
+      const color=v===0?'var(--border2)':v===maxV?'var(--green)':'var(--orange)';
+      return `<div class="mini-bar-wrap">
+        <div class="mini-bar-val">${v>0?(v>=1000?Math.round(v/1000)+'k':v):'—'}</div>
+        <div class="mini-bar-bg"><div class="mini-bar-fill" style="height:${h}px;background:${color}"></div></div>
+        <div class="mini-bar-label">${m.slice(5)}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { document.getElementById('mc-bars').innerHTML='<div style="color:var(--text3);font-size:12px">โหลดไม่ได้</div>'; }
+
+  const custLogs = allLogs.filter(l=>l.custName===name);
+  document.getElementById('mc-logs').innerHTML = custLogs.length
+    ? custLogs.slice(0,5).map(l=>`<div class="mini-log-item"><div class="mini-log-date">${l.date} · ${mLabel(l.method)} · ${rLabel(l.result)}</div><div class="mini-log-text">${l.note||'—'}</div></div>`).join('')
+    : '<div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">ยังไม่มีบันทึก</div>';
+}
+
+function openQLog(name) {
+  currentCust = name;
+  document.getElementById('ql-name').textContent = name;
+  document.getElementById('ql-note').value = '';
+  document.getElementById('ql-followup').value = '';
+  document.getElementById('modal-qlog').classList.add('open');
+}
+
+async function saveLog() {
+  const cn = document.getElementById('lf-cust').value;
+  if (!cn) { alert('กรุณาเลือกลูกค้า'); return; }
+  const data = { id:'LOG-'+Date.now(), custName:cn, date:document.getElementById('lf-date').value, method:document.getElementById('lf-method').value, result:document.getElementById('lf-result').value, note:document.getElementById('lf-note').value, followupDate:document.getElementById('lf-followup').value, by:BY, ts:new Date().toISOString() };
+  try {
+    await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
+    document.getElementById('lf-note').value='';
+    document.getElementById('lf-followup').value='';
+    await loadAll();
+    alert('บันทึกสำเร็จ!');
+  } catch(e) { alert('บันทึกไม่ได้: '+e.message); }
+}
+
+async function saveQuickLog() {
+  if (!currentCust) return;
+  const data = { id:'LOG-'+Date.now(), custName:currentCust, date:new Date().toISOString().slice(0,10), method:document.getElementById('ql-method').value, result:document.getElementById('ql-result').value, note:document.getElementById('ql-note').value, followupDate:document.getElementById('ql-followup').value, by:BY, ts:new Date().toISOString() };
+  try {
+    await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
+    closeModal('modal-qlog');
+    await loadAll();
+    alert('บันทึกสำเร็จ!');
+  } catch(e) { alert('บันทึกไม่ได้: '+e.message); }
+}
+
+function nav(id, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  const titles = { pace:'📈 Sales Pace', flag:'🚨 Red Flag', customers:'👥 ลูกค้าทั้งหมด', logs:'📝 บันทึกการติดต่อ' };
+  document.getElementById('page-title').textContent = titles[id];
+  document.getElementById('alert-banner').style.display = id==='pace'?'flex':'none';
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function fmt(n) { if(!n&&n!==0) return '—'; return Math.round(n).toLocaleString('th-TH'); }
+function esc(s) { return String(s).replace(/'/g,"&#39;"); }
+function mLabel(m) { return {call:'📞 โทร',line:'💬 Line',visit:'🚗 เข้าพบ',other:'📧 อื่นๆ'}[m]||m||'—'; }
+function rLabel(r) { return {reached:'✅ มีงาน',reached_wait:'🔄 ยังไม่มีงาน',unreached:'❌ ติดต่อไม่ได้',problem:'⚠️ มีปัญหา'}[r]||r||'—'; }
+
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+document.getElementById('lf-date').value = new Date().toISOString().slice(0,10);
+document.getElementById('alert-banner').style.display = 'flex';
+
+loadAll();
+</script>
+</body>
+</html>
