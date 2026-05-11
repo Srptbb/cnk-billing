@@ -127,6 +127,11 @@ textarea{resize:vertical;min-height:64px;}
   <button class="sub-tab" id="stab-invlist" onclick="goSub('invlist',this,'wangbil')">รายการวางบิล</button>
   <button class="sub-tab" id="stab-dashboard" onclick="goSub('dashboard',this,'wangbil')">ภาพรวม</button>
 </div>
+<!-- Sub-tab: รายงาน -->
+<div class="sub-bar" id="sub-analytics">
+  <button class="sub-tab act" id="stab-analytics" onclick="goSub('analytics',this,'analytics')">📊 ยอดขาย</button>
+  <button class="sub-tab" id="stab-cashflow" onclick="goSub('cashflow',this,'analytics')">💵 กระแสเงินเข้า</button>
+</div>
 <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:#4f8ef7;color:#fff;text-align:center;padding:8px;font-size:13px;font-family:Sarabun,sans-serif;">&#8987; กำลังโหลดข้อมูลจาก Google Sheets...</div>
 <div id="tst"></div>
 <div id="main-content" style="display:none;"><div class="main">
@@ -333,6 +338,19 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 </div>
 
+</div>
+
+<div id="sec-cashflow" class="sec">
+<div class="card">
+  <div class="ctitle" style="justify-content:space-between;">
+    <span>💵 กระแสเงินเข้า</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="cf-year" onchange="rdCashFlow()" style="padding:6px 10px;font-size:13px;border-radius:6px;border:1.5px solid #e0e3eb;width:auto;"></select>
+      <button class="btn bo bsm" onclick="exportCashFlow()">📥 Export CSV</button>
+    </div>
+  </div>
+  <div id="cf-content"><p style="text-align:center;color:#aaa;padding:40px 0;">กำลังโหลด...</p></div>
+</div>
 </div>
 
 <div id="sec-profile" class="sec">
@@ -904,7 +922,7 @@ function fmtDF(s){if(!s)return'';var p=s.split('-');var m=['','มกราค�
 
 // ===== NEW NAV ROUTING =====
 var _curMain = 'songof';
-var _curSub = {songof:'create', wangbil:'invoice'};
+var _curSub = {songof:'create', wangbil:'invoice', analytics:'analytics'};
 
 function goMain(main, btn) {
   _curMain = main;
@@ -940,6 +958,7 @@ function _trigLoad(id) {
   if(id==='dashboard') rdDash();
   if(id==='profile') rdProfile();
   if(id==='analytics') rdAnalytics();
+  if(id==='cashflow') rdCashFlow();
 }
 
 function openCRM() { window.open('cnk_crm.html','_blank'); }
@@ -2727,6 +2746,145 @@ function renderInsights(mSales, mReceived, mPending, yearBills, yearInv) {
 function toast(msg){
   var el=document.getElementById('tst');el.textContent=msg;el.classList.add('on');
   setTimeout(function(){el.classList.remove('on');},2500);
+}
+
+// ===== CASH FLOW =====
+function rdCashFlow() {
+  // Build year dropdown
+  var cfYear = document.getElementById('cf-year');
+  var curYear = new Date().getFullYear();
+  if (!cfYear.options.length) {
+    for (var y = curYear; y >= curYear-2; y--) {
+      var opt = document.createElement('option');
+      opt.value = y; opt.text = 'ปี พ.ศ. '+(y+543);
+      if (y === curYear) opt.selected = true;
+      cfYear.appendChild(opt);
+    }
+  }
+  var selYear = parseInt(cfYear.value);
+
+  // Filter invoices: มี payDate, ไม่ยกเลิก, ปีที่เลือก
+  var filtered = invoices.filter(function(iv) {
+    return iv.payDate && iv.status !== 'cancelled' && iv.payDate.startsWith(selYear+'-');
+  });
+
+  // Sort by payDate
+  filtered.sort(function(a,b){ return (a.payDate||'').localeCompare(b.payDate||''); });
+
+  // Group by month
+  var groups = {};
+  filtered.forEach(function(iv) {
+    var ym = iv.payDate.slice(0,7);
+    if (!groups[ym]) groups[ym] = [];
+    groups[ym].push(iv);
+  });
+
+  if (!filtered.length) {
+    document.getElementById('cf-content').innerHTML = '<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบข้อมูล</p>';
+    return;
+  }
+
+  var thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var today = td();
+  var html = '';
+  var grandTotal = 0;
+  var grandPaid = 0;
+
+  Object.keys(groups).sort().forEach(function(ym) {
+    var rows = groups[ym];
+    var p = ym.split('-');
+    var mLabel = 'เดือน '+thaiMonths[parseInt(p[1])]+' พ.ศ. '+(parseInt(p[0])+543);
+    var monthTotal = rows.reduce(function(s,iv){return s+iv.total;},0);
+    var monthPaid  = rows.filter(function(iv){return iv.status==='paid';}).reduce(function(s,iv){return s+iv.total;},0);
+    grandTotal += monthTotal;
+    grandPaid  += monthPaid;
+
+    html += '<div style="margin-bottom:28px;">';
+    // Month header
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    html += '<div style="font-size:14px;font-weight:700;color:#1a1a2e;">'+mLabel+'</div>';
+    html += '<div style="display:flex;gap:16px;font-size:13px;">';
+    html += '<span style="color:#1a1a2e;font-weight:600;">รวม: '+fmt(monthTotal)+' ฿</span>';
+    html += '<span style="color:#27ae60;font-weight:600;">รับแล้ว: '+fmt(monthPaid)+' ฿</span>';
+    html += '<span style="color:#e65100;font-weight:600;">ค้าง: '+fmt(monthTotal-monthPaid)+' ฿</span>';
+    html += '</div></div>';
+
+    // Table
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#f0f2f5;">';
+    html += '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#555;">วันที่กำหนดจ่าย</th>';
+    html += '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#555;">ลูกค้า</th>';
+    html += '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#555;">เลขใบวางบิล</th>';
+    html += '<th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:#555;">ยอดเงิน (฿)</th>';
+    html += '<th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:#555;">รับเงินแล้ว</th>';
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(function(iv) {
+      var isPaid = iv.status === 'paid';
+      var isOverdue = !isPaid && iv.payDate < today;
+      var rowBg = isPaid ? '' : (isOverdue ? 'background:#fff9f9;' : '');
+      html += '<tr style="border-bottom:1px solid #f0f2f5;'+rowBg+'">';
+      html += '<td style="padding:9px 12px;color:#555;">'+fmtD(iv.payDate)+'</td>';
+      html += '<td style="padding:9px 12px;font-weight:600;">'+h(iv.custName)+'</td>';
+      html += '<td style="padding:9px 12px;color:#888;font-size:12px;">'+h(iv.no||'')+'</td>';
+      html += '<td style="padding:9px 12px;text-align:right;font-weight:700;font-family:monospace;">'+fmt(iv.total)+'</td>';
+      html += '<td style="padding:9px 12px;text-align:center;">';
+      if (isPaid) {
+        html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#e8f5e9;border-radius:4px;border:2px solid #27ae60;">✓</span>';
+      } else {
+        html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;border:2px solid #ddd;"></span>';
+      }
+      html += '</td></tr>';
+    });
+
+    // Month subtotal row
+    html += '<tr style="background:#f7f8fa;font-weight:700;">';
+    html += '<td colspan="3" style="padding:9px 12px;font-size:13px;">รวมเดือน '+thaiMonths[parseInt(p[1])]+'</td>';
+    html += '<td style="padding:9px 12px;text-align:right;font-family:monospace;">'+fmt(monthTotal)+'</td>';
+    html += '<td style="padding:9px 12px;text-align:center;font-size:12px;color:#27ae60;">'+fmt(monthPaid)+' ✓</td>';
+    html += '</tr>';
+    html += '</tbody></table></div>';
+  });
+
+  // Grand total
+  html += '<div style="background:#1a1a2e;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">';
+  html += '<span style="color:#aab0c6;font-size:13px;">ยอดรวมทั้งปี</span>';
+  html += '<div style="display:flex;gap:24px;">';
+  html += '<span style="color:#fff;font-weight:700;font-size:15px;">'+fmt(grandTotal)+' ฿</span>';
+  html += '<span style="color:#4ade80;font-weight:700;font-size:15px;">รับแล้ว '+fmt(grandPaid)+' ฿</span>';
+  html += '<span style="color:#fb923c;font-weight:700;font-size:15px;">ค้าง '+fmt(grandTotal-grandPaid)+' ฿</span>';
+  html += '</div></div>';
+
+  document.getElementById('cf-content').innerHTML = html;
+}
+
+function exportCashFlow() {
+  var cfYear = document.getElementById('cf-year');
+  var selYear = cfYear ? parseInt(cfYear.value) : new Date().getFullYear();
+  var filtered = invoices.filter(function(iv){
+    return iv.payDate && iv.status !== 'cancelled' && iv.payDate.startsWith(selYear+'-');
+  }).sort(function(a,b){ return (a.payDate||'').localeCompare(b.payDate||''); });
+
+  var today = td();
+  var headers = ['เดือน','วันที่กำหนดจ่าย','ลูกค้า','เลขใบวางบิล','ยอดเงิน','สถานะ','วันที่รับเงินจริง'];
+  var rows = [headers.map(function(h){return '"'+h+'"';}).join(',')];
+  var thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  filtered.forEach(function(iv){
+    var p = (iv.payDate||'').split('-');
+    var mLabel = thaiMonths[parseInt(p[1])]||'';
+    var status = iv.status==='paid'?'รับแล้ว':(iv.payDate<today?'เกินกำหนด':'รอรับ');
+    var row = [mLabel, iv.payDate||'', iv.custName||'', iv.no||'', iv.total||0, status, iv.paidDate||''];
+    rows.push(row.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(','));
+  });
+  var csv = '﻿' + rows.join('
+');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'cashflow-'+selYear+'.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('Export CSV แล้ว');
 }
 
 </script>
