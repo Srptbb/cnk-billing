@@ -2750,7 +2750,6 @@ function toast(msg){
 
 // ===== CASH FLOW =====
 function rdCashFlow() {
-  // Build year dropdown
   var cfYear = document.getElementById('cf-year');
   var curYear = new Date().getFullYear();
   if (!cfYear.options.length) {
@@ -2762,54 +2761,105 @@ function rdCashFlow() {
     }
   }
   var selYear = parseInt(cfYear.value);
+  var today = td();
+  var thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  // Filter invoices: มี payDate, ไม่ยกเลิก, ปีที่เลือก
-  var filtered = invoices.filter(function(iv) {
+  // ===== สร้าง custPayDay map: วันที่ในเดือนที่ลูกค้าแต่ละเจ้ามักจ่าย =====
+  // ดูจากประวัติ invoice ที่มี payDate ทั้งหมด หา day ที่ใช้บ่อยสุดของแต่ละลูกค้า
+  var custPayDays = {};
+  invoices.forEach(function(iv) {
+    if (!iv.payDate || iv.status === 'cancelled') return;
+    var day = parseInt(iv.payDate.split('-')[2]);
+    var name = iv.custName;
+    if (!custPayDays[name]) custPayDays[name] = {};
+    custPayDays[name][day] = (custPayDays[name][day] || 0) + 1;
+  });
+  // หา day ที่ใช้บ่อยสุดของแต่ละลูกค้า
+  var custTypicalDay = {};
+  Object.keys(custPayDays).forEach(function(name) {
+    var days = custPayDays[name];
+    var bestDay = Object.keys(days).reduce(function(a,b){ return days[a]>days[b]?a:b; });
+    custTypicalDay[name] = parseInt(bestDay);
+  });
+
+  // ===== รวม invoices: มี payDate + ไม่ยกเลิก + ปีที่เลือก =====
+  var withPayDate = invoices.filter(function(iv) {
     return iv.payDate && iv.status !== 'cancelled' && iv.payDate.startsWith(selYear+'-');
   });
 
-  // Sort by payDate
-  filtered.sort(function(a,b){ return (a.payDate||'').localeCompare(b.payDate||''); });
-
-  // Group by month
-  var groups = {};
-  filtered.forEach(function(iv) {
-    var ym = iv.payDate.slice(0,7);
-    if (!groups[ym]) groups[ym] = [];
-    groups[ym].push(iv);
+  // ===== invoice ที่ไม่มี payDate แต่มี actualDate (วางบิลแล้ว ยังไม่กำหนดจ่าย) =====
+  var estimated = [];
+  invoices.forEach(function(iv) {
+    if (iv.status === 'cancelled' || iv.payDate) return;
+    if (!iv.actualDate && !iv.date) return;
+    // ใช้ actualDate หรือ date ของใบวางบิลเป็น base เดือน
+    var baseDate = iv.actualDate || iv.date;
+    if (!baseDate) return;
+    var baseYear = parseInt(baseDate.split('-')[0]);
+    if (baseYear !== selYear) return;
+    // ประเมินวันจ่ายจาก custTypicalDay
+    var typDay = custTypicalDay[iv.custName];
+    if (!typDay) return; // ไม่มีประวัติ ข้ามไป
+    // สร้าง estimated payDate: เดือนถัดจาก actualDate/date
+    var bm = parseInt(baseDate.split('-')[1]);
+    var by = parseInt(baseDate.split('-')[0]);
+    var em = bm + 1; var ey = by;
+    if (em > 12) { em = 1; ey++; }
+    // ตรวจว่า day ไม่เกินจำนวนวันในเดือน
+    var maxDay = new Date(ey, em, 0).getDate();
+    var useDay = Math.min(typDay, maxDay);
+    var estDate = ey+'-'+String(em).padStart(2,'0')+'-'+String(useDay).padStart(2,'0');
+    if (!estDate.startsWith(selYear+'-')) return;
+    estimated.push(Object.assign({}, iv, { _estPayDate: estDate, _isEstimated: true }));
   });
 
-  if (!filtered.length) {
+  // ===== รวมและ sort =====
+  var allRows = withPayDate.concat(estimated);
+  allRows.sort(function(a,b) {
+    var da = a._isEstimated ? a._estPayDate : (a.payMethod==='เช็ค'&&a.chequeDate ? a.chequeDate : a.payDate);
+    var db = b._isEstimated ? b._estPayDate : (b.payMethod==='เช็ค'&&b.chequeDate ? b.chequeDate : b.payDate);
+    return (da||'').localeCompare(db||'');
+  });
+
+  // ===== Group by month (ใช้วันที่ที่แสดงจริง) =====
+  var groups = {};
+  allRows.forEach(function(iv) {
+    var displayDate = iv._isEstimated ? iv._estPayDate
+      : (iv.payMethod==='เช็ค' && iv.chequeDate ? iv.chequeDate : iv.payDate);
+    var ym = displayDate.slice(0,7);
+    if (!groups[ym]) groups[ym] = [];
+    groups[ym].push({ iv: iv, displayDate: displayDate });
+  });
+
+  if (!allRows.length) {
     document.getElementById('cf-content').innerHTML = '<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบข้อมูล</p>';
     return;
   }
 
-  var thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  var today = td();
   var html = '';
   var grandTotal = 0;
   var grandPaid = 0;
 
   Object.keys(groups).sort().forEach(function(ym) {
-    var rows = groups[ym];
+    var items = groups[ym];
     var p = ym.split('-');
     var mLabel = 'เดือน '+thaiMonths[parseInt(p[1])]+' พ.ศ. '+(parseInt(p[0])+543);
-    var monthTotal = rows.reduce(function(s,iv){return s+iv.total;},0);
-    var monthPaid  = rows.filter(function(iv){return iv.status==='paid';}).reduce(function(s,iv){return s+iv.total;},0);
+    var monthTotal = items.reduce(function(s,x){return s+(x.iv._isEstimated?0:x.iv.total);},0);
+    var monthEst   = items.reduce(function(s,x){return s+(x.iv._isEstimated?x.iv.total:0);},0);
+    var monthPaid  = items.filter(function(x){return x.iv.status==='paid';}).reduce(function(s,x){return s+x.iv.total;},0);
     grandTotal += monthTotal;
     grandPaid  += monthPaid;
 
     html += '<div style="margin-bottom:28px;">';
-    // Month header
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
     html += '<div style="font-size:14px;font-weight:700;color:#1a1a2e;">'+mLabel+'</div>';
     html += '<div style="display:flex;gap:16px;font-size:13px;">';
     html += '<span style="color:#1a1a2e;font-weight:600;">รวม: '+fmt(monthTotal)+' ฿</span>';
+    if (monthEst) html += '<span style="color:#6b7280;font-weight:500;">(ประเมิน: '+fmt(monthEst)+' ฿)</span>';
     html += '<span style="color:#27ae60;font-weight:600;">รับแล้ว: '+fmt(monthPaid)+' ฿</span>';
     html += '<span style="color:#e65100;font-weight:600;">ค้าง: '+fmt(monthTotal-monthPaid)+' ฿</span>';
     html += '</div></div>';
 
-    // Table
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="background:#f0f2f5;">';
     html += '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#555;">วันที่กำหนดจ่าย</th>';
@@ -2819,36 +2869,49 @@ function rdCashFlow() {
     html += '<th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:#555;">รับเงินแล้ว</th>';
     html += '</tr></thead><tbody>';
 
-    rows.forEach(function(iv) {
+    items.forEach(function(x) {
+      var iv = x.iv;
+      var displayDate = x.displayDate;
       var isPaid = iv.status === 'paid';
-      var isOverdue = !isPaid && iv.payDate < today;
-      var rowBg = isPaid ? '' : (isOverdue ? 'background:#fff9f9;' : '');
+      var isEst = !!iv._isEstimated;
+      var isCheque = iv.payMethod === 'เช็ค' && iv.chequeDate && !isEst;
+      var isOverdue = !isPaid && !isEst && displayDate < today;
+      var rowBg = isEst ? 'background:#f9fafb;' : (isPaid ? '' : (isOverdue ? 'background:#fff9f9;' : ''));
+
+      // วันที่แสดง
+      var dateCell = fmtD(displayDate);
+      if (isEst) {
+        dateCell = '<span style="color:#9ca3af;">' + fmtD(displayDate) + '</span> <span style="font-size:10px;color:#9ca3af;font-weight:600;">(ประเมิน)</span>';
+      } else if (isCheque) {
+        dateCell = fmtD(displayDate) + ' <span style="font-size:10px;background:#eff6ff;color:#2563eb;font-weight:700;padding:1px 5px;border-radius:4px;">เช็ค</span>';
+      }
+
       html += '<tr style="border-bottom:1px solid #f0f2f5;'+rowBg+'">';
-      html += '<td style="padding:9px 12px;color:#555;">'+fmtD(iv.payDate)+'</td>';
-      html += '<td style="padding:9px 12px;font-weight:600;">'+h(iv.custName)+'</td>';
+      html += '<td style="padding:9px 12px;color:#555;">'+dateCell+'</td>';
+      html += '<td style="padding:9px 12px;font-weight:600;'+(isEst?'color:#9ca3af;':'')+'">'+h(iv.custName)+'</td>';
       html += '<td style="padding:9px 12px;color:#888;font-size:12px;">'+h(iv.no||'')+'</td>';
-      html += '<td style="padding:9px 12px;text-align:right;font-weight:700;font-family:monospace;">'+fmt(iv.total)+'</td>';
+      html += '<td style="padding:9px 12px;text-align:right;font-weight:700;font-family:monospace;'+(isEst?'color:#9ca3af;':'')+'">'+fmt(iv.total)+'</td>';
       html += '<td style="padding:9px 12px;text-align:center;">';
       if (isPaid) {
         html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#e8f5e9;border-radius:4px;border:2px solid #27ae60;">✓</span>';
+      } else if (isEst) {
+        html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;border:2px dashed #d1d5db;"></span>';
       } else {
         html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;border:2px solid #ddd;"></span>';
       }
       html += '</td></tr>';
     });
 
-    // Month subtotal row
     html += '<tr style="background:#f7f8fa;font-weight:700;">';
     html += '<td colspan="3" style="padding:9px 12px;font-size:13px;">รวมเดือน '+thaiMonths[parseInt(p[1])]+'</td>';
-    html += '<td style="padding:9px 12px;text-align:right;font-family:monospace;">'+fmt(monthTotal)+'</td>';
+    html += '<td style="padding:9px 12px;text-align:right;font-family:monospace;">'+fmt(monthTotal)+(monthEst?' <span style="font-size:11px;color:#9ca3af;font-weight:400;">+'+fmt(monthEst)+'(ประเมิน)</span>':'')+'</td>';
     html += '<td style="padding:9px 12px;text-align:center;font-size:12px;color:#27ae60;">'+fmt(monthPaid)+' ✓</td>';
     html += '</tr>';
     html += '</tbody></table></div>';
   });
 
-  // Grand total
   html += '<div style="background:#1a1a2e;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">';
-  html += '<span style="color:#aab0c6;font-size:13px;">ยอดรวมทั้งปี</span>';
+  html += '<span style="color:#aab0c6;font-size:13px;">ยอดรวมทั้งปี (ไม่รวมประเมิน)</span>';
   html += '<div style="display:flex;gap:24px;">';
   html += '<span style="color:#fff;font-weight:700;font-size:15px;">'+fmt(grandTotal)+' ฿</span>';
   html += '<span style="color:#4ade80;font-weight:700;font-size:15px;">รับแล้ว '+fmt(grandPaid)+' ฿</span>';
