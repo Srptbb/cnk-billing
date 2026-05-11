@@ -2876,8 +2876,7 @@ function exportCashFlow() {
     var row = [mLabel, iv.payDate||'', iv.custName||'', iv.no||'', iv.total||0, status, iv.paidDate||''];
     rows.push(row.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(','));
   });
-  var csv = '﻿' + rows.join('
-');
+  var csv = '\uFEFF' + rows.join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
