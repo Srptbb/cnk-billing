@@ -863,6 +863,8 @@ function loadAll(){
   loadProfiles(null);
   apiGet('customers',function(d){
     custs = d.map(function(c){
+      // Force n เป็น string เสมอ
+      if (c.n !== undefined) c.n = String(c.n);
       if (c.c && typeof c.c !== 'string') {
         c.c = Array.isArray(c.c) ? c.c.join(',') : String(c.c);
       }
@@ -1040,7 +1042,7 @@ function acC(v){
   var dd=document.getElementById('dd1');
   // ใช้ค่าจาก element โดยตรงเพื่อ handle IME ภาษาไทย
   var actualV = document.getElementById('cn').value || v || '';
-  var list=actualV?custs.filter(function(c){return c.n.toLowerCase().includes(actualV.toLowerCase());}):custs;
+  var list=actualV?custs.filter(function(c){return c.n&&String(c.n).toLowerCase().includes(actualV.toLowerCase());}):custs;
   v = actualV;
   var out=list.map(function(c){return '<div class="ai" onclick="pkC('+c.id+')"><div>'+h(c.n)+'</div>'+(c.c?'<div class="as">'+h(c.c)+'</div>':'')+'</div>';}).join('');
   if(v&&!custs.find(function(c){return c.n.toLowerCase()===v.toLowerCase();})){
@@ -1077,7 +1079,7 @@ function acCt(v){
 function pkCt(n){document.getElementById('cc').value=n;document.getElementById('dd2').classList.remove('on');}
 function acF(v){
   var dd=document.getElementById('dd3');
-  var list=v?custs.filter(function(c){return c.n.toLowerCase().includes(v.toLowerCase());}):custs;
+  var list=v?custs.filter(function(c){return c.n&&String(c.n).toLowerCase().includes(v.toLowerCase());}):custs;
   var out='<div class="ai" onclick="pkF(\'\')">— ทั้งหมด —</div>';
   out+=list.map(function(c){return '<div class="ai" onclick="pkF(\''+c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')">'+h(c.n)+'</div>';}).join('');
   dd.innerHTML=out;dd.classList.add('on');rdL();
