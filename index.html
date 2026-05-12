@@ -150,7 +150,7 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div class="r2">
     <div class="fg"><label>ชื่อบริษัท / ร้านค้า *</label>
-      <div class="aw"><input id="cn" type="text" placeholder="พิมพ์หรือเลือกลูกค้า..." autocomplete="off" oninput="acC(this.value)" onfocus="acC(this.value)"><div id="dd1" class="al"></div></div>
+      <div class="aw"><input id="cn" type="text" placeholder="พิมพ์หรือเลือกลูกค้า..." autocomplete="off" oninput="acC(this.value)" onkeyup="acC(this.value)" onfocus="acC(this.value)"><div id="dd1" class="al"></div></div>
     </div>
     <div class="fg"><label>ผู้ติดต่อ / เซลล์</label>
       <div class="aw"><input id="cc" type="text" placeholder="เลือกหลังจากเลือกลูกค้า..." autocomplete="off" oninput="acCt(this.value)" onfocus="acCt(this.value)" data-cid=""><div id="dd2" class="al"></div></div>
@@ -186,7 +186,7 @@ textarea{resize:vertical;min-height:64px;}
   <div class="ctitle">รายการบิลทั้งหมด <button class="btn bo bsm" style="color:#e74c3c;border-color:#e74c3c;margin-left:8px;" onclick="clearCancelledBills()">ลบรายการที่ยกเลิก</button></div>
   <div class="r3" style="margin-bottom:18px;">
     <div class="fg"><label>ค้นหาลูกค้า</label>
-      <div class="aw"><input id="fs" type="text" placeholder="พิมพ์หรือเลือกลูกค้า..." autocomplete="off" oninput="acF(this.value)" onfocus="acF(this.value)"><div id="dd3" class="al"></div></div>
+      <div class="aw"><input id="fs" type="text" placeholder="พิมพ์หรือเลือกลูกค้า..." autocomplete="off" oninput="acF(this.value)" onkeyup="acF(this.value)" onfocus="acF(this.value)"><div id="dd3" class="al"></div></div>
     </div>
     <div class="fg"><label>ประเภท</label><select id="ft" onchange="rdL()"><option value="">ทั้งหมด</option><option value="credit">เครดิต</option><option value="cash">เงินสด</option></select></div>
     <div class="fg"><label>สถานะ</label><select id="fst" onchange="rdL()"><option value="">ทั้งหมด</option><option value="active">ปกติ</option><option value="cancelled">ยกเลิก</option></select></div>
@@ -1038,7 +1038,10 @@ function genNo(){
 }
 function acC(v){
   var dd=document.getElementById('dd1');
-  var list=v?custs.filter(function(c){return c.n.toLowerCase().includes(v.toLowerCase());}):custs;
+  // ใช้ค่าจาก element โดยตรงเพื่อ handle IME ภาษาไทย
+  var actualV = document.getElementById('cn').value || v || '';
+  var list=actualV?custs.filter(function(c){return c.n.toLowerCase().includes(actualV.toLowerCase());}):custs;
+  v = actualV;
   var out=list.map(function(c){return '<div class="ai" onclick="pkC('+c.id+')"><div>'+h(c.n)+'</div>'+(c.c?'<div class="as">'+h(c.c)+'</div>':'')+'</div>';}).join('');
   if(v&&!custs.find(function(c){return c.n.toLowerCase()===v.toLowerCase();})){
     out+='<div class="ai" style="color:#4f8ef7;font-weight:600;border-top:1px solid #f0f2f5;" onclick="qkC()">+ เพิ่ม "'+h(v)+'" เป็นลูกค้าใหม่</div>';
