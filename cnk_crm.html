@@ -547,54 +547,7 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
       <button class="btn" style="flex:1" onclick="closeModal('modal-qlog')">ยกเลิก</button>
       <button class="btn btn-orange" style="flex:1" onclick="saveQuickLog()">💾 บันทึก</button>
     </div>
-  
-<!-- Modal: แก้ไข log -->
-<div class="modal-overlay" id="modal-editlog">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-header">
-      <div style="font-size:15px;font-weight:700">✏️ แก้ไขบันทึกการติดต่อ</div>
-      <button class="btn btn-sm" onclick="closeModal('modal-editlog')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
-    </div>
-    <input type="hidden" id="el-id">
-    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">ลูกค้า: <strong id="el-cust"></strong></div>
-    <div class="form-group">
-      <label class="form-label">วันที่</label>
-      <input type="date" id="el-date" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
-    </div>
-    <div class="form-group">
-      <label class="form-label">วิธีติดต่อ</label>
-      <select id="el-method" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
-        <option value="call">📞 โทรศัพท์</option>
-        <option value="visit">🚗 เยี่ยม</option>
-        <option value="line">💬 Line</option>
-        <option value="other">อื่นๆ</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ผลลัพธ์</label>
-      <select id="el-result" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
-        <option value="interested">✅ สนใจ / มีงาน</option>
-        <option value="callback">📅 ขอโทรกลับ</option>
-        <option value="notready">⏸ ยังไม่พร้อม</option>
-        <option value="noanswer">📵 ไม่รับสาย</option>
-        <option value="other">อื่นๆ</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">บันทึก</label>
-      <textarea id="el-note" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;resize:vertical;min-height:70px;"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Follow-up วันที่</label>
-      <input type="date" id="el-followup" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
-    </div>
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn" style="flex:1;background:none;border:1.5px solid var(--border);color:var(--text2)" onclick="closeModal('modal-editlog')">ยกเลิก</button>
-      <button class="btn btn-orange" style="flex:1" onclick="saveEditLog()">💾 บันทึก</button>
-    </div>
   </div>
-</div>
-</div>
 </div>
 
 <script>
@@ -639,7 +592,7 @@ function loadUserProfile() {
 
 const TARGETS = {"ช.วิวรรธน์":{"shop":"Pra","target":2400},"เมย์ฟลาวเวอร์":{"shop":"Pra","target":16300},"ถนอมวงศ์":{"shop":"Pra","target":11800},"วิสันต์":{"shop":"Pra","target":3700},"แกรนด์พริ้นท์ติ้ง":{"shop":"Pra","target":4550},"แพคเกจดี":{"shop":"Pra","target":8333},"แท่นทอง":{"shop":"Pra","target":7300},"ซิลล์":{"shop":"Pra","target":3000},"วินแพ็คเกจ":{"shop":"Pra","target":7000},"เฮียป่องปั้มกล่อง":{"shop":"Pra","target":1000},"เฮียบุญโรจน์":{"shop":"Pra","target":6567},"อุดมลาภการพิมพ์":{"shop":"Pra","target":1800},"ดีเอฟ":{"shop":"Pra","target":1200},"กวีการพิมพ์":{"shop":"Pra","target":1150},"คุณหนุ่ม":{"shop":"Pra","target":3233},"78":{"shop":"Pra","target":1567},"ภัคดี":{"shop":"Pra","target":817},"ไพศาล":{"shop":"Pra","target":800},"พระจันทร์พิมพ์ทอง":{"shop":"Pra","target":1000},"เฮียไพโรจน์":{"shop":"Pra","target":4133},"แรบบิท":{"shop":"Pra","target":300},"นิยมกิจ บรรจุภัณฑ์":{"shop":"Pra","target":800},"NC":{"shop":"Pra","target":2867},"อาจพงษ์":{"shop":"Pra","target":7000},"สุขสวัสดิ์ 70":{"shop":"Pra","target":3600},"ทวีศักดิ์":{"shop":"Pra","target":2100},"คุณแบงค์":{"shop":"Pra","target":2000},"คุณนก":{"shop":"Pra","target":900},"เฮียจิน":{"shop":"Pra","target":500},"คอนวอย":{"shop":"Pra","target":300},"วาริน":{"shop":"Pra","target":500},"บริษัท พีเอสเอส พริ้นติ้ง แอนด์แพคเกจจิ้ง จำกัด":{"shop":"Ka","target":15167},"หจก. เอส.ออฟเซ็ทกราฟฟิคดีไซน์":{"shop":"Ka","target":7767},"บริษัท พี.เอส. ซัคเซส พริ้นติ้ง จำกัด":{"shop":"Ka","target":5100},"Image Art co., ltd":{"shop":"Ka","target":25167},"บริษัท ฐิติพรการพิมพ์ จำกัด":{"shop":"Ka","target":22217},"บริษัท เสริมมิตร พริ้นติ้ง จำกัด":{"shop":"Ka","target":8817},"บริษัท กิตติชัย พริ้นติ้ง จำกัด":{"shop":"Ka","target":9833},"พิมพ์งามดี":{"shop":"Ka","target":8733},"บริษัท ทริปเปิ้ล เอส พริ้นท์ติ้ง จำกัด":{"shop":"Ka","target":2800},"บริษัท ส.โรจนกิจ ปริ้นติ้ง จำกัด":{"shop":"Ka","target":4250},"คุณตุ๊กตา":{"shop":"Ka","target":700},"โรงปั้มอ๊อด53":{"shop":"Ka","target":12133},"โพธิ์ทองการพิมพ์":{"shop":"Ka","target":1100},"คุณนก66":{"shop":"Ka","target":1300},"หจก. รุ่งเรืองสาส์นการพิมพ์":{"shop":"Ka","target":3900},"ธัญญรัตน์":{"shop":"Ka","target":2350},"เล็กพาณิชย์":{"shop":"Ka","target":10867},"คุณวงศ์เดือน":{"shop":"Ka","target":3650},"สุวรรณการพิมพ์":{"shop":"Ka","target":1533},"ศ.พยุงการพิมพ์":{"shop":"Ka","target":1100},"เฮียวิทย์":{"shop":"Ka","target":1600},"หจก. ประยูรสาส์นไทย การพิมพ์":{"shop":"Ka","target":2300},"หจก. เพเพอร์คราฟท์ แพ็คเกจจิ้ง":{"shop":"Ka","target":2767},"หจก. จรัส พริ้นติ้ง":{"shop":"Ka","target":2975},"จันทร์ การพิมพ์":{"shop":"Ka","target":850},"หจก. ซี.ไดคัตติ้ง":{"shop":"Ka","target":2950},"บริษัท ริชแมกซ์ อินเตอร์พริ้นท์ จำกัด":{"shop":"Ka","target":11567},"บริษัท ริงโก้ จำกัด":{"shop":"Ka","target":1500},"บริษัท เอส.อาร์. แสตมป์ปิ้ง พลัส จำกัด":{"shop":"Ka","target":2100},"มันเดย์":{"shop":"Ka","target":3300},"วัฒนกันต์":{"shop":"Ka","target":1400},"ประเสริฐ ป33":{"shop":"Ka","target":2300},"VS printing":{"shop":"Ka","target":2350},"บริษัท โกลด์เด้นลีดเดอร์ จำกัด":{"shop":"Ka","target":5050},"คุณนัด":{"shop":"Ka","target":4400},"คุณจู้":{"shop":"Ka","target":2650},"ทองเอก":{"shop":"Ka","target":1200},"ไทยอาร์ต":{"shop":"Ka","target":900},"พฤหัสษา":{"shop":"Ka","target":3400},"บริษัท พี.อาร์.พริ้นติ้ง แอนด์ กราฟฟิค ดีไซน์ จำกัด":{"shop":"Ka","target":5850},"VIP":{"shop":"Ka","target":3400},"สมคิด":{"shop":"Ka","target":2000},"สมหมาย ท่าพระ":{"shop":"Ka","target":1800},"หจก.สุชาติ พริ้นติ้ง":{"shop":"Ka","target":1300},"เจริญรัตน์":{"shop":"Ka","target":2000},"บริษัท เอพริล เรน พริ้นติ้ง จำกัด":{"shop":"Ka","target":767},"โชคประเก็น":{"shop":"Ka","target":3700}};
 
-let allPaceRows = [], allFlags = [], allLogs = [];
+let allPaceRows = [], allFlags = [], allLogs = [], allCustomers = [];
 let currentCust = '';
 const now = new Date();
 const day = now.getDate();
@@ -663,6 +616,7 @@ async function loadAll() {
   ]);
 
   allFlags = dashData.flags || [];
+  allCustomers = dashData.allCustomers || [];
   allLogs = Array.isArray(logData) ? logData : [];
 
   const actualMap = {};
@@ -762,13 +716,9 @@ function flagCardHTML(f) {
   const shopTag = f.shop==='Pra'?'<span class="tag tag-red">Pra</span>':'<span class="tag tag-blue">Ka</span>';
   const val = f.monthsGone>0?f.monthsGone+' เดือน':'-'+f.dropPct+'%';
   const valCls = f.status;
-  // Badge ติดต่อแล้ว — แสดงถ้ามี lastContact แต่ไม่เปลี่ยน flag status
-  const contactBadge = f.lastContact
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px">📞 ติดต่อแล้ว ${f.lastContact.date}</span>`
-    : '';
   return `<div class="flag-card ${f.status}" onclick="openCust('${esc(f.custName)}')">
     <div class="flag-info">
-      <div class="flag-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">${f.custName} ${shopTag}${contactBadge}</div>
+      <div class="flag-name">${f.custName} ${shopTag}</div>
       <div class="flag-reason">${f.reason}</div>
     </div>
     <div class="flag-meta">
@@ -781,32 +731,40 @@ function flagCardHTML(f) {
 }
 
 function renderCustomers() {
-  buildCustTable(allFlags);
+  buildCustTable(allCustomers);
 }
 
-function buildCustTable(flags) {
-  if (!flags.length) { document.getElementById('cust-table').innerHTML='<div class="empty">ไม่พบข้อมูล</div>'; return; }
-  const rows = flags.map(f => {
+function buildCustTable(custs) {
+  if (!custs.length) { document.getElementById('cust-table').innerHTML='<div class="empty">ไม่พบข้อมูล</div>'; return; }
+  const rows = custs.map(f => {
     const shopTag = f.shop==='Pra'?'<span class="tag tag-red">Pra</span>':'<span class="tag tag-blue">Ka</span>';
-    const stTag = f.status==='red'?'<span class="tag tag-red">🔴 ด่วน</span>':f.status==='orange'?'<span class="tag tag-orange">🟠 ติดตาม</span>':'<span class="tag tag-yellow">🟡 รอดูผล</span>';
+    const stTag = f.status==='red'
+      ? '<span class="tag tag-red">🔴 ด่วน</span>'
+      : f.status==='orange'
+      ? '<span class="tag tag-orange">🟠 ติดตาม</span>'
+      : f.status==='yellow'
+      ? '<span class="tag tag-yellow">🟡 รอดูผล</span>'
+      : '<span style="color:var(--text3);font-size:11px">✅ ปกติ</span>';
     const lc = f.lastContact?`<span style="color:var(--green);font-size:11px;font-weight:600">✅ ${f.lastContact.date}</span>`:`<span style="color:var(--text3);font-size:11px">—</span>`;
+    const thisM = f.thisMonthActual>0?`<span style="color:var(--green);font-size:11px;font-weight:600">${fmt(f.thisMonthActual)} ฿</span>`:`<span style="color:var(--text3);font-size:11px">—</span>`;
     return `<tr onclick="openCust('${esc(f.custName)}')">
       <td><strong>${f.custName}</strong></td>
       <td>${shopTag}</td>
       <td>${stTag}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:700">${fmt(f.peakAmount)} ฿</td>
+      <td style="text-align:right;font-family:var(--mono)">${thisM}</td>
       <td style="text-align:center;font-family:var(--mono)">${f.monthsGone>0?f.monthsGone+' เดือน':'—'}</td>
       <td>${lc}</td>
       <td><button class="btn btn-ghost-orange btn-sm" onclick="event.stopPropagation();openQLog('${esc(f.custName)}')">📝</button></td>
     </tr>`;
   }).join('');
-  document.getElementById('cust-table').innerHTML = `<table><thead><tr><th>ลูกค้า</th><th>ร้าน</th><th>สถานะ</th><th style="text-align:right">ยอดสูงสุด</th><th style="text-align:center">หายไป</th><th>ติดต่อล่าสุด</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('cust-table').innerHTML = `<table><thead><tr><th>ลูกค้า</th><th>ร้าน</th><th>สถานะ</th><th style="text-align:right">Peak</th><th style="text-align:right">เดือนนี้</th><th style="text-align:center">หายไป</th><th>ติดต่อล่าสุด</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function filterCusts(q) {
   const st = document.getElementById('c-status').value;
   const sh = document.getElementById('c-shop').value;
-  buildCustTable(allFlags.filter(f=>(!q||f.custName.includes(q))&&(!st||f.status===st)&&(!sh||f.shop===sh)));
+  buildCustTable(allCustomers.filter(f=>(!q||f.custName.includes(q))&&(!st||f.status===st)&&(!sh||f.shop===sh)));
 }
 
 function renderLogs() {
@@ -815,11 +773,7 @@ function renderLogs() {
     <div class="log-card">
       <div class="log-header">
         <div class="log-cust">${l.custName||'—'}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="log-date">${l.date||'—'}</div>
-          <button class="btn btn-sm" style="padding:2px 8px;font-size:11px;background:none;border:1px solid var(--border);color:var(--text2)" onclick="event.stopPropagation();openEditLog('${esc(String(l.id))}')" title="แก้ไข">✏️</button>
-          <button class="btn btn-sm" style="padding:2px 8px;font-size:11px;background:none;border:1px solid #fca5a5;color:var(--red)" onclick="event.stopPropagation();deleteLog('${esc(String(l.id))}','${esc(l.custName||'')}')" title="ลบ">🗑</button>
-        </div>
+        <div class="log-date">${l.date||'—'}</div>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${mLabel(l.method)} · ${rLabel(l.result)}</div>
       <div class="log-body">${l.note||'—'}</div>
@@ -830,47 +784,8 @@ function renderLogs() {
     </div>`).join('');
 }
 
-function openEditLog(id) {
-  const l = allLogs.find(x=>String(x.id)===String(id));
-  if (!l) return;
-  document.getElementById('el-id').value = l.id;
-  document.getElementById('el-cust').textContent = l.custName||'—';
-  document.getElementById('el-date').value = l.date||'';
-  document.getElementById('el-method').value = l.method||'call';
-  document.getElementById('el-result').value = l.result||'interested';
-  document.getElementById('el-note').value = l.note||'';
-  document.getElementById('el-followup').value = l.followupDate||'';
-  document.getElementById('modal-editlog').classList.add('open');
-}
-
-async function saveEditLog() {
-  const id = document.getElementById('el-id').value;
-  const l = allLogs.find(x=>String(x.id)===String(id));
-  if (!l) return;
-  const data = {
-    date: document.getElementById('el-date').value,
-    method: document.getElementById('el-method').value,
-    result: document.getElementById('el-result').value,
-    note: document.getElementById('el-note').value,
-    followupDate: document.getElementById('el-followup').value,
-  };
-  try {
-    await apiGet({ _method:'update', table:'crm_logs', id: id, data: JSON.stringify(data) });
-    closeModal('modal-editlog');
-    await loadAll();
-  } catch(e) { alert('แก้ไขไม่ได้: '+e.message); }
-}
-
-async function deleteLog(id, custName) {
-  if (!confirm('ลบบันทึกการติดต่อของ '+custName+' ใช่ไหม?')) return;
-  try {
-    await apiGet({ _method:'delete', table:'crm_logs', id: id });
-    await loadAll();
-  } catch(e) { alert('ลบไม่ได้: '+e.message); }
-}
-
 function populateCustSelect() {
-  const names = [...new Set(allFlags.map(f=>f.custName))].sort();
+  const names = [...new Set(allCustomers.map(f=>f.custName))].sort();
   const html = '<option value="">— เลือกลูกค้า —</option>' + names.map(n=>`<option value="${esc(n)}">${n}</option>`).join('');
   document.getElementById('lf-cust').innerHTML = html;
 }
