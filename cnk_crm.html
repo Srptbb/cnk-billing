@@ -940,9 +940,13 @@ function openQLog(name) {
   document.getElementById('modal-qlog').classList.add('open');
 }
 
+let _savingLog = false; // ป้องกันบันทึกซ้ำ
+
 async function saveLog() {
+  if (_savingLog) return;
   const cn = document.getElementById('lf-cust').value;
   if (!cn) { alert('กรุณาเลือกลูกค้า'); return; }
+  _savingLog = true;
   const data = { id:'LOG-'+Date.now(), custName:cn, date:document.getElementById('lf-date').value, method:document.getElementById('lf-method').value, result:document.getElementById('lf-result').value, note:document.getElementById('lf-note').value, followupDate:document.getElementById('lf-followup').value, by:BY, ts:new Date().toISOString() };
   try {
     await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
@@ -951,10 +955,13 @@ async function saveLog() {
     await loadAll();
     alert('บันทึกสำเร็จ!');
   } catch(e) { alert('บันทึกไม่ได้: '+e.message); }
+  finally { _savingLog = false; }
 }
 
 async function saveQuickLog() {
+  if (_savingLog) return;
   if (!currentCust) return;
+  _savingLog = true;
   const data = { id:'LOG-'+Date.now(), custName:currentCust, date:new Date().toISOString().slice(0,10), method:document.getElementById('ql-method').value, result:document.getElementById('ql-result').value, note:document.getElementById('ql-note').value, followupDate:document.getElementById('ql-followup').value, by:BY, ts:new Date().toISOString() };
   try {
     await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
@@ -962,6 +969,7 @@ async function saveQuickLog() {
     await loadAll();
     alert('บันทึกสำเร็จ!');
   } catch(e) { alert('บันทึกไม่ได้: '+e.message); }
+  finally { _savingLog = false; }
 }
 
 function nav(id, btn) {
