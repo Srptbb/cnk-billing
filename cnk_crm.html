@@ -550,6 +550,53 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
   </div>
 </div>
 
+<!-- Modal: แก้ไข log -->
+<div class="modal-overlay" id="modal-editlog">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div style="font-size:15px;font-weight:700">✏️ แก้ไขบันทึกการติดต่อ</div>
+      <button class="btn btn-sm" onclick="closeModal('modal-editlog')" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <input type="hidden" id="el-id">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">ลูกค้า: <strong id="el-cust"></strong></div>
+    <div class="form-group">
+      <label class="form-label">วันที่</label>
+      <input type="date" id="el-date" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">วิธีติดต่อ</label>
+      <select id="el-method" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
+        <option value="call">📞 โทรศัพท์</option>
+        <option value="visit">🚗 เยี่ยม</option>
+        <option value="line">💬 Line</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ผลลัพธ์</label>
+      <select id="el-result" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
+        <option value="interested">✅ สนใจ / มีงาน</option>
+        <option value="callback">📅 ขอโทรกลับ</option>
+        <option value="notready">⏸ ยังไม่พร้อม</option>
+        <option value="noanswer">📵 ไม่รับสาย</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">บันทึก</label>
+      <textarea id="el-note" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;resize:vertical;min-height:70px;"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Follow-up วันที่</label>
+      <input type="date" id="el-followup" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn" style="flex:1;background:none;border:1.5px solid var(--border);color:var(--text2)" onclick="closeModal('modal-editlog')">ยกเลิก</button>
+      <button class="btn btn-orange" style="flex:1" onclick="saveEditLog()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
 let BY = 'ผู้ใช้';
@@ -624,22 +671,32 @@ async function loadAll() {
   allCustomers = dashData.allCustomers || [];
   allLogs = Array.isArray(logData) ? logData : [];
 
+  // ใช้ billThisMonth จาก dashboard (backend match ชื่อให้แล้ว)
   const actualMap = {};
-  (Array.isArray(billData) ? billData : []).forEach(b => {
-    if (b.status === 'cancelled') return;
-    if (String(b.date||'').slice(0,7) !== thisMonth) return;
-    const cn = String(b.cn||'').trim();
-    if (!cn) return;
-    actualMap[cn] = (actualMap[cn]||0) + (Number(b.grand)||0);
-  });
+  const billThisMonthArr = dashData.billThisMonth || [];
+  billThisMonthArr.forEach(function(r) { actualMap[r.custName] = r.amount; });
+  // fallback: ถ้า backend ไม่มี billThisMonth ให้ดึงจาก bills เอง
+  if (!billThisMonthArr.length) {
+    (Array.isArray(billData) ? billData : []).forEach(b => {
+      if (b.status === 'cancelled') return;
+      if (String(b.date||'').slice(0,7) !== thisMonth) return;
+      const cn = String(b.cn||'').trim();
+      if (!cn) return;
+      actualMap[cn] = (actualMap[cn]||0) + (Number(b.grand)||0);
+    });
+  }
 
-  allPaceRows = Object.entries(TARGETS).map(([name, info]) => {
+  // รวมทุกเจ้าจาก TARGETS + actualMap
+  const allNames = new Set([...Object.keys(TARGETS), ...Object.keys(actualMap)]);
+  allPaceRows = Array.from(allNames).map(name => {
+    const info = TARGETS[name] || {};
     const actual = actualMap[name] || 0;
-    const target = info.target;
+    const target = info.target || 0;
+    const shop = info.shop || '';
     const pace = day > 0 ? Math.round((actual/day)*daysInMonth) : 0;
     const pct = target > 0 ? Math.round((pace/target)*100) : 0;
-    const status = pct >= 90 ? 'green' : pct >= 60 ? 'orange' : 'red';
-    return { name, shop: info.shop, target, actual, pace, pct, gap: target-actual, status };
+    const status = target === 0 ? 'none' : (pct >= 90 ? 'green' : pct >= 60 ? 'orange' : 'red');
+    return { name, shop, target, actual, pace, pct, gap: target-actual, status };
   });
 
   updateBanner();
@@ -719,16 +776,21 @@ function renderFlags() {
 
 function flagCardHTML(f) {
   const shopTag = f.shop==='Pra'?'<span class="tag tag-red">Pra</span>':'<span class="tag tag-blue">Ka</span>';
-  const val = f.monthsGone>0?f.monthsGone+' เดือน':'-'+f.dropPct+'%';
-  const valCls = f.status;
+  const val = f.monthsGone>0?f.monthsGone+' เดือน':'—';
+  const contactBadge = f.lastContact
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;">📞 ติดต่อแล้ว ${f.lastContact.date}</span>`
+    : '';
   return `<div class="flag-card ${f.status}" onclick="openCust('${esc(f.custName)}')">
     <div class="flag-info">
       <div class="flag-name">${f.custName} ${shopTag}</div>
-      <div class="flag-reason">${f.reason}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;">
+        <div class="flag-reason">${f.reason}</div>
+        ${contactBadge}
+      </div>
     </div>
     <div class="flag-meta">
-      <div class="flag-val ${valCls}">${val}</div>
-      <div class="flag-val-label">${f.monthsGone>0?'ที่หายไป':'ยอดลด'}</div>
+      <div class="flag-val ${f.status}">${val}</div>
+      <div class="flag-val-label">${f.monthsGone>0?'เดือน':''}</div>
       <div class="flag-peak">peak ${fmt(f.peakAmount)} ฿</div>
     </div>
     <button class="btn btn-ghost-orange btn-sm" onclick="event.stopPropagation();openQLog('${esc(f.custName)}')">📝 บันทึก</button>
@@ -774,11 +836,15 @@ function filterCusts(q) {
 
 function renderLogs() {
   if (!allLogs.length) { document.getElementById('log-list').innerHTML='<div class="empty">📝 ยังไม่มีบันทึก</div>'; return; }
-  document.getElementById('log-list').innerHTML = allLogs.slice(0,30).map(l=>`
+  document.getElementById('log-list').innerHTML = allLogs.slice(0,50).map(l=>`
     <div class="log-card">
       <div class="log-header">
         <div class="log-cust">${l.custName||'—'}</div>
-        <div class="log-date">${l.date||'—'}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="log-date">${l.date||'—'}</div>
+          <button class="btn btn-sm" style="padding:2px 8px;font-size:11px;background:none;border:1px solid var(--border);color:var(--text2);" onclick="event.stopPropagation();openEditLog('${esc(String(l.id||''))}')">✏️</button>
+          <button class="btn btn-sm" style="padding:2px 8px;font-size:11px;background:none;border:1px solid #fca5a5;color:var(--red);" onclick="event.stopPropagation();deleteLog('${esc(String(l.id||''))}','${esc(l.custName||'')}')">🗑</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${mLabel(l.method)} · ${rLabel(l.result)}</div>
       <div class="log-body">${l.note||'—'}</div>
@@ -787,6 +853,43 @@ function renderLogs() {
         ${l.followupDate?`<div class="log-followup">📅 Follow-up: ${l.followupDate}</div>`:''}
       </div>
     </div>`).join('');
+}
+
+function openEditLog(id) {
+  const l = allLogs.find(x=>String(x.id)===String(id));
+  if (!l) return;
+  document.getElementById('el-id').value = l.id;
+  document.getElementById('el-cust').textContent = l.custName||'—';
+  document.getElementById('el-date').value = l.date||'';
+  document.getElementById('el-method').value = l.method||'call';
+  document.getElementById('el-result').value = l.result||'interested';
+  document.getElementById('el-note').value = l.note||'';
+  document.getElementById('el-followup').value = l.followupDate||'';
+  document.getElementById('modal-editlog').classList.add('open');
+}
+
+async function saveEditLog() {
+  const id = document.getElementById('el-id').value;
+  const data = {
+    date: document.getElementById('el-date').value,
+    method: document.getElementById('el-method').value,
+    result: document.getElementById('el-result').value,
+    note: document.getElementById('el-note').value,
+    followupDate: document.getElementById('el-followup').value,
+  };
+  try {
+    await apiGet({ _method:'update', table:'crm_logs', id: id, data: JSON.stringify(data) });
+    closeModal('modal-editlog');
+    await loadAll();
+  } catch(e) { alert('แก้ไขไม่ได้: '+e.message); }
+}
+
+async function deleteLog(id, custName) {
+  if (!confirm('ลบบันทึกการติดต่อของ '+custName+'?')) return;
+  try {
+    await apiGet({ _method:'delete', table:'crm_logs', id: id });
+    await loadAll();
+  } catch(e) { alert('ลบไม่ได้: '+e.message); }
 }
 
 function populateCustSelect() {
