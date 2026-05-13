@@ -992,8 +992,26 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 document.getElementById('lf-date').value = new Date().toISOString().slice(0,10);
 document.getElementById('alert-banner').style.display = 'flex';
 
-loadUserProfile();
-loadAll();
+// ===== AUTH CHECK =====
+// ต้องมี session จาก index.html ก่อน ถ้าไม่มี redirect ไป login
+(function() {
+  var saved = sessionStorage.getItem('cnk_user');
+  if (!saved) {
+    // ไม่มี session → redirect ไป index.html
+    window.location.href = 'https://cnk-billing.vercel.app/index.html';
+    return;
+  }
+  try {
+    var user = JSON.parse(saved);
+    if (!user || !user.email) throw new Error('invalid');
+    // มี session → โหลด CRM ต่อได้
+    loadUserProfile();
+    loadAll();
+  } catch(e) {
+    sessionStorage.removeItem('cnk_user');
+    window.location.href = 'https://cnk-billing.vercel.app/index.html';
+  }
+})();
 </script>
 </body>
 </html>
