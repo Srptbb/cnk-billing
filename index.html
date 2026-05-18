@@ -360,7 +360,8 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <!-- ===== ใบเสนอราคา: สร้างใหม่ ===== -->
-<div id="sec-qt-create" class="sec">
+<div id="sec-qt-create" class="sec" style="padding:0;">
+<div class="main">
 <div class="card">
   <div class="ctitle">สร้างใบเสนอราคา</div>
   <div class="r3">
@@ -375,9 +376,9 @@ textarea{resize:vertical;min-height:64px;}
     <div class="fg"><label>ผู้ติดต่อ</label><input id="qt-cc" type="text" placeholder="ชื่อผู้ติดต่อ"></div>
   </div>
   <div class="r1"><div class="fg"><label>ที่อยู่</label><textarea id="qt-ca"></textarea></div></div>
-  <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:10px;">รายการสินค้า / บริการ</div>
+  <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:10px;">รายการสินค้า / บริการ <span style="font-size:11px;font-weight:400;color:#999;">คลิก [รูป] เพื่อแนบรูปแต่ละรายการ</span></div>
   <table class="itbl">
-    <thead><tr><th style="width:50%">รายการ</th><th style="width:8%">จำนวน</th><th style="width:14%">ราคา/หน่วย</th><th style="width:13%">รวม</th><th style="width:10%"></th></tr></thead>
+    <thead><tr><th style="width:40%">รายการ</th><th style="width:7%">จำนวน</th><th style="width:12%">ราคา/หน่วย</th><th style="width:11%">รวม</th><th style="width:16%;text-align:center;">รูป</th><th style="width:8%"></th></tr></thead>
     <tbody id="qt-ib"></tbody>
   </table>
   <button class="btn bo bsm" onclick="addQtR()" style="margin-bottom:12px;">+ เพิ่มรายการ</button>
@@ -397,10 +398,12 @@ textarea{resize:vertical;min-height:64px;}
     <button class="btn bo" onclick="clrQtF()">ล้างฟอร์ม</button>
   </div>
 </div>
+</div><!-- end main -->
 </div>
 
 <!-- ===== ใบเสนอราคา: รายการ ===== -->
-<div id="sec-qt-list" class="sec">
+<div id="sec-qt-list" class="sec" style="padding:0;">
+<div class="main">
 <div class="card">
   <div class="ctitle">รายการใบเสนอราคา</div>
   <div class="r2" style="margin-bottom:16px;">
@@ -417,6 +420,7 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div id="qt-list" class="bl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีใบเสนอราคา</p></div>
 </div>
+</div><!-- end main -->
 </div>
 
 <div id="sec-profile" class="sec">
@@ -1200,6 +1204,41 @@ function getIt(){
   return items;
 }
 function trI(i){iRow=i;document.getElementById('fi').value='';document.getElementById('fi').click();}
+
+var qtImgRow = null;
+function trQtI(i) {
+  qtImgRow = i;
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = function(e) {
+    var f = e.target.files[0]; if(!f) return;
+    compressImage(f, 1200, 0.75, function(compressed) {
+      var tr = document.querySelector('#qt-ib tr[data-i="'+qtImgRow+'"]');
+      if(!tr) return;
+      var cell = tr.querySelectorAll('td')[4];
+      cell.innerHTML = '<div style="text-align:center;font-size:11px;color:#888;">&#8987; กำลังอัปโหลด...</div>';
+      var parts = compressed.split(',');
+      var mime = parts[0].match(/:(.*?);/)[1];
+      var byteStr = atob(parts[1]);
+      var arr = new Uint8Array(byteStr.length);
+      for(var x=0;x<byteStr.length;x++) arr[x]=byteStr.charCodeAt(x);
+      var blob = new Blob([arr],{type:mime});
+      var fd = new FormData();
+      fd.append('file',blob,'qt_'+Date.now()+'.jpg');
+      fd.append('upload_preset','cnk_bills');
+      fd.append('folder','cnk_bills');
+      fetch('https://api.cloudinary.com/v1_1/daxjl6uik/image/upload',{method:'POST',body:fd})
+        .then(function(r){return r.json();})
+        .then(function(res){
+          if(res.error){cell.innerHTML='<div style="color:#e74c3c;font-size:11px;">อัปโหลดไม่สำเร็จ</div>';return;}
+          tr.dataset.img = res.secure_url;
+          cell.innerHTML = '<img src="'+res.secure_url+'" class="ipv" onclick="trQtI('+qtImgRow+')" title="คลิกเพื่อเปลี่ยนรูป">';
+          toast('อัปโหลดรูปสำเร็จ');
+        }).catch(function(){cell.innerHTML='<div style="color:#e74c3c;font-size:11px;">อัปโหลดไม่สำเร็จ</div>';});
+    });
+  };
+  inp.click();
+}
 function compressImage(file, maxWidth, quality, cb) {
   // Compress image before upload: resize + quality reduction
   var reader = new FileReader();
@@ -3070,10 +3109,12 @@ function useQtNewCust() {
 function addQtR() {
   var tb = document.getElementById('qt-ib');
   var i = qtRc++; var tr = document.createElement('tr');
+  tr.dataset.i = i; tr.dataset.img = '';
   tr.innerHTML = '<td><input type="text" placeholder="รายการสินค้า/บริการ"></td>'+
     '<td><input type="number" value="1" min="1" oninput="calcQt()" style="width:40px;text-align:center;"></td>'+
     '<td><input type="number" value="0" min="0" step="0.01" oninput="calcQt()" style="width:70px;text-align:right;"></td>'+
     '<td class="rt" style="font-weight:600;text-align:right;">0.00</td>'+
+    '<td style="text-align:center;"><div class="iph" onclick="trQtI('+i+')">[รูป]</div></td>'+
     '<td><button class="db" onclick="dlQtR(this)">X</button></td>';
   tb.appendChild(tr); calcQt();
 }
@@ -3106,7 +3147,7 @@ function getQtItems() {
     var d = inp[0]&&inp[0].value.trim();
     var q = parseFloat(inp[1]&&inp[1].value)||0;
     var p = parseFloat(inp[2]&&inp[2].value)||0;
-    if(d) items.push({d:d,q:q,p:p,t:q*p});
+    if(d) items.push({d:d,q:q,p:p,t:q*p,img:tr.dataset.img||''});
   });
   return items;
 }
