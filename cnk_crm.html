@@ -686,11 +686,23 @@ async function loadAll() {
     });
   }
 
-  // รวมทุกเจ้าจาก TARGETS + actualMap
-  const allNames = new Set([...Object.keys(TARGETS), ...Object.keys(actualMap)]);
-  allPaceRows = Array.from(allNames).map(name => {
-    const info = TARGETS[name] || {};
-    const actual = actualMap[name] || 0;
+  // รวมทุกเจ้าจาก TARGETS + actualMap โดย match ชื่อแบบ case-insensitive
+  // สร้าง normalMap สำหรับ actualMap
+  const actualNorm = {};
+  Object.keys(actualMap).forEach(k => { actualNorm[k.toLowerCase().trim()] = { name: k, amount: actualMap[k] }; });
+
+  // สร้าง targetNorm
+  const targetNorm = {};
+  Object.keys(TARGETS).forEach(k => { targetNorm[k.toLowerCase().trim()] = { name: k, info: TARGETS[k] }; });
+
+  // รวม keys ทั้งหมด
+  const allKeys = new Set([...Object.keys(actualNorm), ...Object.keys(targetNorm)]);
+  allPaceRows = Array.from(allKeys).map(key => {
+    const tEntry = targetNorm[key] || {};
+    const aEntry = actualNorm[key] || {};
+    const name = tEntry.name || aEntry.name || key;
+    const info = tEntry.info || {};
+    const actual = aEntry.amount || 0;
     const target = info.target || 0;
     const shop = info.shop || '';
     const pace = day > 0 ? Math.round((actual/day)*daysInMonth) : 0;
@@ -710,10 +722,12 @@ async function loadAll() {
 }
 
 function updateBanner() {
-  const totalTarget = allPaceRows.reduce((s,r)=>s+r.target,0);
-  const totalActual = allPaceRows.reduce((s,r)=>s+r.actual,0);
-  const totalPace   = allPaceRows.reduce((s,r)=>s+r.pace,0);
-  const pct = Math.round((totalPace/totalTarget)*100);
+  // รวมเฉพาะลูกค้าที่มี target (status != 'none') เพื่อให้ยอดถูกต้อง
+  const withTarget = allPaceRows.filter(r=>r.status!=='none');
+  const totalTarget = withTarget.reduce((s,r)=>s+r.target,0);
+  const totalActual = allPaceRows.reduce((s,r)=>s+r.actual,0); // actual รวมทุกเจ้า
+  const totalPace   = withTarget.reduce((s,r)=>s+r.pace,0);
+  const pct = totalTarget > 0 ? Math.round((totalPace/totalTarget)*100) : 0;
   document.getElementById('s-target').textContent = fmt(totalTarget);
   document.getElementById('s-actual').textContent = fmt(totalActual);
   document.getElementById('s-pace').textContent   = fmt(totalPace);
@@ -992,8 +1006,26 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 document.getElementById('lf-date').value = new Date().toISOString().slice(0,10);
 document.getElementById('alert-banner').style.display = 'flex';
 
-loadUserProfile();
-loadAll();
+// ===== AUTH CHECK =====
+// ต้องมี session จาก index.html ก่อน ถ้าไม่มี redirect ไป login
+(function() {
+  var saved = sessionStorage.getItem('cnk_user');
+  if (!saved) {
+    // ไม่มี session → redirect ไป index.html
+    window.location.href = 'https://cnk-billing.vercel.app/index.html';
+    return;
+  }
+  try {
+    var user = JSON.parse(saved);
+    if (!user || !user.email) throw new Error('invalid');
+    // มี session → โหลด CRM ต่อได้
+    loadUserProfile();
+    loadAll();
+  } catch(e) {
+    sessionStorage.removeItem('cnk_user');
+    window.location.href = 'https://cnk-billing.vercel.app/index.html';
+  }
+})();
 </script>
 </body>
 </html>
