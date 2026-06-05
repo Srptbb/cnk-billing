@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNK — ตีราคาบล็อกไดคัท</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f4f5f7;--surface:#ffffff;--surface2:#f0f1f4;--border:#dde1ea;
+  --accent:#e65100;--accent2:#ff8f00;
+  --cut:#dc2626;--crease:#2563eb;--wood:#16a34a;
+  --cut-bg:#fef2f2;--crease-bg:#eff6ff;--wood-bg:#f0fdf4;
+  --text:#1a1d2e;--text2:#6b7280;--green:#16a34a;--yellow:#d97706;
+  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.1);
+  --mono:'IBM Plex Mono',monospace;--sans:'Sarabun',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;}
+.app{min-height:100vh;display:flex;flex-direction:column;}
+
+header{border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:14px;
+  background:var(--surface);box-shadow:var(--shadow);position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--accent);letter-spacing:.04em;}
+.logo span{color:var(--text2);font-weight:400;}
+header h1{font-size:13px;color:var(--text2);font-weight:400;}
+
+.main{display:grid;grid-template-columns:380px 1fr;flex:1;height:calc(100vh - 49px);}
+
+/* LEFT */
+.panel-left{border-right:1px solid var(--border);display:flex;flex-direction:column;
+  height:100%;overflow-y:auto;background:var(--surface);}
+.section{padding:14px 18px;border-bottom:1px solid var(--border);}
+.stitle{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--text2);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;}
+.stitle::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:20px 14px;
+  text-align:center;cursor:pointer;transition:all .18s;background:var(--surface2);position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:#fff5f0;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-zone p{color:var(--text2);font-size:13px;margin-top:4px;}
+.upload-zone strong{color:var(--text);}
+.file-types{margin-top:5px;font-family:var(--mono);font-size:10px;color:var(--accent2);}
+
+.sbar{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 11px;
+  font-size:12px;display:flex;align-items:center;gap:7px;margin-top:8px;}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dot-idle{background:var(--text2);}.dot-loading{background:var(--yellow);animation:pulse 1s infinite;}
+.dot-ok{background:var(--green);}.dot-err{background:var(--cut);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Mode buttons */
+.mode-row{display:flex;gap:5px;}
+.mbtn{flex:1;padding:8px 4px;border-radius:7px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-family:var(--sans);font-size:12px;
+  cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center;gap:3px;
+  font-weight:500;}
+.mbtn:hover{border-color:var(--text);color:var(--text);background:white;}
+.mbtn.a-cut{border-color:var(--cut);background:var(--cut-bg);color:var(--cut);}
+.mbtn.a-crease{border-color:var(--crease);background:var(--crease-bg);color:var(--crease);}
+.mbtn.a-wood{border-color:var(--wood);background:var(--wood-bg);color:var(--wood);}
+.mode-hint{font-size:11px;color:var(--text2);margin-top:7px;line-height:1.5;}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.scard{background:var(--surface2);border-radius:7px;padding:10px 12px;border:1px solid var(--border);}
+.scard.cc{border-left:3px solid var(--cut);}
+.scard.cr{border-left:3px solid var(--crease);}
+.scard.cw{border-left:3px solid var(--wood);grid-column:1/-1;}
+.slabel{font-size:10px;color:var(--text2);margin-bottom:2px;}
+.sval{font-size:20px;font-weight:700;font-family:var(--mono);}
+.sv-cut{color:var(--cut);}.sv-crease{color:var(--crease);}.sv-wood{color:var(--wood);}
+.sunit{font-size:10px;color:var(--text2);}
+.wood-pts{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:3px;}
+
+/* Form */
+.fg{margin-bottom:10px;}
+.fg label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;font-family:var(--mono);}
+.fg select,.fg input{width:100%;background:white;border:1px solid var(--border);
+  border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--sans);font-size:14px;
+  outline:none;transition:border-color .12s;box-shadow:inset 0 1px 2px rgba(0,0,0,.04);}
+.fg select:focus,.fg input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(230,81,0,.1);}
+.fnote{font-size:10px;color:var(--text2);margin-top:3px;}
+
+/* Customer search */
+.cust-wrap{position:relative;}
+.cust-results{position:absolute;top:100%;left:0;right:0;background:white;
+  border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-md);
+  max-height:180px;overflow-y:auto;z-index:50;display:none;}
+.cust-results.open{display:block;}
+.cust-item{padding:8px 11px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);}
+.cust-item:last-child{border-bottom:none;}
+.cust-item:hover{background:var(--surface2);}
+.cust-item .cname{font-weight:500;}
+.cust-item .cmult{font-size:11px;color:var(--text2);font-family:var(--mono);}
+
+/* Overlap badge */
+.obadge{background:#fffbeb;border:1px solid var(--yellow);border-radius:6px;
+  padding:5px 9px;font-size:11px;color:var(--yellow);display:none;margin-top:7px;align-items:center;gap:5px;}
+.obadge.show{display:flex;}
+
+/* Buttons */
+.calc-btn{width:100%;padding:12px;background:var(--accent);border:none;border-radius:8px;
+  color:white;font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer;
+  transition:all .14s;display:flex;align-items:center;justify-content:center;gap:7px;
+  box-shadow:0 2px 6px rgba(230,81,0,.35);}
+.calc-btn:hover:not(:disabled){background:#d84900;transform:translateY(-1px);box-shadow:0 4px 14px rgba(230,81,0,.4);}
+.calc-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.clr-btn{background:white;border:1px solid var(--border);color:var(--text2);border-radius:5px;
+  padding:4px 9px;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .12s;}
+.clr-btn:hover{border-color:var(--cut);color:var(--cut);background:var(--cut-bg);}
+
+/* RIGHT */
+.panel-right{display:flex;flex-direction:column;background:#e8eaee;}
+.ctoolbar{padding:7px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  gap:8px;font-size:11px;color:var(--text2);font-family:var(--mono);background:white;
+  box-shadow:var(--shadow);flex-shrink:0;z-index:10;}
+.canvas-wrap{flex:1;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;}
+#dxf-canvas{cursor:crosshair;display:block;}
+.cempty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;color:var(--text2);height:100%;}
+.cempty-icon{font-size:44px;opacity:.4;}
+.zbtn{background:white;border:1px solid var(--border);color:var(--text2);border-radius:5px;
+  padding:3px 9px;cursor:pointer;font-size:12px;font-family:var(--mono);transition:all .1s;
+  box-shadow:var(--shadow);}
+.zbtn:hover{color:var(--text);border-color:var(--text);background:var(--surface2);}
+.zbtn.active{background:var(--accent);border-color:var(--accent);color:white;}
+
+/* Result */
+.result-panel{border-top:1px solid var(--border);background:white;box-shadow:0 -2px 8px rgba(0,0,0,.06);flex-shrink:0;}
+.rtoggle{padding:9px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  font-size:12px;color:var(--text2);font-family:var(--mono);user-select:none;}
+.rtoggle:hover{color:var(--text);}
+.rbody{padding:0 14px 14px;display:none;}
+.rbody.open{display:block;}
+.price-display{display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,#fff5f0,#fff8ed);border:1.5px solid rgba(230,81,0,.2);
+  border-radius:10px;padding:14px 18px;}
+.price-label{font-size:12px;color:var(--text2);}
+.price-sub{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:2px;}
+.price-val{font-size:30px;font-weight:700;font-family:var(--mono);color:var(--accent);}
+
+/* Toast */
+.toast{position:fixed;bottom:18px;right:18px;background:white;border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;font-size:13px;z-index:999;animation:slideUp .2s ease;
+  max-width:260px;box-shadow:var(--shadow-md);}
+.toast.warn{border-color:var(--yellow);color:var(--yellow);}
+.toast.err{border-color:var(--cut);color:var(--cut);}
+.toast.ok{border-color:var(--green);color:var(--green);}
+@keyframes slideUp{from{transform:translateY(6px);opacity:0}}
+
+/* Loading spinner */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="logo">CNK<span>.pricing</span></div>
+  <h1>ระบบตีราคาบล็อกไดคัท — เจริญนคร ไดแอนด์โมลด์</h1>
+</header>
+<div class="main">
+
+<!-- LEFT PANEL -->
+<div class="panel-left">
+
+  <div class="section">
+    <div class="stitle">01 อัปโหลดไฟล์งาน</div>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept=".ai,.pdf,.dxf,.svg">
+      <div style="font-size:26px;">📐</div>
+      <p><strong>คลิกหรือลากไฟล์มาวาง</strong></p>
+      <p>รองรับ AI, PDF, DXF, SVG</p>
+      <div class="file-types">.ai · .pdf · .dxf · .svg</div>
+    </div>
+    <div class="sbar" id="sbar">
+      <div class="sdot dot-idle" id="sdot"></div>
+      <span id="stext">รอไฟล์...</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">02 เครื่องมือ</div>
+    <div class="mode-row">
+      <button class="mbtn a-cut" id="btn-cut" onclick="setMode('cut')">✂️ เส้นคม</button>
+      <button class="mbtn" id="btn-crease" onclick="setMode('crease')">📐 เส้นพับ</button>
+      <button class="mbtn" id="btn-wood" onclick="setMode('wood')">🪵 กรอบไม้</button>
+    </div>
+    <div class="mode-hint" id="mode-hint">ลากครอบหลายเส้น หรือคลิกเดี่ยว · คลิกซ้ำเพื่อยกเลิก</div>
+    <div style="margin-top:7px;display:flex;gap:5px;">
+      <button class="clr-btn" onclick="clearLines('cut')">ล้างเส้นคม</button>
+      <button class="clr-btn" onclick="clearLines('crease')">ล้างเส้นพับ</button>
+      <button class="clr-btn" onclick="clearLines('all')">ล้างทั้งหมด</button>
+    </div>
+    <div class="obadge" id="obadge">⚠️ พบเส้นซ้อน <span id="ocount">0</span> คู่</div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">03 สรุปการเลือก</div>
+    <div class="stats-grid">
+      <div class="scard cc">
+        <div class="slabel">✂️ เส้นคม</div>
+        <div class="sval sv-cut" id="cut-len">0</div>
+        <div class="sunit">mm</div>
+      </div>
+      <div class="scard cr">
+        <div class="slabel">📐 เส้นพับ</div>
+        <div class="sval sv-crease" id="crease-len">0</div>
+        <div class="sunit">mm</div>
+      </div>
+      <div class="scard cw">
+        <div class="slabel">🪵 กรอบไม้ (+30mm ทุกด้าน)</div>
+        <div class="sval sv-wood" id="wood-size">—</div>
+        <div class="wood-pts" id="wood-pts">คลิกโหมด 🪵 แล้วคลิก 2 จุดในภาพ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">04 รายละเอียดงาน</div>
+    <div class="fg">
+      <label>ชนิดมีด — เส้นคม</label>
+      <select id="blade-cut">
+        <option value="">⏳ กำลังโหลด...</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>ชนิดมีด — เส้นพับ</label>
+      <select id="blade-crease">
+        <option value="">⏳ กำลังโหลด...</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>ลูกค้า</label>
+      <div class="cust-wrap">
+        <input type="text" id="cust-input" placeholder="พิมพ์ค้นหาชื่อลูกค้า..." autocomplete="off"
+          oninput="searchCust(this.value)" onfocus="searchCust(this.value)">
+        <div class="cust-results" id="cust-results"></div>
+      </div>
+      <div class="fnote" id="cust-note">var2 = 1.0 (ลูกค้าใหม่)</div>
+    </div>
+    <div class="fg">
+      <label>หมายเหตุ / ชื่องาน</label>
+      <input type="text" id="note" placeholder="เช่น กล่องสบู่ / รหัสงาน">
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="calc-btn" id="calc-btn" onclick="calculate()" disabled>💰 คำนวณราคา</button>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel-right">
+  <div class="ctoolbar">
+    <span id="cinfo" style="flex:1;">ยังไม่มีไฟล์</span>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button class="zbtn" onclick="doZoom(1.2)">＋</button>
+      <button class="zbtn" onclick="doZoom(0.8)">－</button>
+      <button class="zbtn" onclick="resetZoom()">⊡ Fit</button>
+      <div style="width:1px;height:16px;background:var(--border);margin:0 2px;"></div>
+      <button class="zbtn" id="btn-pan" onclick="togglePan()">✋ เลื่อน</button>
+    </div>
+  </div>
+  <div class="canvas-wrap" id="canvas-wrap">
+    <div class="cempty" id="cempty">
+      <div class="cempty-icon">📐</div>
+      <p>อัปโหลดไฟล์เพื่อแสดงแบบ</p>
+      <p style="font-size:11px;opacity:.5;">AI/PDF แปลงผ่าน CloudConvert อัตโนมัติ</p>
+    </div>
+    <canvas id="dxf-canvas" style="display:none;"></canvas>
+  </div>
+  <div class="result-panel" id="result-panel" style="display:none;">
+    <div class="rtoggle" onclick="toggleResult()">
+      <span>💰 ผลการคำนวณ</span><span id="rticon">▲</span>
+    </div>
+    <div class="rbody open" id="rbody">
+      <div class="price-display">
+        <div>
+          <div class="price-label">ราคาขาย / ชิ้น</div>
+          <div class="price-sub" id="price-sub">—</div>
+        </div>
+        <div class="price-val" id="ptotal">฿—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
+const CC_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiY2NkZjMwZTBlMDliNWMwZWYwYjRiNjg4Yzc2YzI1MzU1YmI2M2I5ZjlkYzQzMjI0MzM1ODEzNmQyNDYyNmJkMDM0ZjcwMzliMTZkYzc1MmYiLCJpYXQiOjE3ODA2MjkyMjguODQyMzM4LCJuYmYiOjE3ODA2MjkyMjguODQyMzQsImV4cCI6NDkzNjMwMjgyOC44MzY3NzQsInN1YiI6Ijc1ODUyMTg4Iiwic2NvcGVzIjpbInRhc2sucmVhZCIsInRhc2sud3JpdGUiXX0.j_PBlExnhq4ovQqGGMVqgfZNDlZoPPXv_ItlAfdxuc41aSjUEOnmT7CFg5v51kgCF2X_yKqE3GV0mFGe5mXlZ3mVGsNcm0T7vAL4WbnqXc22VI96ovsqW7LJnF2ctnNdUuKaBa7F1k2LncAmMqLn0BSOb60lsBeyVhoBTlGJAUj7c8zdUx57jFrgBlTDiMZ03oO17lS6LwV8W0UVJJpUGGh548dyxP_pp7yaVlQZGOYl2B3mFD1ylsxiv9PEm6TyBPRjl9GprZzMfijmIq5DvcCkNR-JaIo0t8Sz97K3zL0Dk2wFSr9kSI_w0udAxQUTAv2EAoh6Vvu7WTzuE25ww7NmFF0mhYiabDz6BJNlPzZogddPXArbPV_M0w_gF6oZ9g7R2i8DxVfT-17uCf7-WI-J3iKw81ZjBZVmYFUiG9HOJAFb2Y-grvMoIT3wkpARkguuDxp0isLg3F-o6G1c48rix3NxlYwHyu2iDtscLqSDwMZOTtf8pHRRf13lQTMh6SlXlXw6yTkE9nuQAsc_1LB26UMbBwaUGybkUG14VcbGF5-DMDGtNHhTgZBeODmpu-Izq5-_O1eJmc60TUayO0VSWWyfNVe7ud_Pz3kAPLtCxiKddH_6KFv34vgJY7gENsRlErhnn_8CL6XInfDKipri46-NWgMi0DbFJWTRF9M';
+const WOOD_PAD = 30; // mm each side
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let lines = [];
+let mode = 'cut';
+let panMode = false;
+let viewScale = 1, viewOffX = 0, viewOffY = 0;
+let svgUnitToMM = 0.352778;
+let woodPts = [], woodBox = null, woodHover = null;
+let isPanning = false, panStart = {x:0,y:0}, panOff = {x:0,y:0};
+// Box select
+let isBoxing = false, boxStart = null, boxCur = null;
+
+// Pricing data from sheet
+let pricingCut = [];    // [{blade, cost_per_mm, var1, ...}]  type != crease
+let pricingCrease = []; // [{blade, cost_per_mm, var1, ...}]  type == crease
+let WOOD_COST = 0.00038;
+
+// Customers
+let allCustomers = [];
+let selectedCust = null; // {n, multiplier}
+
+const canvas = document.getElementById('dxf-canvas');
+const ctx = canvas.getContext('2d');
+
+// ── INIT: load pricing + customers ────────────────────────────────────────────
+async function apiGet(table) {
+  const r = await fetch(`${API}?action=getAll&table=${table}`);
+  return r.json();
+}
+
+async function loadPricing() {
+  try {
+    const rows = await apiGet('pricing');
+    pricingCut    = rows.filter(r => String(r.type||'').toLowerCase() !== 'crease' && r.blade && r.cost_per_mm);
+    pricingCrease = rows.filter(r => String(r.type||'').toLowerCase() === 'crease' && r.blade && r.cost_per_mm);
+
+    // fallback: ถ้า sheet ไม่มี column type ให้แยกด้วยชื่อ blade
+    if(pricingCrease.length === 0) {
+      pricingCrease = rows.filter(r => String(r.blade||'').toLowerCase().includes('crease'));
+      pricingCut    = rows.filter(r => !String(r.blade||'').toLowerCase().includes('crease') && r.blade && r.cost_per_mm);
+    }
+
+    // ถ้า wood_cost_per_mm2 มีใน sheet ให้ใช้
+    if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
+
+    populateSelect('blade-cut', pricingCut);
+    populateSelect('blade-crease', pricingCrease);
+  } catch(e) {
+    document.getElementById('blade-cut').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+    document.getElementById('blade-crease').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+  }
+}
+
+function populateSelect(id, rows) {
+  const sel = document.getElementById(id);
+  if(rows.length === 0) {
+    sel.innerHTML = '<option value="">ไม่มีข้อมูล (เพิ่มใน sheet)</option>';
+    return;
+  }
+  sel.innerHTML = rows.map((r,i) =>
+    `<option value="${i}">${r.blade} — ${parseFloat(r.cost_per_mm).toFixed(4)}/mm</option>`
+  ).join('');
+}
+
+async function loadCustomers() {
+  try {
+    const rows = await apiGet('customers');
+    allCustomers = rows.filter(r => r.n).map(r => ({
+      n: String(r.n||'').trim(),
+      a: String(r.a||'').trim(),
+      multiplier: parseFloat(r.multiplier) || 1.0
+    }));
+  } catch(e) {}
+}
+
+function searchCust(q) {
+  const box = document.getElementById('cust-results');
+  q = q.trim().toLowerCase();
+  let list = allCustomers;
+  if(q) list = allCustomers.filter(c => c.n.toLowerCase().includes(q));
+  if(list.length === 0 && !q) { box.classList.remove('open'); return; }
+
+  const newCust = {n:'ลูกค้าใหม่ (var2 = 1.0)', multiplier:1.0, isNew:true};
+  const display = q ? list.slice(0,8) : [newCust, ...list.slice(0,7)];
+
+  box.innerHTML = display.map((c,i) => `
+    <div class="cust-item" onclick="selectCust(${i})" data-i="${i}">
+      <div class="cname">${c.n}</div>
+      <div class="cmult">var2 = ${c.multiplier.toFixed(2)}</div>
+    </div>`).join('');
+
+  box._list = display;
+  box.classList.add('open');
+}
+
+function selectCust(i) {
+  const box = document.getElementById('cust-results');
+  const c = box._list[i];
+  selectedCust = c;
+  document.getElementById('cust-input').value = c.isNew ? '' : c.n;
+  document.getElementById('cust-note').textContent = `var2 = ${c.multiplier.toFixed(2)}` + (c.isNew ? ' (ลูกค้าใหม่)' : '');
+  box.classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if(!e.target.closest('.cust-wrap')) document.getElementById('cust-results').classList.remove('open');
+});
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('drag');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+async function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  setStatus('loading', `กำลังโหลด ${file.name}...`);
+  clearAll();
+  if(ext==='dxf') { const t=await file.text(); parseDXF(t); }
+  else if(ext==='svg') { const t=await file.text(); parseSVG(t); }
+  else if(ext==='ai'||ext==='pdf') { await convertCC(file,ext); }
+  else setStatus('err','ไฟล์ไม่รองรับ');
+}
+
+// ── CLOUDCONVERT ──────────────────────────────────────────────────────────────
+async function convertCC(file, ext) {
+  try {
+    setStatus('loading', `แปลง ${ext.toUpperCase()} → SVG...`);
+    const jr = await fetch('https://api.cloudconvert.com/v2/jobs', {
+      method:'POST',
+      headers:{'Authorization':`Bearer ${CC_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify({tasks:{
+        'upload':{operation:'import/upload'},
+        'convert':{operation:'convert',input:'upload',
+          input_format:ext==='ai'?'ai':'pdf',output_format:'svg',engine:'inkscape'},
+        'export':{operation:'export/url',input:'convert'}
+      }})
+    });
+    const job=await jr.json();
+    if(!job.data) throw new Error(job.message||'Job error');
+    const upTask=job.data.tasks.find(t=>t.name==='upload');
+    const fd=new FormData();
+    Object.entries(upTask.result.form.parameters).forEach(([k,v])=>fd.append(k,v));
+    fd.append('file',file);
+    await fetch(upTask.result.form.url,{method:'POST',body:fd});
+    setStatus('loading','กำลังแปลง... (10–30 วิ)');
+    let svgUrl=null;
+    for(let i=0;i<40;i++){
+      await sleep(2000);
+      const sr=await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`,
+        {headers:{'Authorization':`Bearer ${CC_KEY}`}});
+      const sd=await sr.json();
+      const ex=sd.data.tasks.find(t=>t.name==='export');
+      if(ex?.status==='finished'){svgUrl=ex.result.files[0].url;break;}
+      if(sd.data.status==='error') throw new Error('แปลงไม่สำเร็จ');
+    }
+    if(!svgUrl) throw new Error('Timeout');
+    setStatus('loading','โหลด SVG...');
+    const svgText=await(await fetch(svgUrl)).text();
+    parseSVG(svgText);
+  } catch(e){ setStatus('err',e.message); }
+}
+
+// ── DXF PARSER ────────────────────────────────────────────────────────────────
+function parseDXF(text){
+  lines=[];svgUnitToMM=1;
+  const rows=text.split(/\r?\n/);
+  let i=0,inEnt=false;
+  const nxt=()=>rows[i++]?.trim();
+  const peek=()=>rows[i]?.trim();
+  while(i<rows.length){
+    const code=nxt(),val=nxt();
+    if(code==='0'&&val==='ENTITIES')inEnt=true;
+    if(code==='0'&&val==='ENDSEC')inEnt=false;
+    if(!inEnt)continue;
+    if(code==='0'&&['LINE','LWPOLYLINE','POLYLINE','ARC','CIRCLE','SPLINE'].includes(val)){
+      const ent={type:val,codes:{}};
+      while(i<rows.length){if(peek()==='0')break;const ec=nxt(),ev=nxt();if(!ent.codes[ec])ent.codes[ec]=[];ent.codes[ec].push(ev);}
+      dxfEnt(ent);
+    }
+  }
+  if(!lines.length){setStatus('err','ไม่พบเส้นใน DXF');return;}
+  finishLoad(`DXF — ${lines.length} เส้น`);
+}
+function dxfEnt(e){
+  const g=(c,i=0)=>parseFloat(e.codes[c]?.[i])||0;
+  const ga=c=>(e.codes[c]||[]).map(Number);
+  if(e.type==='LINE'){addL(g('10'),g('20'),g('11'),g('21'));}
+  else if(e.type==='ARC'){
+    const cx=g('10'),cy=g('20'),r=g('40');
+    let a1=g('50')*Math.PI/180,a2=g('51')*Math.PI/180;
+    let d=a2-a1;if(d<0)d+=2*Math.PI;
+    const s=Math.max(8,Math.floor(d*r/5));
+    for(let i=0;i<s;i++)addL(cx+r*Math.cos(a1+d*i/s),cy+r*Math.sin(a1+d*i/s),cx+r*Math.cos(a1+d*(i+1)/s),cy+r*Math.sin(a1+d*(i+1)/s));
+  } else if(e.type==='CIRCLE'){
+    const cx=g('10'),cy=g('20'),r=g('40');
+    for(let i=0;i<32;i++)addL(cx+r*Math.cos(2*Math.PI*i/32),cy+r*Math.sin(2*Math.PI*i/32),cx+r*Math.cos(2*Math.PI*(i+1)/32),cy+r*Math.sin(2*Math.PI*(i+1)/32));
+  } else if(e.type==='LWPOLYLINE'||e.type==='POLYLINE'){
+    const xs=ga('10'),ys=ga('20');
+    for(let i=0;i<xs.length-1;i++)addL(xs[i],ys[i],xs[i+1],ys[i+1]);
+    if(parseInt(e.codes['70']?.[0]||'0')&1&&xs.length>1)addL(xs[xs.length-1],ys[ys.length-1],xs[0],ys[0]);
+  } else if(e.type==='SPLINE'){
+    const xs=ga('10'),ys=ga('20');
+    for(let i=0;i<xs.length-1;i++)addL(xs[i],ys[i],xs[i+1],ys[i+1]);
+  }
+}
+
+// ── SVG PARSER ────────────────────────────────────────────────────────────────
+function parseSVG(text){
+  lines=[];
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml');
+  const svg=doc.querySelector('svg');
+  svgUnitToMM=computeScale(svg);
+  doc.querySelectorAll('path,line,rect,circle,ellipse,polyline,polygon').forEach(el=>{
+    if(el.closest('text,tspan,defs,style,clipPath,mask'))return;
+    const stroke=el.getAttribute('stroke')||'';
+    const fill=el.getAttribute('fill')||'';
+    if(stroke==='none'&&fill&&fill!=='none')return;
+    svgEl(el);
+  });
+  if(!lines.length){setStatus('err','ไม่พบเส้นใน SVG');return;}
+  finishLoad(`SVG — ${lines.length} เส้น (1 unit = ${svgUnitToMM.toFixed(4)} mm)`);
+}
+
+function computeScale(svgEl){
+  if(!svgEl)return 0.352778;
+  const wA=svgEl.getAttribute('width')||'';
+  const hA=svgEl.getAttribute('height')||'';
+  const vb=(svgEl.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);
+  const pu=str=>{
+    const m=str.match(/^([\d.eE+-]+)(mm|cm|in|px|pt|pc)$/i);
+    if(!m)return null;
+    const toMM={mm:1,cm:10,in:25.4,px:0.264583,pt:0.352778,pc:4.23333};
+    return parseFloat(m[1])*(toMM[m[2].toLowerCase()]||0.352778);
+  };
+  const wMM=pu(wA),hMM=pu(hA);
+  if(wMM&&vb.length>=4&&vb[2]>0)return wMM/vb[2];
+  if(hMM&&vb.length>=4&&vb[3]>0)return hMM/vb[3];
+  // No unit → Illustrator/Inkscape = 72dpi (pt)
+  return 0.352778;
+}
+
+function svgEl(el){
+  const t=el.tagName.toLowerCase();
+  if(t==='path'){svgPath(el.getAttribute('d')||'');}
+  else if(t==='line')addL(+el.getAttribute('x1')||0,+el.getAttribute('y1')||0,+el.getAttribute('x2')||0,+el.getAttribute('y2')||0);
+  else if(t==='rect'){const x=+el.getAttribute('x')||0,y=+el.getAttribute('y')||0,w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;addL(x,y,x+w,y);addL(x+w,y,x+w,y+h);addL(x+w,y+h,x,y+h);addL(x,y+h,x,y);}
+  else if(t==='circle'){const cx=+el.getAttribute('cx')||0,cy=+el.getAttribute('cy')||0,r=+el.getAttribute('r')||0;for(let i=0;i<32;i++)addL(cx+r*Math.cos(2*Math.PI*i/32),cy+r*Math.sin(2*Math.PI*i/32),cx+r*Math.cos(2*Math.PI*(i+1)/32),cy+r*Math.sin(2*Math.PI*(i+1)/32));}
+  else if(t==='polyline'||t==='polygon'){const pts=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);for(let i=0;i<pts.length-2;i+=2)addL(pts[i],pts[i+1],pts[i+2],pts[i+3]);if(t==='polygon'&&pts.length>=4)addL(pts[pts.length-2],pts[pts.length-1],pts[0],pts[1]);}
+}
+function svgPath(d){
+  const cmds=d.match(/[MmLlHhVvCcSsQqTtAaZz][^MmLlHhVvCcSsQqTtAaZz]*/g)||[];
+  let cx=0,cy=0,sx=0,sy=0;
+  cmds.forEach(cmd=>{
+    const t=cmd[0],ns=cmd.slice(1).trim().split(/[\s,]+/).map(Number).filter(n=>!isNaN(n));
+    let i=0;const n=()=>ns[i++]||0;
+    if(t==='M'||t==='m'){while(i<ns.length){const dx=n(),dy=n(),nx=t==='M'?dx:cx+dx,ny=t==='M'?dy:cy+dy;if(i===2){sx=nx;sy=ny;}cx=nx;cy=ny;}}
+    else if(t==='L'||t==='l'){while(i<ns.length){const dx=n(),dy=n(),nx=t==='L'?dx:cx+dx,ny=t==='L'?dy:cy+dy;addL(cx,cy,nx,ny);cx=nx;cy=ny;}}
+    else if(t==='H'||t==='h'){while(i<ns.length){const nx=t==='H'?n():cx+n();addL(cx,cy,nx,cy);cx=nx;}}
+    else if(t==='V'||t==='v'){while(i<ns.length){const ny=t==='V'?n():cy+n();addL(cx,cy,cx,ny);cy=ny;}}
+    else if(t==='C'||t==='c'){while(i<ns.length){const x1=t==='C'?n():cx+n(),y1=t==='C'?n():cy+n(),x2=t==='C'?n():cx+n(),y2=t==='C'?n():cy+n(),ex=t==='C'?n():cx+n(),ey=t==='C'?n():cy+n();bezier(cx,cy,x1,y1,x2,y2,ex,ey);cx=ex;cy=ey;}}
+    else if(t==='Q'||t==='q'){while(i<ns.length){const qx=t==='Q'?n():cx+n(),qy=t==='Q'?n():cy+n(),ex=t==='Q'?n():cx+n(),ey=t==='Q'?n():cy+n();quad(cx,cy,qx,qy,ex,ey);cx=ex;cy=ey;}}
+    else if(t==='Z'||t==='z'){addL(cx,cy,sx,sy);cx=sx;cy=sy;}
+    else{while(i<ns.length)n();}
+  });
+}
+function bezier(x0,y0,x1,y1,x2,y2,x3,y3,s=16){let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*u*x0+3*u*u*t*x1+3*u*t*t*x2+t*t*t*x3,ny=u*u*u*y0+3*u*u*t*y1+3*u*t*t*y2+t*t*t*y3;addL(px,py,nx,ny);px=nx;py=ny;}}
+function quad(x0,y0,qx,qy,ex,ey,s=12){let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*x0+2*u*t*qx+t*t*ex,ny=u*u*y0+2*u*t*qy+t*t*ey;addL(px,py,nx,ny);px=nx;py=ny;}}
+function addL(x1,y1,x2,y2){const len=Math.hypot(x2-x1,y2-y1);if(len<0.001)return;lines.push({x1,y1,x2,y2,len,lineType:null});}
+
+// ── FINISH LOAD ───────────────────────────────────────────────────────────────
+function finishLoad(label){
+  detectOverlaps();resetZoom();render();updateStats();
+  document.getElementById('cempty').style.display='none';
+  canvas.style.display='block';
+  document.getElementById('cinfo').textContent=label;
+  document.getElementById('calc-btn').disabled=false;
+  setStatus('ok',`โหลดสำเร็จ — ${lines.length} เส้น`);
+}
+function detectOverlaps(){
+  const T=0.5;let cnt=0;
+  for(let i=0;i<Math.min(lines.length,500);i++)
+    for(let j=i+1;j<Math.min(lines.length,500);j++){
+      const a=lines[i],b=lines[j];
+      if((Math.abs(a.x1-b.x1)<T&&Math.abs(a.y1-b.y1)<T&&Math.abs(a.x2-b.x2)<T&&Math.abs(a.y2-b.y2)<T)||
+         (Math.abs(a.x1-b.x2)<T&&Math.abs(a.y1-b.y2)<T&&Math.abs(a.x2-b.x1)<T&&Math.abs(a.y2-b.y1)<T))cnt++;
+    }
+  const b=document.getElementById('obadge');
+  if(cnt>0){b.classList.add('show');document.getElementById('ocount').textContent=cnt;}
+  else b.classList.remove('show');
+}
+
+// ── CANVAS ────────────────────────────────────────────────────────────────────
+function setupCanvas(){const w=document.getElementById('canvas-wrap');canvas.width=w.clientWidth;canvas.height=w.clientHeight;}
+function resetZoom(){
+  if(!lines.length)return;setupCanvas();
+  let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
+  lines.forEach(l=>{mnX=Math.min(mnX,l.x1,l.x2);mxX=Math.max(mxX,l.x1,l.x2);mnY=Math.min(mnY,l.y1,l.y2);mxY=Math.max(mxY,l.y1,l.y2);});
+  const pad=60,sx=(canvas.width-pad*2)/(mxX-mnX||1),sy=(canvas.height-pad*2)/(mxY-mnY||1);
+  viewScale=Math.min(sx,sy,50);
+  viewOffX=(canvas.width-(mxX-mnX)*viewScale)/2-mnX*viewScale;
+  viewOffY=(canvas.height-(mxY-mnY)*viewScale)/2-mnY*viewScale;
+  render();
+}
+function doZoom(f){viewScale*=f;render();}
+function scr(x,y){return[x*viewScale+viewOffX,y*viewScale+viewOffY];}
+function wld(sx,sy){return[(sx-viewOffX)/viewScale,(sy-viewOffY)/viewScale];}
+
+function render(){
+  if(!lines.length)return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // light grid
+  ctx.strokeStyle='rgba(0,0,0,0.04)';ctx.lineWidth=1;
+  for(let x=viewOffX%50;x<canvas.width;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=viewOffY%50;y<canvas.height;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+  lines.forEach(l=>{
+    const[sx1,sy1]=scr(l.x1,l.y1),[sx2,sy2]=scr(l.x2,l.y2);
+    if(l.lineType==='cut'){ctx.strokeStyle='#dc2626';ctx.lineWidth=2;ctx.setLineDash([]);}
+    else if(l.lineType==='crease'){ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.setLineDash([6,3]);}
+    else{ctx.strokeStyle='rgba(100,110,140,0.5)';ctx.lineWidth=1;ctx.setLineDash([]);}
+    ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Wood box
+  if(woodBox){
+    const[bx1,by1]=scr(woodBox.ux1,woodBox.uy1),[bx2,by2]=scr(woodBox.ux2,woodBox.uy2);
+    ctx.fillStyle='rgba(22,163,74,0.06)';
+    ctx.fillRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+    ctx.strokeStyle='#16a34a';ctx.lineWidth=2;ctx.setLineDash([7,4]);
+    ctx.strokeRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+    ctx.setLineDash([]);
+  }
+  woodPts.forEach(p=>{
+    const[sx,sy]=scr(p.wx,p.wy);
+    ctx.strokeStyle='#16a34a';ctx.lineWidth=1.5;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(sx-10,sy);ctx.lineTo(sx+10,sy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(sx,sy-10);ctx.lineTo(sx,sy+10);ctx.stroke();
+    ctx.beginPath();ctx.arc(sx,sy,4,0,2*Math.PI);ctx.stroke();
+  });
+  if(woodPts.length===1&&woodHover&&mode==='wood'){
+    const[sx1,sy1]=scr(woodPts[0].wx,woodPts[0].wy),[sx2,sy2]=scr(woodHover.wx,woodHover.wy);
+    ctx.strokeStyle='rgba(22,163,74,0.35)';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+    ctx.strokeRect(Math.min(sx1,sx2),Math.min(sy1,sy2),Math.abs(sx2-sx1),Math.abs(sy2-sy1));
+    ctx.setLineDash([]);
+  }
+
+  // Box select preview
+  if(isBoxing&&boxStart&&boxCur){
+    const[bx1,by1]=scr(boxStart.wx,boxStart.wy),[bx2,by2]=scr(boxCur.wx,boxCur.wy);
+    ctx.fillStyle=mode==='cut'?'rgba(220,38,38,0.07)':'rgba(37,99,235,0.07)';
+    ctx.fillRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+    ctx.strokeStyle=mode==='cut'?'#dc2626':'#2563eb';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+    ctx.strokeRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+    ctx.setLineDash([]);
+  }
+}
+
+// ── CANVAS EVENTS ─────────────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  if(panMode||e.altKey||e.button===1){
+    isPanning=true;panStart={x:mx,y:my};panOff={x:viewOffX,y:viewOffY};
+    canvas.style.cursor='grabbing';return;
+  }
+  if(mode==='cut'||mode==='crease'){
+    const[wx,wy]=wld(mx,my);
+    boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;
+  }
+});
+
+canvas.addEventListener('mousemove', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  if(isPanning){viewOffX=panOff.x+(mx-panStart.x);viewOffY=panOff.y+(my-panStart.y);render();return;}
+  if(mode==='wood'&&woodPts.length===1){woodHover=wldObj(mx,my);render();return;}
+  if(isBoxing&&boxStart){boxCur=wldObj(mx,my);render();}
+});
+
+canvas.addEventListener('mouseup', e=>{
+  if(isPanning){isPanning=false;updateCursor();return;}
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const[wx,wy]=wld(mx,my);
+
+  if(mode==='wood'){
+    woodPts.push({wx,wy});
+    if(woodPts.length===2){computeWoodBox();woodHover=null;}
+    else if(woodPts.length>2){woodPts=[{wx,wy}];woodBox=null;}
+    render();updateStats();return;
+  }
+
+  if(isBoxing&&boxStart){
+    isBoxing=false;
+    const dx=Math.abs(wx-boxStart.wx)*svgUnitToMM,dy=Math.abs(wy-boxStart.wy)*svgUnitToMM;
+    const isClick=(dx<1&&dy<1); // threshold 1mm
+
+    if(isClick){
+      // Single click → nearest line
+      const THRESH=8/viewScale;
+      let best=null,bestD=Infinity;
+      lines.forEach((l,idx)=>{
+        const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);
+        if(d<THRESH&&d<bestD){bestD=d;best=idx;}
+      });
+      if(best!==null) lines[best].lineType=lines[best].lineType===mode?null:mode;
+    } else {
+      // Box select → all lines whose midpoint is inside box
+      const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
+      const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
+      let count=0;
+      lines.forEach(l=>{
+        const mx=(l.x1+l.x2)/2,my=(l.y1+l.y2)/2;
+        if(mx>=x1&&mx<=x2&&my>=y1&&my<=y2){l.lineType=mode;count++;}
+      });
+      if(count>0) showToast(`เลือก ${count} เส้น`,'ok');
+    }
+    boxStart=null;boxCur=null;
+    updateStats();render();
+  }
+});
+
+canvas.addEventListener('mouseleave',()=>{isPanning=false;isBoxing=false;woodHover=null;boxStart=null;boxCur=null;render();});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.1:0.9;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  viewOffX=mx-(mx-viewOffX)*f;viewOffY=my-(my-viewOffY)*f;viewScale*=f;render();
+},{passive:false});
+
+function wldObj(sx,sy){const[wx,wy]=wld(sx,sy);return{wx,wy};}
+function distSeg(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;if(!l2)return Math.hypot(px-x1,py-y1);const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/l2));return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));}
+
+// ── WOOD BOX ─────────────────────────────────────────────────────────────────
+function computeWoodBox(){
+  if(woodPts.length<2)return;
+  const p1=woodPts[0],p2=woodPts[1];
+  const ux1=Math.min(p1.wx,p2.wx),uy1=Math.min(p1.wy,p2.wy);
+  const ux2=Math.max(p1.wx,p2.wx),uy2=Math.max(p1.wy,p2.wy);
+  const wMM=(ux2-ux1)*svgUnitToMM,hMM=(uy2-uy1)*svgUnitToMM;
+  const padU=WOOD_PAD/svgUnitToMM;
+  woodBox={ux1:ux1-padU,uy1:uy1-padU,ux2:ux2+padU,uy2:uy2+padU,
+    wMM:wMM+WOOD_PAD*2,hMM:hMM+WOOD_PAD*2,workW:wMM,workH:hMM};
+}
+
+// ── MODE ──────────────────────────────────────────────────────────────────────
+const HINTS={
+  cut:'ลากครอบหลายเส้น หรือคลิกเดี่ยว → กำหนดเป็นเส้นคม (แดง) · คลิกซ้ำยกเลิก',
+  crease:'ลากครอบหลายเส้น หรือคลิกเดี่ยว → กำหนดเป็นเส้นพับ (น้ำเงิน) · คลิกซ้ำยกเลิก',
+  wood:'คลิกจุดที่ 1 → จุดที่ 2 เพื่อกำหนดกรอบไม้ · จะบวก 30mm ทุกด้าน',
+};
+function setMode(m){
+  mode=m;panMode=false;
+  ['cut','crease','wood'].forEach(id=>document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:''));
+  document.getElementById('btn-pan').classList.remove('active');
+  document.getElementById('mode-hint').textContent=HINTS[m]||'';
+  updateCursor();
+}
+function togglePan(){
+  panMode=!panMode;
+  document.getElementById('btn-pan').classList.toggle('active',panMode);
+  updateCursor();
+}
+function updateCursor(){canvas.style.cursor=panMode?'grab':mode==='wood'?'crosshair':'crosshair';}
+function clearLines(type){
+  if(type==='all'){lines.forEach(l=>l.lineType=null);woodPts=[];woodBox=null;woodHover=null;}
+  else lines.forEach(l=>{if(l.lineType===type)l.lineType=null;});
+  updateStats();render();
+}
+function clearAll(){lines=[];woodPts=[];woodBox=null;woodHover=null;svgUnitToMM=0.352778;}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats(){
+  let cut=0,crease=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut')cut+=l.len*svgUnitToMM;
+    else if(l.lineType==='crease')crease+=l.len*svgUnitToMM;
+  });
+  document.getElementById('cut-len').textContent=cut.toFixed(0);
+  document.getElementById('crease-len').textContent=crease.toFixed(0);
+  if(woodBox){
+    document.getElementById('wood-size').textContent=`${woodBox.wMM.toFixed(0)} × ${woodBox.hMM.toFixed(0)} mm`;
+    document.getElementById('wood-pts').textContent=`งานจริง ${woodBox.workW.toFixed(0)}×${woodBox.workH.toFixed(0)} mm + 30mm ทุกด้าน`;
+  } else if(woodPts.length===1){
+    document.getElementById('wood-size').textContent='รอจุดที่ 2...';
+    document.getElementById('wood-pts').textContent='คลิกมุมตรงข้ามของงาน';
+  } else {
+    document.getElementById('wood-size').textContent='—';
+    document.getElementById('wood-pts').textContent='คลิกโหมด 🪵 แล้วคลิก 2 จุดในภาพ';
+  }
+}
+
+// ── CALCULATE ─────────────────────────────────────────────────────────────────
+function roundPrice(v){
+  const rem=v%100,base=Math.floor(v/100)*100;
+  if(rem<=25)return base;if(rem<=74)return base+50;return base+100;
+}
+function calculate(){
+  let cutMM=0,creaseMM=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut')cutMM+=l.len*svgUnitToMM;
+    else if(l.lineType==='crease')creaseMM+=l.len*svgUnitToMM;
+  });
+  if(cutMM===0&&creaseMM===0){showToast('ยังไม่ได้เลือกเส้น','warn');return;}
+  if(!woodBox){showToast('ยังไม่กำหนดกรอบไม้','warn');return;}
+
+  const ciCut=parseInt(document.getElementById('blade-cut').value);
+  const ciCr=parseInt(document.getElementById('blade-crease').value);
+  const pCut=pricingCut[ciCut];
+  const pCr=pricingCrease[ciCr];
+  if(!pCut){showToast('เลือกชนิดมีดเส้นคมก่อน','warn');return;}
+
+  const var2=selectedCust?selectedCust.multiplier:1.0;
+  const costCut=cutMM*(parseFloat(pCut.cost_per_mm)||0);
+  const costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm)||0:0);
+  const costWood=woodBox.wMM*woodBox.hMM*WOOD_COST;
+  const total=costCut+costCr+costWood;
+  const overhead=total*2;
+  const var1=parseFloat(pCut.var1)||1;
+  const raw=(total+overhead)*var1*var2;
+  const price=roundPrice(raw);
+
+  document.getElementById('result-panel').style.display='block';
+  document.getElementById('rbody').classList.add('open');
+  document.getElementById('rticon').textContent='▲';
+  document.getElementById('ptotal').textContent='฿'+price.toLocaleString();
+  const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
+  document.getElementById('price-sub').textContent=
+    `${pCut.blade} · ${custName} · var1=${var1} · var2=${var2.toFixed(2)}`;
+  showToast(`฿${price.toLocaleString()} / ชิ้น`,'ok');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function setStatus(t,txt){
+  document.getElementById('stext').textContent=txt;
+  document.getElementById('sdot').className='sdot dot-'+(t==='loading'?'loading':t==='ok'?'ok':t==='err'?'err':'idle');
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+let _tt;
+function showToast(msg,type='ok'){
+  document.querySelector('.toast')?.remove();clearTimeout(_tt);
+  const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;
+  document.body.appendChild(t);_tt=setTimeout(()=>t.remove(),3000);
+}
+function toggleResult(){
+  const b=document.getElementById('rbody'),i=document.getElementById('rticon');
+  b.classList.toggle('open');i.textContent=b.classList.contains('open')?'▲':'▼';
+}
+window.addEventListener('resize',()=>{if(lines.length)resetZoom();});
+
+// ── START ─────────────────────────────────────────────────────────────────────
+loadPricing();
+loadCustomers();
+</script>
+</body>
+</html>
