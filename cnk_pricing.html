@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNK — ตีราคาบล็อกไดคัท</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+  --accent:#e65100;--accent2:#ff8f00;
+  --cut:#ef4444;--crease:#3b82f6;--wood:#22c55e;
+  --cut-bg:rgba(239,68,68,0.12);--crease-bg:rgba(59,130,246,0.12);--wood-bg:rgba(34,197,94,0.12);
+  --text:#e8eaf0;--text2:#8b92b3;--green:#22c55e;--yellow:#f59e0b;
+  --mono:'IBM Plex Mono',monospace;--sans:'Sarabun',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:0.5;}
+.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+header{border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;
+  background:rgba(26,29,39,0.9);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent);letter-spacing:.05em;}
+.logo span{color:var(--text2);font-weight:400;}
+header h1{font-size:13px;color:var(--text2);font-weight:400;}
+.main{display:grid;grid-template-columns:400px 1fr;gap:0;flex:1;}
+
+/* LEFT */
+.panel-left{border-right:1px solid var(--border);display:flex;flex-direction:column;
+  height:calc(100vh - 53px);overflow-y:auto;}
+.section{padding:16px 20px;border-bottom:1px solid var(--border);}
+.stitle{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--text2);
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;}
+.stitle::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:24px 16px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(230,81,0,0.06);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-zone p{color:var(--text2);font-size:13px;}
+.upload-zone strong{color:var(--text);}
+.file-types{margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--accent2);}
+.sbar{background:var(--surface2);border-radius:8px;padding:9px 12px;font-size:13px;
+  display:flex;align-items:center;gap:8px;margin-top:10px;}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-idle{background:var(--text2);}.dot-loading{background:var(--yellow);animation:pulse 1s infinite;}
+.dot-ok{background:var(--green);}.dot-err{background:var(--cut);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Mode buttons */
+.mode-row{display:flex;gap:6px;flex-wrap:wrap;}
+.mbtn{flex:1;min-width:80px;padding:9px 6px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text2);font-family:var(--sans);font-size:12px;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:4px;}
+.mbtn:hover{border-color:var(--text2);color:var(--text);}
+.mbtn.a-cut{border-color:var(--cut);background:var(--cut-bg);color:var(--cut);font-weight:600;}
+.mbtn.a-crease{border-color:var(--crease);background:var(--crease-bg);color:var(--crease);font-weight:600;}
+.mbtn.a-wood{border-color:var(--wood);background:var(--wood-bg);color:var(--wood);font-weight:600;}
+.mbtn.a-pan{border-color:var(--text2);background:var(--surface2);color:var(--text);font-weight:600;}
+.mode-hint{font-size:11px;color:var(--text2);margin-top:8px;line-height:1.5;}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.scard{background:var(--surface);border-radius:8px;padding:10px 12px;border:1px solid var(--border);}
+.scard.cc{border-color:rgba(239,68,68,.3);}.scard.cr{border-color:rgba(59,130,246,.3);}
+.scard.cw{border-color:rgba(34,197,94,.3);grid-column:1/-1;}
+.slabel{font-size:10px;color:var(--text2);margin-bottom:3px;font-family:var(--mono);}
+.sval{font-size:18px;font-weight:700;font-family:var(--mono);}
+.sv-cut{color:var(--cut);}.sv-crease{color:var(--crease);}.sv-wood{color:var(--wood);}
+.sunit{font-size:10px;color:var(--text2);margin-top:1px;}
+.wood-pts{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:4px;}
+
+/* Form */
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-family:var(--mono);}
+.fg select,.fg input{width:100%;background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:14px;
+  outline:none;transition:border-color .15s;}
+.fg select:focus,.fg input:focus{border-color:var(--accent);}
+.fg select option{background:var(--surface2);}
+.fnote{font-size:10px;color:var(--text2);margin-top:3px;}
+
+/* Overlap badge */
+.obadge{background:rgba(245,158,11,.1);border:1px solid var(--yellow);border-radius:6px;
+  padding:6px 10px;font-size:11px;color:var(--yellow);display:none;margin-top:8px;
+  align-items:center;gap:6px;}
+.obadge.show{display:flex;}
+
+/* Buttons */
+.calc-btn{width:100%;padding:13px;background:var(--accent);border:none;border-radius:9px;
+  color:white;font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.calc-btn:hover:not(:disabled){background:#ff6d00;transform:translateY(-1px);box-shadow:0 4px 20px rgba(230,81,0,.4);}
+.calc-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.clr-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;
+  padding:5px 10px;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s;}
+.clr-btn:hover{border-color:var(--cut);color:var(--cut);}
+
+/* RIGHT */
+.panel-right{display:flex;flex-direction:column;height:calc(100vh - 53px);background:#0a0c12;}
+.ctoolbar{padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  gap:10px;font-size:11px;color:var(--text2);font-family:var(--mono);background:var(--surface);flex-shrink:0;}
+.canvas-wrap{flex:1;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;}
+#dxf-canvas{cursor:crosshair;display:block;}
+.cempty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;color:var(--text2);height:100%;}
+.cempty-icon{font-size:48px;opacity:.3;}
+.zbtn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);
+  border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-family:var(--mono);transition:all .1s;}
+.zbtn:hover{color:var(--text);border-color:var(--text2);}
+
+/* Result */
+.result-panel{border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.rtoggle{padding:9px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  font-size:12px;color:var(--text2);font-family:var(--mono);user-select:none;}
+.rtoggle:hover{color:var(--text);}
+.rbody{padding:0 14px 14px;display:none;}
+.rbody.open{display:block;}
+.pbreak{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.pitem{background:var(--surface2);border-radius:7px;padding:9px 11px;border:1px solid var(--border);}
+.pitem-label{font-size:10px;color:var(--text2);margin-bottom:2px;}
+.pitem-val{font-size:14px;font-weight:600;font-family:var(--mono);color:var(--text);}
+.ptotal{background:linear-gradient(135deg,rgba(230,81,0,.15),rgba(255,143,0,.08));
+  border:1px solid rgba(230,81,0,.4);border-radius:9px;padding:12px 14px;
+  display:flex;justify-content:space-between;align-items:center;}
+.ptotal-label{font-size:12px;color:var(--text2);}
+.ptotal-val{font-size:24px;font-weight:700;font-family:var(--mono);color:var(--accent2);}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:9px;padding:10px 14px;font-size:13px;z-index:999;animation:slideUp .2s ease;max-width:280px;}
+.toast.warn{border-color:var(--yellow);color:var(--yellow);}
+.toast.err{border-color:var(--cut);color:var(--cut);}
+.toast.ok{border-color:var(--green);color:var(--green);}
+@keyframes slideUp{from{transform:translateY(8px);opacity:0}}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="logo">CNK<span>.pricing</span></div>
+  <h1>ระบบตีราคาบล็อกไดคัท — เจริญนคร ไดแอนด์โมลด์</h1>
+</header>
+<div class="main">
+
+<!-- LEFT PANEL -->
+<div class="panel-left">
+
+  <!-- 01 Upload -->
+  <div class="section">
+    <div class="stitle">01 อัปโหลดไฟล์งาน</div>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept=".ai,.pdf,.dxf,.svg">
+      <div style="font-size:28px;margin-bottom:8px;">📐</div>
+      <p><strong>คลิกหรือลากไฟล์มาวาง</strong></p>
+      <p>รองรับ AI, PDF, DXF, SVG</p>
+      <div class="file-types">.ai · .pdf · .dxf · .svg</div>
+    </div>
+    <div class="sbar" id="sbar">
+      <div class="sdot dot-idle" id="sdot"></div>
+      <span id="stext">รอไฟล์...</span>
+    </div>
+  </div>
+
+  <!-- 02 Mode -->
+  <div class="section">
+    <div class="stitle">02 เลือกเครื่องมือ</div>
+    <div class="mode-row">
+      <button class="mbtn a-cut" id="btn-cut" onclick="setMode('cut')">✂️ เส้นคม</button>
+      <button class="mbtn" id="btn-crease" onclick="setMode('crease')">📐 เส้นพับ</button>
+      <button class="mbtn" id="btn-wood" onclick="setMode('wood')">🪵 กรอบไม้</button>
+      <button class="mbtn" id="btn-pan" onclick="setMode('pan')">✋ เลื่อน</button>
+    </div>
+    <div class="mode-hint" id="mode-hint">คลิกเส้นเพื่อกำหนดเป็นเส้นคม · คลิกซ้ำเพื่อยกเลิก</div>
+    <div style="margin-top:8px;display:flex;gap:6px;">
+      <button class="clr-btn" onclick="clearLines('cut')">ล้างเส้นคม</button>
+      <button class="clr-btn" onclick="clearLines('crease')">ล้างเส้นพับ</button>
+      <button class="clr-btn" onclick="clearLines('all')">ล้างทั้งหมด</button>
+    </div>
+    <div class="obadge" id="obadge">⚠️ พบเส้นซ้อน <span id="ocount">0</span> คู่</div>
+  </div>
+
+  <!-- 03 Stats -->
+  <div class="section">
+    <div class="stitle">03 สรุปการเลือก</div>
+    <div class="stats-grid">
+      <div class="scard cc">
+        <div class="slabel">✂️ เส้นคม</div>
+        <div class="sval sv-cut" id="cut-len">0</div>
+        <div class="sunit">mm</div>
+      </div>
+      <div class="scard cr">
+        <div class="slabel">📐 เส้นพับ</div>
+        <div class="sval sv-crease" id="crease-len">0</div>
+        <div class="sunit">mm</div>
+      </div>
+      <div class="scard cw">
+        <div class="slabel">🪵 กรอบไม้ (คลิก 2 จุด + 30mm ทุกด้าน)</div>
+        <div class="sval sv-wood" id="wood-size">—</div>
+        <div class="wood-pts" id="wood-pts">ยังไม่ได้เลือก</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 Params -->
+  <div class="section">
+    <div class="stitle">04 รายละเอียดงาน</div>
+    <div class="fg">
+      <label>ชนิดมีด — เส้นคม</label>
+      <select id="blade-cut">
+        <option value="2pt">2pt — ทั่วไป</option>
+        <option value="2pt_plastic">2pt plastic</option>
+        <option value="1.3pt">1.3pt</option>
+        <option value="1.3pt_plastic">1.3pt plastic</option>
+        <option value="2pt_steel">2pt steel</option>
+        <option value="2pt_ait">2pt AIT</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>ชนิดมีด — เส้นพับ</label>
+      <select id="blade-crease">
+        <option value="crease_std">Crease rule ทั่วไป</option>
+        <option value="crease_plastic">Crease plastic</option>
+        <option value="1.3pt">1.3pt (ใช้เป็นพับได้)</option>
+        <option value="2pt">2pt (ใช้เป็นพับได้)</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>ตัวแปรลูกค้า (var2)</label>
+      <input type="number" id="var2" value="1.0" min="0.5" max="3" step="0.05">
+      <div class="fnote">ค่าปกติ = 1.0 · (เชื่อมฐานข้อมูลลูกค้าในภายหลัง)</div>
+    </div>
+    <div class="fg">
+      <label>หมายเหตุ / ชื่องาน</label>
+      <input type="text" id="note" placeholder="เช่น กล่องสบู่ / บ.ABC">
+    </div>
+  </div>
+
+  <!-- 05 Calculate -->
+  <div class="section">
+    <button class="calc-btn" id="calc-btn" onclick="calculate()" disabled>
+      💰 คำนวณราคา
+    </button>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel-right">
+  <div class="ctoolbar">
+    <span id="cinfo">ยังไม่มีไฟล์</span>
+    <div style="flex:1;"></div>
+    <div style="display:flex;gap:4px;">
+      <button class="zbtn" onclick="doZoom(1.2)">＋</button>
+      <button class="zbtn" onclick="doZoom(0.8)">－</button>
+      <button class="zbtn" onclick="resetZoom()">⊡ Fit</button>
+    </div>
+  </div>
+  <div class="canvas-wrap" id="canvas-wrap">
+    <div class="cempty" id="cempty">
+      <div class="cempty-icon">📐</div>
+      <p>อัปโหลดไฟล์เพื่อแสดงแบบ</p>
+      <p style="font-size:11px;opacity:.5;">AI/PDF แปลงผ่าน CloudConvert → SVG อัตโนมัติ</p>
+    </div>
+    <canvas id="dxf-canvas" style="display:none;"></canvas>
+  </div>
+  <div class="result-panel" id="result-panel" style="display:none;">
+    <div class="rtoggle" onclick="toggleResult()">
+      <span>💰 ผลการคำนวณ</span>
+      <span id="rticon">▲</span>
+    </div>
+    <div class="rbody open" id="rbody">
+      <div class="pbreak" id="pbreak"></div>
+      <div class="ptotal">
+        <div>
+          <div class="ptotal-label">ราคาขาย / ชิ้น</div>
+          <div style="font-size:10px;color:var(--text2);font-family:var(--mono)" id="pnote"></div>
+        </div>
+        <div class="ptotal-val" id="ptotal">฿0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const CC_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiY2NkZjMwZTBlMDliNWMwZWYwYjRiNjg4Yzc2YzI1MzU1YmI2M2I5ZjlkYzQzMjI0MzM1ODEzNmQyNDYyNmJkMDM0ZjcwMzliMTZkYzc1MmYiLCJpYXQiOjE3ODA2MjkyMjguODQyMzM4LCJuYmYiOjE3ODA2MjkyMjguODQyMzQsImV4cCI6NDkzNjMwMjgyOC44MzY3NzQsInN1YiI6Ijc1ODUyMTg4Iiwic2NvcGVzIjpbInRhc2sucmVhZCIsInRhc2sud3JpdGUiXX0.j_PBlExnhq4ovQqGGMVqgfZNDlZoPPXv_ItlAfdxuc41aSjUEOnmT7CFg5v51kgCF2X_yKqE3GV0mFGe5mXlZ3mVGsNcm0T7vAL4WbnqXc22VI96ovsqW7LJnF2ctnNdUuKaBa7F1k2LncAmMqLn0BSOb60lsBeyVhoBTlGJAUj7c8zdUx57jFrgBlTDiMZ03oO17lS6LwV8W0UVJJpUGGh548dyxP_pp7yaVlQZGOYl2B3mFD1ylsxiv9PEm6TyBPRjl9GprZzMfijmIq5DvcCkNR-JaIo0t8Sz97K3zL0Dk2wFSr9kSI_w0udAxQUTAv2EAoh6Vvu7WTzuE25ww7NmFF0mhYiabDz6BJNlPzZogddPXArbPV_M0w_gF6oZ9g7R2i8DxVfT-17uCf7-WI-J3iKw81ZjBZVmYFUiG9HOJAFb2Y-grvMoIT3wkpARkguuDxp0isLg3F-o6G1c48rix3NxlYwHyu2iDtscLqSDwMZOTtf8pHRRf13lQTMh6SlXlXw6yTkE9nuQAsc_1LB26UMbBwaUGybkUG14VcbGF5-DMDGtNHhTgZBeODmpu-Izq5-_O1eJmc60TUayO0VSWWyfNVe7ud_Pz3kAPLtCxiKddH_6KFv34vgJY7gENsRlErhnn_8CL6XInfDKipri46-NWgMi0DbFJWTRF9M';
+
+// Pricing: เส้นคม
+const PRICING_CUT = {
+  '2pt':          { cost_per_mm: 0.020, var1: 1.7,  label: '2pt' },
+  '2pt_plastic':  { cost_per_mm: 0.075, var1: 1.05, label: '2pt plastic' },
+  '1.3pt':        { cost_per_mm: 0.043, var1: 1.3,  label: '1.3pt' },
+  '1.3pt_plastic':{ cost_per_mm: 0.059, var1: 1.2,  label: '1.3pt plastic' },
+  '2pt_steel':    { cost_per_mm: 0.095, var1: 1.3,  label: '2pt steel' },
+  '2pt_ait':      { cost_per_mm: 0.059, var1: 1.3,  label: '2pt AIT' },
+};
+// Pricing: เส้นพับ (cost_per_mm ต่างกัน, ไม่มี var1 — ใช้แค่ cost)
+const PRICING_CREASE = {
+  'crease_std':     { cost_per_mm: 0.012, label: 'Crease ทั่วไป' },
+  'crease_plastic': { cost_per_mm: 0.025, label: 'Crease plastic' },
+  '1.3pt':          { cost_per_mm: 0.043, label: '1.3pt' },
+  '2pt':            { cost_per_mm: 0.020, label: '2pt' },
+};
+const WOOD_COST_PER_MM2 = 0.00038;
+const WOOD_PAD = 30; // mm each side
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let lines = [];
+let mode = 'cut';
+let viewScale = 1, viewOffX = 0, viewOffY = 0;
+let svgUnitToMM = 1; // conversion factor: SVG user-unit → mm
+let bbox = null;
+
+// Wood box: click 2 points
+let woodPts = [];      // [{wx,wy}, {wx,wy}] world coords
+let woodBox = null;    // {x1,y1,x2,y2,w,h} in mm after padding
+
+// Pan
+let isPanning = false, panStart = {x:0,y:0}, panOff = {x:0,y:0};
+
+// Wood hover point (second click preview)
+let woodHover = null;  // {wx,wy}
+
+const canvas = document.getElementById('dxf-canvas');
+const ctx = canvas.getContext('2d');
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('drag');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+async function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  setStatus('loading', `กำลังโหลด ${file.name}...`);
+  clearAll();
+  if(ext === 'dxf') {
+    const text = await file.text();
+    parseDXF(text);
+  } else if(ext === 'svg') {
+    const text = await file.text();
+    parseSVG(text);
+  } else if(ext === 'ai' || ext === 'pdf') {
+    await convertCC(file, ext);
+  } else {
+    setStatus('err', 'ไฟล์ไม่รองรับ');
+  }
+}
+
+// ── CLOUDCONVERT ──────────────────────────────────────────────────────────────
+async function convertCC(file, ext) {
+  try {
+    setStatus('loading', `แปลง ${ext.toUpperCase()} → SVG...`);
+    const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${CC_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tasks: {
+        'upload': { operation: 'import/upload' },
+        'convert': { operation: 'convert', input: 'upload',
+          input_format: ext === 'ai' ? 'ai' : 'pdf', output_format: 'svg', engine: 'inkscape' },
+        'export': { operation: 'export/url', input: 'convert' }
+      }})
+    });
+    const job = await jobRes.json();
+    if(!job.data) throw new Error(job.message || 'Job error');
+
+    const uploadTask = job.data.tasks.find(t => t.name === 'upload');
+    const fd = new FormData();
+    Object.entries(uploadTask.result.form.parameters).forEach(([k,v]) => fd.append(k,v));
+    fd.append('file', file);
+    await fetch(uploadTask.result.form.url, { method: 'POST', body: fd });
+
+    setStatus('loading', 'กำลังแปลงไฟล์... (10–30 วินาที)');
+    let svgUrl = null;
+    for(let i=0; i<40; i++) {
+      await sleep(2000);
+      const sr = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.data.id}`, {
+        headers: { 'Authorization': `Bearer ${CC_KEY}` }
+      });
+      const sd = await sr.json();
+      const ex = sd.data.tasks.find(t => t.name === 'export');
+      if(ex?.status === 'finished') { svgUrl = ex.result.files[0].url; break; }
+      if(sd.data.status === 'error') throw new Error('CloudConvert conversion failed');
+    }
+    if(!svgUrl) throw new Error('Timeout');
+
+    setStatus('loading', 'โหลด SVG...');
+    const svgText = await (await fetch(svgUrl)).text();
+    parseSVG(svgText);
+  } catch(err) {
+    setStatus('err', `แปลงไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+// ── DXF PARSER ────────────────────────────────────────────────────────────────
+function parseDXF(text) {
+  lines = [];
+  svgUnitToMM = 1; // DXF assumes mm
+  const rows = text.split(/\r?\n/);
+  let i = 0, inEnt = false;
+  const nxt = () => rows[i++]?.trim();
+  const peek = () => rows[i]?.trim();
+
+  while(i < rows.length) {
+    const code = nxt(), val = nxt();
+    if(code==='0' && val==='ENTITIES') inEnt = true;
+    if(code==='0' && val==='ENDSEC') inEnt = false;
+    if(!inEnt) continue;
+    if(code==='0' && ['LINE','LWPOLYLINE','POLYLINE','ARC','CIRCLE','SPLINE'].includes(val)) {
+      const ent = { type: val, codes: {} };
+      while(i < rows.length) {
+        if(peek()==='0') break;
+        const ec = nxt(), ev = nxt();
+        if(!ent.codes[ec]) ent.codes[ec]=[];
+        ent.codes[ec].push(ev);
+      }
+      dxfEntity(ent);
+    }
+  }
+  if(lines.length===0){ setStatus('err','ไม่พบเส้นใน DXF'); return; }
+  finishLoad(`DXF — ${lines.length} เส้น`);
+}
+
+function dxfEntity(e) {
+  const g=(c,i=0)=>parseFloat(e.codes[c]?.[i])||0;
+  const ga=(c)=>(e.codes[c]||[]).map(Number);
+  if(e.type==='LINE') {
+    addL(g('10'),g('20'),g('11'),g('21'));
+  } else if(e.type==='ARC') {
+    const cx=g('10'),cy=g('20'),r=g('40');
+    let a1=g('50')*Math.PI/180, a2=g('51')*Math.PI/180;
+    let diff=a2-a1; if(diff<0) diff+=2*Math.PI;
+    const segs=Math.max(8,Math.floor(diff*r/5));
+    for(let i=0;i<segs;i++){
+      const aa=a1+diff*i/segs, ab=a1+diff*(i+1)/segs;
+      addL(cx+r*Math.cos(aa),cy+r*Math.sin(aa),cx+r*Math.cos(ab),cy+r*Math.sin(ab));
+    }
+  } else if(e.type==='CIRCLE') {
+    const cx=g('10'),cy=g('20'),r=g('40');
+    for(let i=0;i<32;i++){
+      const a1=2*Math.PI*i/32,a2=2*Math.PI*(i+1)/32;
+      addL(cx+r*Math.cos(a1),cy+r*Math.sin(a1),cx+r*Math.cos(a2),cy+r*Math.sin(a2));
+    }
+  } else if(e.type==='LWPOLYLINE'||e.type==='POLYLINE') {
+    const xs=ga('10'),ys=ga('20');
+    for(let i=0;i<xs.length-1;i++) addL(xs[i],ys[i],xs[i+1],ys[i+1]);
+    if(parseInt(e.codes['70']?.[0]||'0')&1 && xs.length>1)
+      addL(xs[xs.length-1],ys[ys.length-1],xs[0],ys[0]);
+  } else if(e.type==='SPLINE') {
+    const xs=ga('10'),ys=ga('20');
+    for(let i=0;i<xs.length-1;i++) addL(xs[i],ys[i],xs[i+1],ys[i+1]);
+  }
+}
+
+// ── SVG PARSER ────────────────────────────────────────────────────────────────
+function parseSVG(text) {
+  lines = [];
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text,'image/svg+xml');
+  const svgEl = doc.querySelector('svg');
+
+  // ── SCALE: compute px→mm ──────────────────────────────────────────────────
+  // Priority: explicit width/height with unit > viewBox with document units > fallback 96dpi
+  svgUnitToMM = computeSVGScale(svgEl);
+
+  doc.querySelectorAll('path,line,rect,circle,ellipse,polyline,polygon').forEach(el => {
+    if(el.closest('text,tspan,defs,style,clipPath,mask')) return;
+    const stroke = el.getAttribute('stroke') || '';
+    const fill   = el.getAttribute('fill') || '';
+    if(stroke==='none' && fill && fill!=='none') return;
+    svgElement(el);
+  });
+
+  if(lines.length===0){ setStatus('err','ไม่พบเส้นใน SVG'); return; }
+  finishLoad(`SVG — ${lines.length} เส้น (scale=${svgUnitToMM.toFixed(4)} px/mm)`);
+}
+
+function computeSVGScale(svgEl) {
+  if(!svgEl) return 0.264583; // 96dpi fallback
+
+  // Try to get real-world width from width/height attributes with units
+  const wAttr = svgEl.getAttribute('width') || '';
+  const hAttr = svgEl.getAttribute('height') || '';
+  const vb    = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+
+  const parseWithUnit = (str) => {
+    // returns value in mm, or null
+    const m = str.match(/^([\d.]+)(mm|cm|in|px|pt|pc)?$/i);
+    if(!m) return null;
+    const v = parseFloat(m[1]);
+    const u = (m[2]||'px').toLowerCase();
+    const toMM = {mm:1,cm:10,in:25.4,px:0.264583,pt:0.352778,pc:4.23333};
+    return v * (toMM[u] || 0.264583);
+  };
+
+  const wMM = parseWithUnit(wAttr);
+  const hMM = parseWithUnit(hAttr);
+
+  if(wMM && vb.length>=4 && vb[2]>0) {
+    // scale = mm per SVG user unit
+    return wMM / vb[2];
+  }
+  if(hMM && vb.length>=4 && vb[3]>0) {
+    return hMM / vb[3];
+  }
+  // No real-world size info — assume 96dpi (px = 0.264583mm)
+  return 0.264583;
+}
+
+function svgElement(el) {
+  const tag = el.tagName.toLowerCase();
+  if(tag==='path') { svgPath(el.getAttribute('d')||''); }
+  else if(tag==='line') {
+    addL(+el.getAttribute('x1')||0,+el.getAttribute('y1')||0,
+         +el.getAttribute('x2')||0,+el.getAttribute('y2')||0);
+  } else if(tag==='rect') {
+    const x=+el.getAttribute('x')||0,y=+el.getAttribute('y')||0;
+    const w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;
+    addL(x,y,x+w,y);addL(x+w,y,x+w,y+h);addL(x+w,y+h,x,y+h);addL(x,y+h,x,y);
+  } else if(tag==='circle') {
+    const cx=+el.getAttribute('cx')||0,cy=+el.getAttribute('cy')||0,r=+el.getAttribute('r')||0;
+    for(let i=0;i<32;i++){const a1=2*Math.PI*i/32,a2=2*Math.PI*(i+1)/32;
+      addL(cx+r*Math.cos(a1),cy+r*Math.sin(a1),cx+r*Math.cos(a2),cy+r*Math.sin(a2));}
+  } else if(tag==='polyline'||tag==='polygon') {
+    const pts=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+    for(let i=0;i<pts.length-2;i+=2) addL(pts[i],pts[i+1],pts[i+2],pts[i+3]);
+    if(tag==='polygon'&&pts.length>=4) addL(pts[pts.length-2],pts[pts.length-1],pts[0],pts[1]);
+  }
+}
+
+function svgPath(d) {
+  const cmds = d.match(/[MmLlHhVvCcSsQqTtAaZz][^MmLlHhVvCcSsQqTtAaZz]*/g)||[];
+  let cx=0,cy=0,sx=0,sy=0;
+  cmds.forEach(cmd => {
+    const t=cmd[0];
+    const ns=cmd.slice(1).trim().split(/[\s,]+/).map(Number).filter(n=>!isNaN(n));
+    let i=0; const n=()=>ns[i++]||0;
+    if(t==='M'||t==='m'){
+      while(i<ns.length){const dx=n(),dy=n();
+        const nx=t==='M'?dx:cx+dx,ny=t==='M'?dy:cy+dy;
+        if(i===2){sx=nx;sy=ny;}cx=nx;cy=ny;}
+    } else if(t==='L'||t==='l'){
+      while(i<ns.length){const dx=n(),dy=n();
+        const nx=t==='L'?dx:cx+dx,ny=t==='L'?dy:cy+dy;
+        addL(cx,cy,nx,ny);cx=nx;cy=ny;}
+    } else if(t==='H'||t==='h'){
+      while(i<ns.length){const nx=t==='H'?n():cx+n();addL(cx,cy,nx,cy);cx=nx;}
+    } else if(t==='V'||t==='v'){
+      while(i<ns.length){const ny=t==='V'?n():cy+n();addL(cx,cy,cx,ny);cy=ny;}
+    } else if(t==='C'||t==='c'){
+      while(i<ns.length){
+        const x1=t==='C'?n():cx+n(),y1=t==='C'?n():cy+n();
+        const x2=t==='C'?n():cx+n(),y2=t==='C'?n():cy+n();
+        const ex=t==='C'?n():cx+n(),ey=t==='C'?n():cy+n();
+        bezier(cx,cy,x1,y1,x2,y2,ex,ey);cx=ex;cy=ey;}
+    } else if(t==='Q'||t==='q'){
+      while(i<ns.length){
+        const qx=t==='Q'?n():cx+n(),qy=t==='Q'?n():cy+n();
+        const ex=t==='Q'?n():cx+n(),ey=t==='Q'?n():cy+n();
+        quad(cx,cy,qx,qy,ex,ey);cx=ex;cy=ey;}
+    } else if(t==='Z'||t==='z'){addL(cx,cy,sx,sy);cx=sx;cy=sy;}
+    else{while(i<ns.length)n();}
+  });
+}
+function bezier(x0,y0,x1,y1,x2,y2,x3,y3,s=16){let px=x0,py=y0;
+  for(let i=1;i<=s;i++){const t=i/s,u=1-t;
+    const nx=u*u*u*x0+3*u*u*t*x1+3*u*t*t*x2+t*t*t*x3;
+    const ny=u*u*u*y0+3*u*u*t*y1+3*u*t*t*y2+t*t*t*y3;
+    addL(px,py,nx,ny);px=nx;py=ny;}}
+function quad(x0,y0,qx,qy,ex,ey,s=12){let px=x0,py=y0;
+  for(let i=1;i<=s;i++){const t=i/s,u=1-t;
+    const nx=u*u*x0+2*u*t*qx+t*t*ex,ny=u*u*y0+2*u*t*qy+t*t*ey;
+    addL(px,py,nx,ny);px=nx;py=ny;}}
+
+function addL(x1,y1,x2,y2){
+  const len=Math.hypot(x2-x1,y2-y1);
+  if(len<0.001) return;
+  lines.push({x1,y1,x2,y2,len,lineType:null});
+}
+
+// ── FINISH LOAD ───────────────────────────────────────────────────────────────
+function finishLoad(label) {
+  detectOverlaps();
+  resetZoom();
+  render();
+  updateStats();
+  document.getElementById('cempty').style.display='none';
+  canvas.style.display='block';
+  document.getElementById('cinfo').textContent=label;
+  document.getElementById('calc-btn').disabled=false;
+  setStatus('ok',`โหลดสำเร็จ — ${lines.length} เส้น`);
+}
+
+function computeBBoxMM() {
+  // Returns bbox in mm (applies svgUnitToMM)
+  if(lines.length===0) return null;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  lines.forEach(l=>{
+    minX=Math.min(minX,l.x1,l.x2);maxX=Math.max(maxX,l.x1,l.x2);
+    minY=Math.min(minY,l.y1,l.y2);maxY=Math.max(maxY,l.y1,l.y2);
+  });
+  return {minX:minX*svgUnitToMM,minY:minY*svgUnitToMM,
+          maxX:maxX*svgUnitToMM,maxY:maxY*svgUnitToMM};
+}
+
+function detectOverlaps(){
+  const T=0.5;let cnt=0;
+  for(let i=0;i<lines.length;i++)
+    for(let j=i+1;j<lines.length;j++){
+      const a=lines[i],b=lines[j];
+      if((Math.abs(a.x1-b.x1)<T&&Math.abs(a.y1-b.y1)<T&&Math.abs(a.x2-b.x2)<T&&Math.abs(a.y2-b.y2)<T)||
+         (Math.abs(a.x1-b.x2)<T&&Math.abs(a.y1-b.y2)<T&&Math.abs(a.x2-b.x1)<T&&Math.abs(a.y2-b.y1)<T)) cnt++;
+    }
+  const b=document.getElementById('obadge');
+  if(cnt>0){b.classList.add('show');document.getElementById('ocount').textContent=cnt;}
+  else b.classList.remove('show');
+}
+
+// ── CANVAS ────────────────────────────────────────────────────────────────────
+function setupCanvas(){
+  const w=document.getElementById('canvas-wrap');
+  canvas.width=w.clientWidth; canvas.height=w.clientHeight;
+}
+
+function resetZoom(){
+  if(lines.length===0) return;
+  setupCanvas();
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  lines.forEach(l=>{minX=Math.min(minX,l.x1,l.x2);maxX=Math.max(maxX,l.x1,l.x2);
+    minY=Math.min(minY,l.y1,l.y2);maxY=Math.max(maxY,l.y1,l.y2);});
+  const pad=60;
+  const sx=(canvas.width-pad*2)/(maxX-minX||1);
+  const sy=(canvas.height-pad*2)/(maxY-minY||1);
+  viewScale=Math.min(sx,sy,50);
+  viewOffX=(canvas.width-(maxX-minX)*viewScale)/2-minX*viewScale;
+  viewOffY=(canvas.height-(maxY-minY)*viewScale)/2-minY*viewScale;
+  render();
+}
+
+function doZoom(f){viewScale*=f;render();}
+
+function scr(x,y){return[x*viewScale+viewOffX,y*viewScale+viewOffY];}
+function wld(sx,sy){return[(sx-viewOffX)/viewScale,(sy-viewOffY)/viewScale];}
+
+function render(){
+  if(lines.length===0) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Draw lines
+  lines.forEach(l=>{
+    const [sx1,sy1]=scr(l.x1,l.y1),[sx2,sy2]=scr(l.x2,l.y2);
+    if(l.lineType==='cut'){ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.setLineDash([]);}
+    else if(l.lineType==='crease'){ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.setLineDash([6,3]);}
+    else{ctx.strokeStyle='rgba(139,146,179,0.55)';ctx.lineWidth=1;ctx.setLineDash([]);}
+    ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Draw wood box
+  if(woodBox){
+    // woodBox coords are in SVG user units (divide mm by svgUnitToMM)
+    const sc = svgUnitToMM;
+    const [bx1,by1]=scr(woodBox.ux1,woodBox.uy1);
+    const [bx2,by2]=scr(woodBox.ux2,woodBox.uy2);
+    ctx.strokeStyle='rgba(34,197,94,0.9)';ctx.lineWidth=2;
+    ctx.setLineDash([8,4]);
+    ctx.strokeRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+    ctx.setLineDash([]);
+    // label
+    ctx.fillStyle='rgba(34,197,94,0.15)';
+    ctx.fillRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
+  }
+
+  // Draw wood pts (crosshairs)
+  woodPts.forEach(p=>{
+    const [sx,sy]=scr(p.wx,p.wy);
+    ctx.strokeStyle='#22c55e';ctx.lineWidth=1.5;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(sx-10,sy);ctx.lineTo(sx+10,sy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(sx,sy-10);ctx.lineTo(sx,sy+10);ctx.stroke();
+    // circle
+    ctx.beginPath();ctx.arc(sx,sy,5,0,2*Math.PI);ctx.stroke();
+  });
+
+  // Wood hover preview line (if 1 pt placed, show rubber band to cursor)
+  if(woodPts.length===1 && woodHover && mode==='wood'){
+    const [sx1,sy1]=scr(woodPts[0].wx,woodPts[0].wy);
+    const [sx2,sy2]=scr(woodHover.wx,woodHover.wy);
+    ctx.strokeStyle='rgba(34,197,94,0.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.strokeRect(Math.min(sx1,sx2),Math.min(sy1,sy2),Math.abs(sx2-sx1),Math.abs(sy2-sy1));
+    ctx.setLineDash([]);
+  }
+}
+
+// ── CANVAS EVENTS ─────────────────────────────────────────────────────────────
+canvas.addEventListener('click', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const [wx,wy]=wld(mx,my);
+
+  if(mode==='pan') return;
+
+  if(mode==='wood'){
+    woodPts.push({wx,wy});
+    if(woodPts.length===2){
+      computeWoodBox();
+      woodHover=null;
+    } else if(woodPts.length>2){
+      // reset and start over
+      woodPts=[{wx,wy}];
+      woodBox=null;
+      updateStats();
+    }
+    render();
+    updateStats();
+    return;
+  }
+
+  // cut / crease — find nearest line
+  const THRESH=8/viewScale;
+  let best=null,bestD=Infinity;
+  lines.forEach((l,idx)=>{
+    const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);
+    if(d<THRESH&&d<bestD){bestD=d;best=idx;}
+  });
+  if(best!==null){
+    lines[best].lineType = lines[best].lineType===mode ? null : mode;
+    updateStats();render();
+  }
+});
+
+canvas.addEventListener('mousemove', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+
+  if(isPanning){
+    viewOffX=panOff.x+(mx-panStart.x);
+    viewOffY=panOff.y+(my-panStart.y);
+    render();return;
+  }
+  if(mode==='wood'&&woodPts.length===1){
+    const [wx,wy]=wld(mx,my);
+    woodHover={wx,wy};
+    render();
+  }
+});
+
+canvas.addEventListener('mousedown', e=>{
+  if(mode==='pan'||e.altKey||e.button===1){
+    isPanning=true;
+    const rect=canvas.getBoundingClientRect();
+    panStart={x:e.clientX-rect.left,y:e.clientY-rect.top};
+    panOff={x:viewOffX,y:viewOffY};
+    canvas.style.cursor='grabbing';
+  }
+});
+canvas.addEventListener('mouseup',()=>{isPanning=false;updateCursor();});
+canvas.addEventListener('mouseleave',()=>{isPanning=false;woodHover=null;render();});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.1:0.9;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  viewOffX=mx-(mx-viewOffX)*f;viewOffY=my-(my-viewOffY)*f;
+  viewScale*=f;render();
+},{passive:false});
+
+function distSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;
+  if(l2===0) return Math.hypot(px-x1,py-y1);
+  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/l2));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
+
+// ── WOOD BOX ─────────────────────────────────────────────────────────────────
+function computeWoodBox(){
+  if(woodPts.length<2) return;
+  const p1=woodPts[0],p2=woodPts[1];
+  // SVG user units
+  const ux1=Math.min(p1.wx,p2.wx),uy1=Math.min(p1.wy,p2.wy);
+  const ux2=Math.max(p1.wx,p2.wx),uy2=Math.max(p1.wy,p2.wy);
+  // real size in mm
+  const wMM=(ux2-ux1)*svgUnitToMM,hMM=(uy2-uy1)*svgUnitToMM;
+  // wood box with padding
+  const padU=WOOD_PAD/svgUnitToMM; // pad in user units
+  woodBox={
+    ux1:ux1-padU, uy1:uy1-padU, ux2:ux2+padU, uy2:uy2+padU,
+    wMM:wMM+WOOD_PAD*2, hMM:hMM+WOOD_PAD*2,
+    workW:wMM, workH:hMM
+  };
+}
+
+// ── MODE ──────────────────────────────────────────────────────────────────────
+const HINTS={
+  cut:'คลิกเส้นเพื่อกำหนดเป็นเส้นคม (แดง) · คลิกซ้ำเพื่อยกเลิก',
+  crease:'คลิกเส้นเพื่อกำหนดเป็นเส้นพับ (น้ำเงิน) · คลิกซ้ำเพื่อยกเลิก',
+  wood:'คลิกจุดที่ 1 (มุมบนซ้าย) → คลิกจุดที่ 2 (มุมล่างขวา) ของงาน · จะบวก 30mm ทุกด้าน',
+  pan:'ลากเพื่อเลื่อนภาพ · Scroll เพื่อซูม'
+};
+function setMode(m){
+  mode=m;
+  ['cut','crease','wood','pan'].forEach(id=>{
+    document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:'');
+  });
+  document.getElementById('mode-hint').textContent=HINTS[m]||'';
+  updateCursor();
+}
+function updateCursor(){
+  canvas.style.cursor=mode==='pan'?'grab':mode==='wood'?'crosshair':'crosshair';
+}
+
+function clearLines(type){
+  if(type==='all'){lines.forEach(l=>l.lineType=null);woodPts=[];woodBox=null;woodHover=null;}
+  else if(type==='cut') lines.forEach(l=>{if(l.lineType==='cut')l.lineType=null;});
+  else if(type==='crease') lines.forEach(l=>{if(l.lineType==='crease')l.lineType=null;});
+  updateStats();render();
+}
+function clearAll(){lines=[];woodPts=[];woodBox=null;woodHover=null;svgUnitToMM=1;}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats(){
+  let cut=0,crease=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut') cut+=l.len*svgUnitToMM;
+    else if(l.lineType==='crease') crease+=l.len*svgUnitToMM;
+  });
+  document.getElementById('cut-len').textContent=cut.toFixed(0);
+  document.getElementById('crease-len').textContent=crease.toFixed(0);
+
+  if(woodBox){
+    document.getElementById('wood-size').textContent=
+      `${woodBox.wMM.toFixed(0)} × ${woodBox.hMM.toFixed(0)} mm`;
+    document.getElementById('wood-pts').textContent=
+      `งานจริง ${woodBox.workW.toFixed(0)}×${woodBox.workH.toFixed(0)} mm + 30mm ทุกด้าน`;
+  } else if(woodPts.length===1){
+    document.getElementById('wood-size').textContent='รอจุดที่ 2...';
+    document.getElementById('wood-pts').textContent='คลิกมุมตรงข้ามของงาน';
+  } else {
+    document.getElementById('wood-size').textContent='—';
+    document.getElementById('wood-pts').textContent='ยังไม่ได้เลือก';
+  }
+}
+
+// ── CALCULATE ─────────────────────────────────────────────────────────────────
+function roundPrice(v){
+  const rem=v%100,base=v-rem;
+  if(rem<=25) return base;
+  if(rem<=74) return base+50;
+  return base+100;
+}
+
+function calculate(){
+  let cutLenMM=0,creaseLenMM=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut') cutLenMM+=l.len*svgUnitToMM;
+    else if(l.lineType==='crease') creaseLenMM+=l.len*svgUnitToMM;
+  });
+
+  if(cutLenMM===0&&creaseLenMM===0){showToast('ยังไม่ได้เลือกเส้น','warn');return;}
+  if(!woodBox){showToast('ยังไม่ได้กำหนดกรอบไม้ — เลือกโหมด 🪵 แล้วคลิก 2 จุด','warn');return;}
+
+  const keyCut=document.getElementById('blade-cut').value;
+  const keyCrease=document.getElementById('blade-crease').value;
+  const var2=parseFloat(document.getElementById('var2').value)||1;
+
+  const pCut=PRICING_CUT[keyCut];
+  const pCrease=PRICING_CREASE[keyCrease];
+
+  const costCut=cutLenMM*pCut.cost_per_mm;
+  const costCrease=creaseLenMM*pCrease.cost_per_mm;
+  const costWood=woodBox.wMM*woodBox.hMM*WOOD_COST_PER_MM2;
+  const totalCost=costCut+costCrease+costWood;
+  const overhead=totalCost*2;
+  const raw=(totalCost+overhead)*pCut.var1*var2;
+  const perPiece=roundPrice(raw);
+
+  const fmt=v=>'฿'+Math.round(v).toLocaleString();
+
+  document.getElementById('result-panel').style.display='block';
+  document.getElementById('rbody').classList.add('open');
+  document.getElementById('rticon').textContent='▲';
+
+  document.getElementById('pbreak').innerHTML=`
+    <div class="pitem"><div class="pitem-label">✂️ มีดคม — ${pCut.label} (${cutLenMM.toFixed(0)} mm)</div>
+      <div class="pitem-val">${fmt(costCut)}</div></div>
+    <div class="pitem"><div class="pitem-label">📐 มีดพับ — ${pCrease.label} (${creaseLenMM.toFixed(0)} mm)</div>
+      <div class="pitem-val">${fmt(costCrease)}</div></div>
+    <div class="pitem"><div class="pitem-label">🪵 ไม้ (${woodBox.wMM.toFixed(0)}×${woodBox.hMM.toFixed(0)} mm)</div>
+      <div class="pitem-val">${fmt(costWood)}</div></div>
+    <div class="pitem"><div class="pitem-label">⚙️ โสหุ้ย ×2</div>
+      <div class="pitem-val">${fmt(overhead)}</div></div>`;
+
+  document.getElementById('ptotal').textContent=fmt(perPiece);
+  document.getElementById('pnote').textContent=
+    `var1=${pCut.var1} · var2=${var2} · ต้นทุนรวม ${fmt(totalCost)}`;
+
+  showToast(`คำนวณเสร็จ — ${fmt(perPiece)}/ชิ้น`,'ok');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function setStatus(t,txt){
+  document.getElementById('stext').textContent=txt;
+  document.getElementById('sdot').className='sdot dot-'+(t==='loading'?'loading':t==='ok'?'ok':t==='err'?'err':'idle');
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+let _tt;
+function showToast(msg,type='ok'){
+  document.querySelector('.toast')?.remove();clearTimeout(_tt);
+  const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;
+  document.body.appendChild(t);_tt=setTimeout(()=>t.remove(),3500);
+}
+function toggleResult(){
+  const b=document.getElementById('rbody'),i=document.getElementById('rticon');
+  b.classList.toggle('open');i.textContent=b.classList.contains('open')?'▲':'▼';
+}
+window.addEventListener('resize',()=>{if(lines.length)resetZoom();});
+</script>
+</body>
+</html>
