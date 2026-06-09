@@ -546,6 +546,11 @@ function parseSVG(text){
   const doc=new DOMParser().parseFromString(text,'image/svg+xml');
   const svg=doc.querySelector('svg');
   svgUnitToMM=computeScale(svg);
+  const svgW=svg?.getAttribute('width')||'';
+  const svgH=svg?.getAttribute('height')||'';
+  const svgVB=svg?.getAttribute('viewBox')||'';
+  console.log('[SVG header] w='+svgW+' h='+svgH+' vb='+svgVB);
+  console.log('[SVG scale] unitToMM='+svgUnitToMM);
   parseSVGStyles(doc); // parse CSS classes ก่อน
   doc.querySelectorAll('path,line,rect,circle,ellipse,polyline,polygon').forEach(el=>{
     if(el.closest('text,tspan,defs,style,clipPath,mask'))return;
