@@ -3189,7 +3189,7 @@ function _stRender(rangeMonths, hist) {
 
   // --- กราฟ ---
   var COLORS = ['#94a3b8','#86bfa0','#a78bab','#b8a080','#80a8b8','#9ca3af'];
-  var CURRENT_COLOR = '#1a6ef7';
+  var CURRENT_COLOR = '#e60000';
   var showMonths = months.slice(-6);
 
   function thaiMonthShort(ym) {
@@ -3222,7 +3222,7 @@ function _stRender(rangeMonths, hist) {
         label: thaiMonthShort(ym) + (isCurrentMonth ? '' : '  '+fmtFn(cum)),
         data: solidPts,
         borderColor: color, backgroundColor: 'transparent',
-        borderWidth: 2.5, pointRadius: 0, tension: 0.1, spanGaps: false
+        borderWidth: isCurrentMonth ? 4 : 2, pointRadius: 0, tension: 0.1, spanGaps: false
       }];
 
       // projection สำหรับเดือนปัจจุบัน
@@ -3252,10 +3252,13 @@ function _stRender(rangeMonths, hist) {
         interaction: { mode:'index', intersect:false },
         plugins: {
           legend: { position:'top', labels:{ font:{family:'Sarabun',size:12}, boxWidth:20 } },
-          tooltip: { callbacks: {
-            title: function(items){ return 'วันที่ '+items[0].label; },
-            label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw||0); }
-          }}
+          tooltip: {
+            filter: function(item){ return !item.dataset.label.includes('ประมาณ'); },
+            callbacks: {
+              title: function(items){ return 'วันที่ '+items[0].label; },
+              label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw||0); }
+            }
+          }
         },
         scales: {
           x: { title:{display:true,text:'วันที่',font:{family:'Sarabun'}},
