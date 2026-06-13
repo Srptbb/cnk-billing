@@ -3188,7 +3188,7 @@ function _stRender(rangeMonths, hist) {
   }).join('');
 
   // --- กราฟ ---
-  var COLORS = ['#94a3b8','#f4a261','#7fb3c8','#9bb5b5','#b0a8c8','#a8b4a0'];
+  var COLORS = ['#94a3b8','#86bfa0','#a78bab','#b8a080','#80a8b8','#9ca3af'];
   var CURRENT_COLOR = '#1a6ef7';
   var showMonths = months.slice(-6);
 
@@ -3208,7 +3208,6 @@ function _stRender(rangeMonths, hist) {
       var isCurrentMonth = ym === currentYM;
       var maxDay = isCurrentMonth ? currentDay : daysInMonth;
       var color = isCurrentMonth ? CURRENT_COLOR : COLORS[i % COLORS.length];
-      var bw = isCurrentMonth ? 4 : 1.5;
 
       // สร้าง cumulative solid
       var solidPts = new Array(daysInMonth+1).fill(null);
@@ -3219,16 +3218,11 @@ function _stRender(rangeMonths, hist) {
         solidPts[dd] = cum;
       }
 
-      var lastDay = maxDay;
       var ds = [{
         label: thaiMonthShort(ym) + (isCurrentMonth ? '' : '  '+fmtFn(cum)),
         data: solidPts,
         borderColor: color, backgroundColor: 'transparent',
-        borderWidth: bw,
-        pointRadius: function(ctx){ return (isCurrentMonth && ctx.dataIndex===lastDay) ? 5 : 0; },
-        pointBackgroundColor: color,
-        tension: 0.1, spanGaps: false,
-        order: isCurrentMonth ? 0 : 1
+        borderWidth: 2.5, pointRadius: 0, tension: 0.1, spanGaps: false
       }];
 
       // projection สำหรับเดือนปัจจุบัน
@@ -3243,7 +3237,7 @@ function _stRender(rangeMonths, hist) {
           borderColor: color, backgroundColor: 'transparent',
           borderWidth: 1.5, borderDash: [6,4],
           pointRadius: function(ctx){ return ctx.dataIndex===daysInMonth?5:0; },
-          tension: 0.1, spanGaps: false
+          tension: 0.1, spanGaps: true
         });
       }
       return ds;
@@ -3260,7 +3254,7 @@ function _stRender(rangeMonths, hist) {
           legend: { position:'top', labels:{ font:{family:'Sarabun',size:12}, boxWidth:20 } },
           tooltip: { callbacks: {
             title: function(items){ return 'วันที่ '+items[0].label; },
-            label: function(item){ return item.dataset.label+': '+fmtFn(item.raw||0); }
+            label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw||0); }
           }}
         },
         scales: {
