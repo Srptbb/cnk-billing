@@ -2517,6 +2517,7 @@ function rdInvList() {
         '<div class="bamt">'+fmt(iv.total)+' &#3647;</div>' +
         '<div class="ba">' +
           '<button class="btn bo bsm" onclick="prtInv('+iv.id+')">พิมพ์</button>' +
+          (iv.status==='paid'?'<button class="btn bo bsm" style="color:#0d9488;border-color:#0d9488;" onclick="prtReceipt('+iv.id+')">🧾 ใบเสร็จ</button>':'')+
           (iv.status!=='cancelled'?'<button class="btn bo bsm" style="color:#27ae60;border-color:#27ae60;" onclick="openActualDate('+iv.id+')">'+(iv.actualDate?'📋 แก้วันวางบิลจริง':'📋 วันวางบิลจริง')+'</button>':'')+
           (iv.status!=='cancelled'?'<button class="btn bo bsm" style="color:#8e44ad;border-color:#8e44ad;" onclick="openEditInv('+iv.id+')">✏️ แก้ไข</button>':'')+
           (iv.status==='pending'&&!iv.payDate?'<button class="btn bo bsm" style="color:#2980b9;border-color:#2980b9;" onclick="openPayModal('+iv.id+')">กำหนดจ่าย</button>':'')+
@@ -2626,6 +2627,115 @@ function doPrintInvoice(iv) {
   doc.write('<div class="sg2"><table><tbody><tr>');
   doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้วางบิล</div><div class="sg-sub">วันที่ ............/............/............</div></div></td>');
   doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้รับวางบิล</div><div class="sg-sub">วันที่ ............/............/............</div></div></td>');
+  doc.write('</tr></tbody></table></div>');
+
+  doc.write('</body></html>');
+  doc.close();
+  setTimeout(function(){ ifr.contentWindow.print(); setTimeout(function(){ document.body.removeChild(ifr); }, 1000); }, 600);
+}
+
+// ===== ใบเสร็จรับเงิน =====
+function prtReceipt(id) {
+  var iv = invoices.find(function(iv){return iv.id===id;});
+  if (iv) doPrintReceipt(iv);
+}
+
+function doPrintReceipt(iv) {
+  var rows = iv.bills.map(function(b){
+    return '<tr>' +
+      '<td style="padding:9px 12px;border-bottom:1px solid #eee;">'+h(b.no)+'</td>' +
+      '<td style="padding:9px 12px;border-bottom:1px solid #eee;text-align:center;">'+fmtDF(b.date)+'</td>' +
+      '<td style="padding:9px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">'+fmt(b.grand)+' บาท</td>' +
+    '</tr>';
+  }).join('');
+
+  var payMethodTh = iv.payMethod==='เช็ค' ? 'เช็ค' : 'เงินสด / โอนเงิน';
+  var receiptDate = iv.paidDate || iv.payDate || '';
+
+  var ifr = document.createElement('iframe');
+  ifr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:210mm;border:none;visibility:hidden;';
+  document.body.appendChild(ifr);
+  var doc = ifr.contentDocument || ifr.contentWindow.document;
+  doc.open();
+  doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
+  doc.write('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">');
+  doc.write('<title></title></head>');
+  doc.write('<body style="font-family:Sarabun,sans-serif;font-size:13px;color:#1a1a2e;margin:0;padding:0;">');
+  doc.write('<st'+'yle>');
+  doc.write('*{box-sizing:border-box;margin:0;padding:0;}');
+  doc.write('@page{size:A4 portrait;margin:15mm;}');
+  doc.write('@media print{body{margin:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}');
+  doc.write('body{font-size:13px;line-height:1.6;}');
+  doc.write('.hd{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2.5px solid #0d9488;margin-bottom:14px;}');
+  doc.write('.hd img{height:56px;}.hi{flex:1;}');
+  doc.write('.cn2{font-size:15px;font-weight:700;}.ca2{font-size:12px;color:#555;line-height:1.6;margin-top:2px;}');
+  doc.write('.hr2{text-align:right;}.hr2 h2{font-size:20px;font-weight:700;color:#0d9488;}.hr2 p{font-size:12px;color:#888;}');
+  doc.write('.cu{background:#f0fdf9;border-radius:6px;padding:14px;margin-bottom:14px;border-left:4px solid #0d9488;}');
+  doc.write('.cu-label{font-size:11px;color:#888;}.cu-name{font-size:16px;font-weight:700;margin-top:2px;}.cu-addr{font-size:12px;color:#666;margin-top:4px;line-height:1.6;}');
+  doc.write('table{width:100%;border-collapse:collapse;}');
+  doc.write('thead{background:#0d9488;color:#fff;}thead th{padding:10px 12px;font-size:12px;font-weight:600;text-align:left;}');
+  doc.write('tbody td{font-size:13px;}');
+  doc.write('.tfoot-row td{font-weight:700;font-size:15px;background:#f0fdf9;padding:10px 12px;}');
+  doc.write('.paid-box{margin-top:18px;border:2px solid #0d9488;border-radius:8px;padding:14px 18px;font-size:13px;background:#f0fdf9;display:flex;align-items:center;gap:16px;}');
+  doc.write('.paid-stamp{font-size:22px;font-weight:700;color:#0d9488;border:3px solid #0d9488;border-radius:8px;padding:6px 16px;white-space:nowrap;}');
+  doc.write('.paid-detail{flex:1;line-height:1.8;}');
+  doc.write('.sg2{margin-top:36px;}');
+  doc.write('.sg2 table{width:100%;border-collapse:collapse;table-layout:fixed;}');
+  doc.write('.sg-line{border-top:1px solid #333;padding-top:8px;margin:0 16px;margin-top:30px;text-align:center;}');
+  doc.write('.sg-name{font-size:13px;font-weight:600;}.sg-sub{font-size:11px;color:#888;margin-top:4px;}');
+  doc.write('</st'+'yle>');
+
+  // Header
+  doc.write('<div class="hd">');
+  doc.write('<img src="'+LG+'" alt="CNK">');
+  doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div>');
+  doc.write('<div class="hr2"><h2>ใบเสร็จรับเงิน</h2><p>อ้างอิง: '+h(iv.no)+'</p><p>วันที่รับเงิน: '+fmtDF(receiptDate)+'</p></div>');
+  doc.write('</div>');
+
+  // Customer
+  doc.write('<div class="cu">');
+  doc.write('<div class="cu-label">ได้รับเงินจาก</div><div class="cu-name">'+h(iv.custName)+'</div>');
+  if (iv.custAddr) doc.write('<div class="cu-addr">'+h(iv.custAddr)+'</div>');
+  if (iv.custTel) doc.write('<div class="cu-addr">'+fmtTel(iv.custTel)+'</div>');
+  var invCust = custs.find(function(c){return c.n===iv.custName;});
+  if(invCust&&invCust.tax) doc.write('<div style="font-size:12px;color:#888;margin-top:2px;">เลขประจำตัวผู้เสียภาษี: '+h(invCust.tax)+'</div>');
+  doc.write('</div>');
+
+  // Bills table
+  doc.write('<table><thead><tr>');
+  doc.write('<th style="width:40%">เลขที่ใบส่งของ</th>');
+  doc.write('<th style="width:35%;text-align:center;">วันที่</th>');
+  doc.write('<th style="width:25%;text-align:right;">จำนวนเงิน</th>');
+  doc.write('</tr></thead><tbody>'+rows+'</tbody>');
+  doc.write('<tfoot>');
+  if((iv.discAmt&&iv.discAmt>0)||iv.tax3amt>0){
+    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;">ยอดรวมก่อนหัก</td><td style="text-align:right;padding:8px 12px;">'+fmt(iv.rawTotal)+' บาท</td></tr>');
+  }
+  if(iv.discAmt&&iv.discAmt>0){
+    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e74c3c;">ส่วนลด</td><td style="text-align:right;padding:8px 12px;color:#e74c3c;">-'+fmt(iv.discAmt)+' บาท</td></tr>');
+  }
+  if(iv.tax3amt>0){
+    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e65100;">หัก ณ ที่จ่าย 3%</td><td style="text-align:right;padding:8px 12px;color:#e65100;">-'+fmt(iv.tax3amt)+' บาท</td></tr>');
+  }
+  doc.write('<tr class="tfoot-row"><td colspan="2" style="text-align:right;">ยอดสุทธิที่รับจริง</td><td style="text-align:right;">'+fmt(iv.total)+' บาท</td></tr>');
+  doc.write('</tfoot></table>');
+
+  if (iv.remark) doc.write('<div style="font-size:12px;color:#888;margin-top:8px;">หมายเหตุ: '+h(iv.remark)+'</div>');
+
+  // Paid confirmation box
+  doc.write('<div class="paid-box">');
+  doc.write('<div class="paid-stamp">ได้รับเงินแล้ว</div>');
+  doc.write('<div class="paid-detail">');
+  doc.write('<div><strong>วิธีชำระ:</strong> '+h(payMethodTh)+'</div>');
+  doc.write('<div><strong>วันที่รับเงิน:</strong> '+fmtDF(receiptDate)+'</div>');
+  if(iv.chequeDate) doc.write('<div><strong>วันสั่งจ่ายเช็ค:</strong> '+fmtDF(iv.chequeDate)+'</div>');
+  if(iv.paidNote) doc.write('<div><strong>หมายเหตุ:</strong> '+h(iv.paidNote)+'</div>');
+  doc.write('</div></div>');
+
+  // Signatures
+  doc.write('<div class="sg2"><table><tbody><tr>');
+  doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้รับเงิน</div><div class="sg-sub">วันที่ '+fmtDF(receiptDate)+'</div></div></td>');
+  doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้จ่ายเงิน</div><div class="sg-sub">วันที่ ............/............/............</div></div></td>');
   doc.write('</tr></tbody></table></div>');
 
   doc.write('</body></html>');
