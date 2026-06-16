@@ -3198,14 +3198,17 @@ var ST_LIVE_FROM = '2026-05'; // live bills ดึงตั้งแต่เด
 function rdSalesTrend() {
   var rangeMonths = parseInt(document.getElementById('st-range').value) || 6;
   document.getElementById('st-loading').style.display = 'inline';
-  if (_stHistoryData) {
-    _stRender(rangeMonths, _stHistoryData);
-  } else {
-    apiGet('bills_history', function(hist) {
-      _stHistoryData = hist;
-      _stRender(rangeMonths, hist);
-    });
-  }
+  apiGet('bills', function(freshBills) {
+    var liveBills = freshBills.map(normalizeBill);
+    if (_stHistoryData) {
+      _stRender(rangeMonths, _stHistoryData, liveBills);
+    } else {
+      apiGet('bills_history', function(hist) {
+        _stHistoryData = hist;
+        _stRender(rangeMonths, hist, liveBills);
+      });
+    }
+  });
 }
 
 function _stGetMonthDays(ym) {
@@ -3221,7 +3224,8 @@ function _stCountItems(b) {
   return items.length;
 }
 
-function _stRender(rangeMonths, hist) {
+function _stRender(rangeMonths, hist, liveBills) {
+  liveBills = liveBills || bills;
   document.getElementById('st-loading').style.display = 'none';
 
   var today = new Date();
@@ -3247,7 +3251,7 @@ function _stRender(rangeMonths, hist) {
   }
 
   // live bills: เฉพาะ >= ST_LIVE_FROM
-  bills.filter(function(b) {
+  liveBills.filter(function(b) {
     return b.status !== 'cancelled' && b.date && (b.date||'').slice(0,7) >= ST_LIVE_FROM;
   }).forEach(function(b) {
     var ym  = (b.date||'').slice(0,7);
@@ -3452,7 +3456,7 @@ function stExport() {
   var summary = months.map(function(ym) {
     var liveSales=0, liveQty=0;
     if (ym >= ST_LIVE_FROM) {
-      bills.filter(function(b){ return b.status!=='cancelled'&&(b.date||'').slice(0,7)===ym; })
+      liveBills.filter(function(b){ return b.status!=='cancelled'&&(b.date||'').slice(0,7)===ym; })
         .forEach(function(b){ liveSales+=parseFloat(b.grand)||0; liveQty+=_stCountItems(b); });
     }
     var histSales=0, histQty=0;
