@@ -177,6 +177,45 @@ textarea{resize:vertical;min-height:64px;}
     <tbody id="ib"></tbody>
   </table>
   <button class="btn bo bsm" onclick="addR()" style="margin-bottom:8px;">+ เพิ่มรายการ (ว่าง)</button>
+  <div id="qp-box" style="border:1.5px solid #e65100;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff5f0;">
+    <div onclick="toggleQp()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:#e65100;">
+      <span>⚡ คำนวณราคาจากความยาวมีด / ไม้</span><span id="qp-arrow">▼</span>
+    </div>
+    <div id="qp-body" style="display:none;margin-top:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ชนิดมีด — เส้นคม</label>
+          <select id="qp-blade-cut" onchange="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;font-family:Sarabun,sans-serif;"><option value="">⏳ กำลังโหลด...</option></select></div>
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ความยาวเส้นคม (mm)</label>
+          <input type="number" id="qp-cut-len" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ชนิดมีด — เส้นพับ</label>
+          <select id="qp-blade-crease" onchange="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;font-family:Sarabun,sans-serif;"><option value="">— ไม่มีเส้นพับ —</option></select></div>
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ความยาวเส้นพับ (mm)</label>
+          <input type="number" id="qp-crease-len" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">กว้างไม้ (mm)</label>
+          <input type="number" id="qp-wood-w" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+        <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ยาวไม้ (mm)</label>
+          <input type="number" id="qp-wood-l" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:10px;">
+        <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;"> ⚡ ยิงเลเซอร์ (+90 ฿/ม. มีดรวม)
+      </label>
+      <div id="qp-result" style="display:none;background:#fff;border:1px solid rgba(230,81,0,.3);border-radius:8px;padding:9px 12px;margin-bottom:8px;align-items:baseline;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#888;">ราคาจริง</span>
+        <span id="qp-raw" style="font-size:12px;color:#999;font-family:monospace;"></span>
+        <span style="font-size:11px;color:#888;margin-left:4px;">→ ปัด</span>
+        <span id="qp-rounded" style="font-size:20px;font-weight:700;color:#e65100;font-family:monospace;margin-left:2px;"></span>
+      </div>
+      <div style="margin-bottom:8px;">
+        <label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ชื่อรายการในบิล</label>
+        <input type="text" id="qp-name" placeholder="เช่น บล็อกไดคัท กล่องสบู่" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;font-family:Sarabun,sans-serif;">
+      </div>
+      <button id="qp-add-btn" onclick="qpAdd()" disabled style="width:100%;padding:10px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;font-family:Sarabun,sans-serif;cursor:pointer;opacity:.4;">เพิ่มเข้ารายการบิล</button>
+    </div>
+  </div>
   <div class="sb">
     <div class="sr"><span>รวมก่อนภาษี</span><span id="st">0.00</span></div>
     <div class="sr"><span>VAT 7%</span><span id="sv">0.00</span></div>
@@ -946,6 +985,7 @@ window.onload=function(){
   document.getElementById('bdate').value=td();
   document.getElementById('btp').value='ใบส่งของ (เครดิต)';
   addR();
+  loadQpPricing();
   // Init auth after Google GSI loaded
   if (typeof google !== 'undefined' && google.accounts) {
     initAuth();
@@ -1326,6 +1366,100 @@ function acF(v){
 function pkF(n){document.getElementById('fs').value=n;document.getElementById('dd3').classList.remove('on');rdL();}
 
 // ===== END PRICING PANEL =====
+
+// ===== QUICK PRICE (คำนวณราคาจากความยาวมีด/ไม้ ในหน้าเปิดบิล) =====
+var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpLastResult=null;
+
+function loadQpPricing(){
+  fetch(API+'?action=getAll&table=pricing')
+    .then(function(r){return r.json();})
+    .then(function(rows){
+      var cut=rows.filter(function(r){return String(r.type||'').toLowerCase()!=='crease'&&!String(r.blade||'').toLowerCase().includes('crease')&&r.blade&&r.cost_per_mm;});
+      var crease=rows.filter(function(r){return String(r.type||'').toLowerCase()==='crease'||String(r.blade||'').toLowerCase().includes('crease');});
+      if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return r.blade&&r.cost_per_mm;});
+      qpPricingCut=cut; qpPricingCrease=crease;
+      if(rows[0]&&rows[0].wood_cost_per_mm2) qpWoodCost=parseFloat(rows[0].wood_cost_per_mm2);
+      var sc=document.getElementById('qp-blade-cut');
+      if(sc) sc.innerHTML=cut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('')||'<option value="">— ไม่มีข้อมูล —</option>';
+      var scr=document.getElementById('qp-blade-crease');
+      if(scr) scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+crease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+    })
+    .catch(function(){
+      var sc=document.getElementById('qp-blade-cut');
+      if(sc) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
+    });
+}
+
+function toggleQp(){
+  var body=document.getElementById('qp-body');
+  var arrow=document.getElementById('qp-arrow');
+  var open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  arrow.textContent=open?'▼':'▲';
+}
+
+function _roundPriceQp(v){var rem=v%100,base=Math.floor(v/100)*100;if(rem<=25)return base;if(rem<=74)return base+50;return base+100;}
+
+function qpCalc(){
+  var idx=parseInt(document.getElementById('qp-blade-cut').value);
+  var pCut=qpPricingCut[idx];
+  if(!pCut||isNaN(idx)){qpLastResult=null;_qpShowResult(false);return;}
+  var cutMM=parseFloat(document.getElementById('qp-cut-len').value)||0;
+  var creaseMM=parseFloat(document.getElementById('qp-crease-len').value)||0;
+  var woodW=parseFloat(document.getElementById('qp-wood-w').value)||0;
+  var woodL=parseFloat(document.getElementById('qp-wood-l').value)||0;
+  if((cutMM===0&&creaseMM===0)||woodW===0||woodL===0){qpLastResult=null;_qpShowResult(false);return;}
+  var crIdx=document.getElementById('qp-blade-crease').value;
+  var pCr=(crIdx!==''&&!isNaN(parseInt(crIdx)))?qpPricingCrease[parseInt(crIdx)]:null;
+  var custName=(document.getElementById('cn').value||'').trim().toLowerCase();
+  var cust=custs.find(function(c){return (c.n||'').toLowerCase()===custName;});
+  var var2=(cust&&parseFloat(cust.multiplier))?parseFloat(cust.multiplier):1.0;
+  var costCut=cutMM*parseFloat(pCut.cost_per_mm);
+  var costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
+  var costWood=woodW*woodL*qpWoodCost;
+  var total=costCut+costCr+costWood;
+  var raw=(total+total*2)*parseFloat(pCut.var1||1)*var2;
+  var price=_roundPriceQp(raw);
+  var isLaser=document.getElementById('qp-laser').checked;
+  var laserAdd=Math.round((cutMM+creaseMM)/1000*90);
+  var finalPrice=isLaser?_roundPriceQp(price+laserAdd):price;
+  qpLastResult={bladeCut:pCut.blade,bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
+  document.getElementById('qp-raw').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  document.getElementById('qp-rounded').textContent='฿'+finalPrice.toLocaleString();
+  _qpShowResult(true);
+  var btn=document.getElementById('qp-add-btn');btn.disabled=false;btn.style.opacity='1';
+}
+
+function _qpShowResult(on){
+  var el=document.getElementById('qp-result');
+  if(el) el.style.display=on?'flex':'none';
+  if(!on){var btn=document.getElementById('qp-add-btn');if(btn){btn.disabled=true;btn.style.opacity='.4';}}
+}
+
+function qpAdd(){
+  if(!qpLastResult) return;
+  var name=(document.getElementById('qp-name').value||'').trim()||'บล็อกไดคัท';
+  var tb=document.getElementById('ib');
+  var emptyRow=null;
+  var rows=tb.querySelectorAll('tr');
+  for(var ri=0;ri<rows.length;ri++){var inp0=rows[ri].querySelectorAll('input')[0];if(inp0&&inp0.value.trim()===''){emptyRow=rows[ri];break;}}
+  var i=rc++;var tr=document.createElement('tr');
+  tr.dataset.i=i;tr.dataset.img='';
+  tr.dataset.bladeType=qpLastResult.bladeCut;
+  tr.dataset.bladeLen=qpLastResult.cutMM;
+  tr.dataset.woodW=qpLastResult.woodW;
+  tr.dataset.woodL=qpLastResult.woodL;
+  tr.innerHTML='<td><input type="text" value="'+ha(name)+'" placeholder="รายการสินค้า"></td>'+
+    '<td><input type="number" value="1" min="1" oninput="calc()" style="width:40px;text-align:center;"></td>'+
+    '<td><input type="number" value="'+qpLastResult.finalPrice+'" min="0" step="0.01" oninput="calc()" style="width:70px;text-align:right;"></td>'+
+    '<td class="rt" style="font-weight:600;text-align:right;">'+fmt(qpLastResult.finalPrice)+'</td>'+
+    '<td style="text-align:center;"><div class="iph" onclick="trI('+i+')">[รูป]</div></td>'+
+    '<td><button class="db" onclick="dlR(this)">X</button></td>';
+  if(emptyRow) tb.replaceChild(tr,emptyRow); else tb.appendChild(tr);
+  calc();
+  toast('เพิ่มรายการ ฿'+qpLastResult.finalPrice.toLocaleString()+' แล้ว');
+}
+// ===== END QUICK PRICE =====
 
 // ===== WORKLIST (ลิสงาน) =====
 var wlData = []; // all rows loaded from sheet
