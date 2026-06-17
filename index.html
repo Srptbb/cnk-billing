@@ -1518,13 +1518,14 @@ function renderWorklist() {
       : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ รอยืนยัน</span>';
     var canCheck = status === 'pending';
     var dateStr = r.ts ? new Date(r.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-    var rawFmt = r.rawPrice ? '฿'+parseFloat(r.rawPrice).toLocaleString() : '-';
     var priceFmt = r.price ? '฿'+parseFloat(r.price).toLocaleString() : '-';
     var woodStr = (r.woodW && r.woodH) ? r.woodW+'×'+r.woodH : '-';
+    var bladeStr = r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-';
     var trStyle = status==='billed' ? 'background:#f6fffe;opacity:0.7;' : '';
     var rid = h(String(r.id||''));
     var rcust = h(r.custName||'');
     var rnote = h(r.note||'');
+    var rmemo = h(r.memo||'');
     return '<tr data-id="'+rid+'" data-cust="'+rcust
       +'" data-price="'+h(String(r.price||''))
       +'" data-note="'+rnote
@@ -1538,17 +1539,12 @@ function renderWorklist() {
       +'<td style="padding:10px 12px;text-align:center;">'
       +(canCheck?'<input type="checkbox" class="wl-row-check" onchange="updateWlSelCount()">':'<span style="color:#ccc;">—</span>')
       +'</td>'
+      +'<td style="padding:10px 12px;font-size:12px;color:#888;white-space:nowrap;">'+dateStr+'</td>'
       +'<td style="padding:10px 12px;font-weight:600;">'+rcust+'</td>'
-      +'<td style="padding:6px 12px;">'
-      +'<div class="wl-note-cell" data-id="'+rid+'" data-raw="'+rnote+'" onclick="wlNoteEdit(this)" title="คลิกเพื่อแก้ไขโน้ต" style="cursor:pointer;min-height:22px;padding:3px 6px;border-radius:4px;color:#555;font-size:13px;border:1px dashed transparent;" onmouseover="this.style.borderColor=\'#e65100\'" onmouseout="if(!this.querySelector(\'input\'))this.style.borderColor=\'transparent\'">'
-      +(rnote||'<span style="color:#ccc;font-size:11px;">+ โน้ต</span>')
-      +'</div>'
-      +'</td>'
-      +'<td style="padding:10px 12px;font-size:12px;color:#555;">'+h(r.bladeCut||'-')+(r.bladeCrease&&r.bladeCrease!=='-'?'<br><span style="color:#2563eb;">'+h(r.bladeCrease)+'</span>':'')+'</td>'
+      +'<td style="padding:10px 12px;font-size:13px;color:#555;">'+rnote+'</td>'
+      +'<td style="padding:10px 12px;font-size:12px;color:#555;">'+bladeStr+'</td>'
       +'<td style="padding:10px 12px;text-align:center;font-size:12px;font-family:monospace;">'+woodStr+'</td>'
-      +'<td style="padding:10px 12px;text-align:right;font-family:monospace;color:#888;">'+rawFmt+'</td>'
       +'<td style="padding:10px 12px;text-align:right;font-family:monospace;font-weight:700;color:#e65100;">'+priceFmt+'</td>'
-      +'<td style="padding:10px 12px;text-align:center;font-size:12px;color:#888;">'+dateStr+'</td>'
       +'<td style="padding:10px 12px;text-align:center;">'+statusBadge+'</td>'
       +'<td style="padding:10px 12px;text-align:center;white-space:nowrap;">'
       +(canCheck
@@ -1556,6 +1552,11 @@ function renderWorklist() {
           +'<button onclick="wlConfirmBilled(this)" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✅ บิลแล้ว</button>'
         : '')
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
+      +'</td>'
+      +'<td style="padding:6px 12px;">'
+      +'<div class="wl-note-cell" data-id="'+rid+'" data-raw="'+rmemo+'" onclick="wlNoteEdit(this)" title="คลิกเพื่อแก้ไขหมายเหตุ" style="cursor:pointer;min-height:22px;padding:3px 6px;border-radius:4px;color:#555;font-size:13px;border:1px dashed transparent;" onmouseover="this.style.borderColor=\'#e65100\'" onmouseout="if(!this.querySelector(\'input\'))this.style.borderColor=\'transparent\'">'
+      +(rmemo||'<span style="color:#ccc;font-size:11px;">+ หมายเหตุ</span>')
+      +'</div>'
       +'</td>'
       +'</tr>';
   }).join('');
@@ -1763,8 +1764,8 @@ function wlNoteEdit(el) {
     el.style.borderColor = 'transparent';
     el.innerHTML = val ? h(val) : '<span style="color:#ccc;font-size:11px;">+ โน้ต</span>';
     var row = wlData.find(function(r){ return String(r.id)===String(id); });
-    if(row) row.note = val;
-    if(val !== cur) apiSet('update','worklist',id,{note:val},function(){ toast('บันทึกโน้ตแล้ว ✓'); });
+    if(row) row.memo = val;
+    if(val !== cur) apiSet('update','worklist',id,{memo:val},function(){ toast('บันทึกหมายเหตุแล้ว ✓'); });
   }
   input.addEventListener('blur', save);
   input.addEventListener('keydown', function(e){
@@ -3744,7 +3745,7 @@ function renderMaterials() {
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">' +
       matInfoCard('พื้นที่รวม (mm²)', fmt(totalWoodMM2)) +
       matInfoCard('พื้นที่รวม (ตร.ม.)', woodM2.toFixed(4)) +
-      matInfoCard('ต้นทุนไม้โดยประมาณ', '฿'+fmt(totalWoodMM2 * PP_WOOD)) +
+      matInfoCard('ต้นทุนไม้โดยประมาณ', '฿'+fmt(totalWoodMM2 * qpWoodCost)) +
       '</div>';
   }
 
@@ -3759,8 +3760,8 @@ function renderMaterials() {
   var rows = bladeKeys.map(function(blade) {
     var len = bladeMap[blade];
     var pct = maxLen ? Math.round(len/maxLen*100) : 0;
-    var bData = PP_BLADES[blade] || {cost:0};
-    var cost = len * bData.cost;
+    var pRow = qpPricingCut.find(function(x){return x.blade===blade;}) || qpPricingCrease.find(function(x){return x.blade===blade;});
+    var cost = len * (pRow ? parseFloat(pRow.cost_per_mm)||0 : 0);
     var col = colors[blade] || '#888';
     return '<div style="margin-bottom:14px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">' +
@@ -4913,15 +4914,15 @@ function doPrintQt(qt) {
       <thead>
         <tr style="background:#f0f2f5;">
           <th style="padding:10px 12px;text-align:center;width:36px;"><input type="checkbox" id="wl-check-all" onchange="wlToggleAll(this.checked)"></th>
+          <th style="padding:10px 12px;text-align:left;">วันที่</th>
           <th style="padding:10px 12px;text-align:left;">ลูกค้า</th>
-          <th style="padding:10px 12px;text-align:left;">หมายเหตุ</th>
+          <th style="padding:10px 12px;text-align:left;">งาน</th>
           <th style="padding:10px 12px;text-align:left;">มีด</th>
           <th style="padding:10px 12px;text-align:center;">ไม้ (mm)</th>
-          <th style="padding:10px 12px;text-align:right;">ราคาจริง</th>
-          <th style="padding:10px 12px;text-align:right;">ราคาปัด</th>
-          <th style="padding:10px 12px;text-align:center;">วันที่</th>
+          <th style="padding:10px 12px;text-align:right;">ราคา</th>
           <th style="padding:10px 12px;text-align:center;">สถานะ</th>
           <th style="padding:10px 12px;text-align:center;">จัดการ</th>
+          <th style="padding:10px 12px;text-align:left;">หมายเหตุ</th>
         </tr>
       </thead>
       <tbody id="wl-tbody"></tbody>
