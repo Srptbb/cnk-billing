@@ -1539,7 +1539,11 @@ function renderWorklist() {
       +(canCheck?'<input type="checkbox" class="wl-row-check" onchange="updateWlSelCount()">':'<span style="color:#ccc;">—</span>')
       +'</td>'
       +'<td style="padding:10px 12px;font-weight:600;">'+rcust+'</td>'
-      +'<td style="padding:10px 12px;color:#666;font-size:13px;">'+rnote+'</td>'
+      +'<td style="padding:6px 12px;">'
+      +'<div class="wl-note-cell" data-id="'+rid+'" data-raw="'+rnote+'" onclick="wlNoteEdit(this)" title="คลิกเพื่อแก้ไขโน้ต" style="cursor:pointer;min-height:22px;padding:3px 6px;border-radius:4px;color:#555;font-size:13px;border:1px dashed transparent;" onmouseover="this.style.borderColor=\'#e65100\'" onmouseout="if(!this.querySelector(\'input\'))this.style.borderColor=\'transparent\'">'
+      +(rnote||'<span style="color:#ccc;font-size:11px;">+ โน้ต</span>')
+      +'</div>'
+      +'</td>'
       +'<td style="padding:10px 12px;font-size:12px;color:#555;">'+h(r.bladeCut||'-')+(r.bladeCrease&&r.bladeCrease!=='-'?'<br><span style="color:#2563eb;">'+h(r.bladeCrease)+'</span>':'')+'</td>'
       +'<td style="padding:10px 12px;text-align:center;font-size:12px;font-family:monospace;">'+woodStr+'</td>'
       +'<td style="padding:10px 12px;text-align:right;font-family:monospace;color:#888;">'+rawFmt+'</td>'
@@ -1734,6 +1738,38 @@ function wlDelete(btn) {
   apiSet('delete', 'worklist', id, {}, function() {
     loadWorklist();
     toast('ลบแล้ว');
+  });
+}
+
+function wlNoteEdit(el) {
+  if(el.querySelector('input')) return;
+  var id = el.dataset.id;
+  var cur = el.dataset.raw || '';
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = cur;
+  input.placeholder = 'พิมพ์โน้ต แล้ว Enter';
+  input.style.cssText = 'width:100%;border:1.5px solid #e65100;border-radius:4px;padding:3px 6px;font-size:13px;font-family:Sarabun,sans-serif;outline:none;box-sizing:border-box;';
+  el.innerHTML = '';
+  el.appendChild(input);
+  el.style.borderColor = '#e65100';
+  input.focus();
+  input.select();
+  var saved = false;
+  function save() {
+    if(saved) return; saved = true;
+    var val = input.value.trim();
+    el.dataset.raw = val;
+    el.style.borderColor = 'transparent';
+    el.innerHTML = val ? h(val) : '<span style="color:#ccc;font-size:11px;">+ โน้ต</span>';
+    var row = wlData.find(function(r){ return String(r.id)===String(id); });
+    if(row) row.note = val;
+    if(val !== cur) apiSet('update','worklist',id,{note:val},function(){ toast('บันทึกโน้ตแล้ว ✓'); });
+  }
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){ e.preventDefault(); input.blur(); }
+    if(e.key==='Escape'){ saved=true; el.dataset.raw=cur; el.style.borderColor='transparent'; el.innerHTML=cur?h(cur):'<span style="color:#ccc;font-size:11px;">+ โน้ต</span>'; }
   });
 }
 
