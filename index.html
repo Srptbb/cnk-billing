@@ -3710,24 +3710,20 @@ function renderMaterials() {
   var itemCount = 0;
 
   filtered.forEach(function(b) {
+    billCount++;
     var items = b.items || [];
     if (!Array.isArray(items)) { try { items = JSON.parse(items); } catch(e) { items = []; } }
-    var hasPricing = false;
     items.forEach(function(it) {
       if (!it.bladeType) return;
-      hasPricing = true;
       itemCount++;
-      // ไม้
       var w = parseFloat(it.woodW)||0;
       var l = parseFloat(it.woodL)||0;
       if (w && l) totalWoodMM2 += w * l;
-      // มีด
       var blade = it.bladeType;
       var bLen  = parseFloat(it.bladeLen)||0;
       if (!bladeMap[blade]) bladeMap[blade] = 0;
       bladeMap[blade] += bLen;
     });
-    if (hasPricing) billCount++;
   });
 
   var woodM2 = totalWoodMM2 / 1e6; // แปลง mm² → m²
@@ -3736,7 +3732,7 @@ function renderMaterials() {
   var bladeTypes = Object.keys(bladeMap).length;
   var totalBladeLen = Object.values(bladeMap).reduce(function(s,v){return s+v;},0);
   document.getElementById('mat-cards').innerHTML =
-    matCard('📦 บิลที่มีข้อมูลวัตถุดิบ', billCount + ' บิล', '#1a1a2e') +
+    matCard('📦 บิลทั้งหมด', billCount + ' บิล', '#1a1a2e') +
     matCard('🪵 ไม้รวม', woodM2.toFixed(3) + ' ตร.ม.', '#795548') +
     matCard('🔪 มีดรวมทุกชนิด', fmt(totalBladeLen) + ' mm', '#e65100');
 
