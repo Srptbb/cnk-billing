@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CNK CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #f0f1f4;
@@ -335,6 +336,39 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
 .comm-msg { font-size:13px; }
 .comm-msg.ok { color:var(--green); }
 .comm-msg.err { color:var(--red); }
+
+/* ===== PROSPECT PIPELINE TAB ===== */
+.pros-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 13px 16px; margin-bottom: 8px;
+  border-left: 4px solid var(--border2);
+  transition: box-shadow 0.15s;
+}
+.pros-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.pros-card.overdue { border-left-color: var(--red); background: var(--red-light); border-color: var(--red-border); }
+.pros-card.contacted { border-left-color: var(--green); }
+.pros-card.pending { border-left-color: var(--orange-mid); }
+.pros-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.pros-name { font-size: 14px; font-weight: 700; flex: 1; }
+.pros-meta { font-size: 11px; color: var(--text3); margin-bottom: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+.pros-note { font-size: 12px; color: var(--text2); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pros-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.pros-followup { font-size: 11px; color: var(--yellow); font-weight: 600; }
+.pros-followup.overdue { color: var(--red); font-weight: 700; }
+.pros-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pros-filter-btn {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text2);
+  cursor: pointer; transition: all 0.15s;
+}
+.pros-filter-btn:hover { background: var(--bg); }
+.pros-filter-btn.active { background: var(--orange-light); color: var(--orange); border-color: var(--orange-border); }
+.pros-filter-btn.active-red { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+.import-preview { width: 100%; overflow-x: auto; margin-top: 8px; max-height: 280px; overflow-y: auto; }
+.import-preview table { font-size: 11px; min-width: 100%; }
+.import-preview th { background: var(--bg); font-size: 10px; padding: 5px 8px; }
+.import-preview td { padding: 4px 8px; }
+tr.dup-row td { background: #fef9c3; }
 </style>
 </head>
 <body>
@@ -365,6 +399,10 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
       </button>
       <button class="nav-item" onclick="nav('commission',this)">
         <span class="nav-icon">💰</span> ค่าคอมเซลล์
+      </button>
+      <button class="nav-item" onclick="nav('prospect',this)">
+        <span class="nav-icon">🎯</span> Prospect Pipeline
+        <span class="nav-badge" id="badge-prospect" style="display:none">0</span>
       </button>
     </nav>
     <div class="sidebar-footer">
@@ -565,6 +603,32 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
         </div>
       </div>
 
+      <!-- PROSPECT PIPELINE -->
+      <div id="page-prospect" class="page">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="pros-filter-btn active" id="pf-all" onclick="setProsFilter('all',this)">ทั้งหมด</button>
+            <button class="pros-filter-btn" id="pf-pending" onclick="setProsFilter('pending',this)">⏳ รอติดต่อ</button>
+            <button class="pros-filter-btn" id="pf-contacted" onclick="setProsFilter('contacted',this)">✅ ติดต่อแล้ว</button>
+            <button class="pros-filter-btn" id="pf-overdue" onclick="setProsFilter('overdue',this)">🔴 ถึงรอบติดตาม</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" onclick="openImportProspect()">📥 Import</button>
+            <button class="btn btn-orange btn-sm" onclick="openAddProspect()">➕ เพิ่ม Prospect</button>
+          </div>
+        </div>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+          <div class="stat-card orange"><div class="stat-label">รอติดต่อ</div><div class="stat-value orange" id="pros-cnt-pending">—</div><div class="stat-sub">ยังไม่ได้ติดต่อ</div></div>
+          <div class="stat-card green"><div class="stat-label">ติดต่อแล้ว</div><div class="stat-value green" id="pros-cnt-contacted">—</div><div class="stat-sub">มีบันทึกการติดต่อ</div></div>
+          <div class="stat-card red"><div class="stat-label">ถึงรอบติดตาม</div><div class="stat-value red" id="pros-cnt-overdue">—</div><div class="stat-sub">ครบกำหนด follow-up</div></div>
+          <div class="stat-card blue"><div class="stat-label">Active ทั้งหมด</div><div class="stat-value blue" id="pros-cnt-total">—</div><div class="stat-sub">ไม่รวม closed</div></div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <input class="search-box" id="pros-search" placeholder="🔍 ค้นหาชื่อ / เบอร์ / ประเภทธุรกิจ..." oninput="renderProspects()" style="max-width:400px;">
+        </div>
+        <div id="pros-list"><div class="loading"><div class="spinner"></div> กำลังโหลด...</div></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -672,6 +736,107 @@ tbody tr:hover td { background: var(--orange-light); cursor: pointer; }
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button class="btn" style="flex:1;background:none;border:1.5px solid var(--border);color:var(--text2)" onclick="closeModal('modal-editlog')">ยกเลิก</button>
       <button class="btn btn-orange" style="flex:1" onclick="saveEditLog()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Prospect -->
+<div class="modal-overlay" id="modal-add-prospect">
+  <div class="modal" style="width:440px">
+    <div class="modal-header">
+      <div class="modal-title">➕ เพิ่ม Prospect ใหม่</div>
+      <button class="modal-close" onclick="closeModal('modal-add-prospect')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ชื่อลูกค้า / บริษัท *</label>
+      <input type="text" class="form-input" id="ap-name" placeholder="ชื่อลูกค้าหรือบริษัท">
+    </div>
+    <div class="form-group">
+      <label class="form-label">เบอร์ / Line ID</label>
+      <input type="text" class="form-input" id="ap-contact" placeholder="เบอร์โทร หรือ Line ID">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ช่องทางที่คาดจะติดต่อ</label>
+      <select class="form-select" id="ap-channel">
+        <option value="call">📞 โทรศัพท์</option>
+        <option value="line">💬 Line</option>
+        <option value="email">📧 Email</option>
+        <option value="visit">🚗 เข้าพบ</option>
+        <option value="other">📋 อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ที่อยู่ / จังหวัด</label>
+      <input type="text" class="form-input" id="ap-address" placeholder="ที่อยู่หรือจังหวัด">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ประเภทธุรกิจ</label>
+      <input type="text" class="form-input" id="ap-biztype" placeholder="เช่น โรงงาน, รับเหมา, ร้านค้า...">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn" style="flex:1" onclick="closeModal('modal-add-prospect')">ยกเลิก</button>
+      <button class="btn btn-orange" style="flex:1" onclick="saveNewProspect()">💾 เพิ่ม</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Prospect Contact Log -->
+<div class="modal-overlay" id="modal-pros-contact">
+  <div class="modal" style="width:440px">
+    <div class="modal-header">
+      <div class="modal-title">📝 บันทึกติดต่อ — <span id="pc-name" style="color:var(--orange)">—</span></div>
+      <button class="modal-close" onclick="closeModal('modal-pros-contact')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ช่องทางที่ติดต่อ</label>
+      <select class="form-select" id="pc-method">
+        <option value="call">📞 โทรศัพท์</option>
+        <option value="line">💬 Line</option>
+        <option value="email">📧 Email</option>
+        <option value="visit">🚗 เข้าพบ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ผลการติดต่อ *</label>
+      <textarea class="form-textarea" id="pc-note" placeholder="คุยเรื่องอะไร ผลเป็นยังไง สนใจไหม..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">นัดติดตามครั้งถัดไป</label>
+      <select class="form-select" id="pc-followup-preset" onchange="prosFollowupChange()">
+        <option value="2w">2 สัปดาห์ (default)</option>
+        <option value="1m">1 เดือน</option>
+        <option value="custom">กำหนดเอง</option>
+        <option value="none">ไม่ตั้ง</option>
+      </select>
+      <input type="date" class="form-input" id="pc-followup-custom" style="display:none;margin-top:6px">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn" style="flex:1" onclick="closeModal('modal-pros-contact')">ยกเลิก</button>
+      <button class="btn btn-orange" style="flex:1" onclick="saveProsContact()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Import Prospects -->
+<div class="modal-overlay" id="modal-import-prospect">
+  <div class="modal" style="width:600px;max-width:95vw">
+    <div class="modal-header">
+      <div class="modal-title">📥 Import Prospects</div>
+      <button class="modal-close" onclick="closeModal('modal-import-prospect')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;background:var(--bg);border-radius:8px;padding:10px 12px;">
+      เลือกไฟล์ .xlsx หรือ .csv — คอลัมน์ที่รู้จัก (header แถวแรก):<br>
+      <strong>ชื่อ / name</strong> &nbsp;·&nbsp; <strong>เบอร์ / contact / โทร</strong> &nbsp;·&nbsp; <strong>ช่องทาง / channel</strong> &nbsp;·&nbsp; <strong>ที่อยู่ / address</strong> &nbsp;·&nbsp; <strong>ประเภทธุรกิจ / biztype</strong><br>
+      รายชื่อที่ซ้ำกับ prospects หรือ customers เดิมจะถูกข้าม (แสดงสีเหลือง)
+    </div>
+    <div class="form-group">
+      <label class="form-label">ไฟล์ .xlsx / .xls / .csv</label>
+      <input type="file" class="form-input" id="imp-file" accept=".xlsx,.xls,.csv" onchange="parseImportFile(this)">
+    </div>
+    <div id="imp-preview"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1" onclick="closeModal('modal-import-prospect')">ยกเลิก</button>
+      <button class="btn btn-orange" id="imp-save" style="flex:2;display:none" onclick="doImportProspects()">💾 นำเข้า</button>
     </div>
   </div>
 </div>
@@ -798,6 +963,7 @@ async function loadAll() {
   populateCustSelect();
 
   document.getElementById('badge-flag').textContent = allFlags.filter(f=>f.status==='red').length || '0';
+  loadProspects();
 }
 
 function updateBanner() {
@@ -1076,7 +1242,7 @@ function nav(id, btn) {
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   btn.classList.add('active');
-  const titles = { pace:'📈 Sales Pace', flag:'🚨 Red Flag', customers:'👥 ลูกค้าทั้งหมด', logs:'📝 บันทึกการติดต่อ', commission:'💰 ค่าคอมเซลล์' };
+  const titles = { pace:'📈 Sales Pace', flag:'🚨 Red Flag', customers:'👥 ลูกค้าทั้งหมด', logs:'📝 บันทึกการติดต่อ', commission:'💰 ค่าคอมเซลล์', prospect:'🎯 Prospect Pipeline' };
   document.getElementById('page-title').textContent = titles[id];
   document.getElementById('alert-banner').style.display = id==='pace'?'flex':'none';
   if (id==='commission') commInit();
@@ -1292,6 +1458,313 @@ function commMsg(text, cls) {
   const m = document.getElementById('comm-msg');
   m.textContent = text;
   m.className = 'comm-msg ' + (cls||'');
+}
+
+// ===== PROSPECT PIPELINE =====
+let allProspects = [];
+let _currentProspectId = null;
+
+async function loadProspects() {
+  try {
+    const data = await apiGet({ action:'getAll', table:'prospects' });
+    allProspects = Array.isArray(data) ? data.map(p => ({ ...p, id: String(p.id||'') })) : [];
+  } catch(e) { allProspects = []; }
+  renderProspects();
+  updateProspectBadge();
+}
+
+function updateProspectBadge() {
+  const today = new Date().toISOString().slice(0,10);
+  const overdue = allProspects.filter(p => p.status !== 'closed' && p.nextFollowup && p.nextFollowup <= today).length;
+  const badge = document.getElementById('badge-prospect');
+  if (overdue > 0) { badge.textContent = overdue; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+let _prosFilter = 'all';
+function setProsFilter(f, el) {
+  _prosFilter = f;
+  document.querySelectorAll('.pros-filter-btn').forEach(b => b.classList.remove('active','active-red'));
+  if (el) el.classList.add(f === 'overdue' ? 'active-red' : 'active');
+  renderProspects();
+}
+
+function renderProspects() {
+  const today = new Date().toISOString().slice(0,10);
+  const q = ((document.getElementById('pros-search') || {}).value || '').toLowerCase();
+
+  const pending   = allProspects.filter(p => p.status === 'pending').length;
+  const contacted = allProspects.filter(p => p.status === 'contacted').length;
+  const overdueCnt = allProspects.filter(p => p.status !== 'closed' && p.nextFollowup && p.nextFollowup <= today).length;
+  const total = pending + contacted;
+
+  document.getElementById('pros-cnt-pending').textContent   = pending;
+  document.getElementById('pros-cnt-contacted').textContent = contacted;
+  document.getElementById('pros-cnt-overdue').textContent   = overdueCnt;
+  document.getElementById('pros-cnt-total').textContent     = total;
+
+  let list = allProspects.filter(p => p.status !== 'closed');
+  if (_prosFilter === 'pending')   list = list.filter(p => p.status === 'pending');
+  else if (_prosFilter === 'contacted') list = list.filter(p => p.status === 'contacted');
+  else if (_prosFilter === 'overdue')   list = list.filter(p => p.nextFollowup && p.nextFollowup <= today);
+
+  if (q) list = list.filter(p =>
+    (p.name||'').toLowerCase().includes(q) ||
+    (p.contact||'').toLowerCase().includes(q) ||
+    (p.bizType||'').toLowerCase().includes(q)
+  );
+
+  list.sort((a, b) => {
+    const aOvr = (a.nextFollowup && a.nextFollowup <= today) ? 1 : 0;
+    const bOvr = (b.nextFollowup && b.nextFollowup <= today) ? 1 : 0;
+    if (bOvr !== aOvr) return bOvr - aOvr;
+    return String(b.ts||'').localeCompare(String(a.ts||''));
+  });
+
+  const el = document.getElementById('pros-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">ไม่พบรายการ — ลองเปลี่ยน filter หรือเพิ่ม Prospect ใหม่</div>'; return; }
+  el.innerHTML = list.map(p => prospectCardHTML(p, today)).join('');
+}
+
+function prospectCardHTML(p, today) {
+  const isOverdue = p.nextFollowup && p.nextFollowup <= today;
+  const cardClass = isOverdue ? 'overdue' : (p.status === 'contacted' ? 'contacted' : 'pending');
+  const statusBadge = isOverdue
+    ? '<span class="tag tag-red">🔴 ถึงรอบติดตาม</span>'
+    : p.status === 'contacted'
+    ? '<span class="tag tag-green">✅ ติดต่อแล้ว</span>'
+    : '<span class="tag tag-orange">⏳ รอติดต่อ</span>';
+  const chIcon = {call:'📞',line:'💬',email:'📧',visit:'🚗',other:'📋'}[p.channel] || '📋';
+  const followupHtml = p.nextFollowup
+    ? `<div class="pros-followup ${isOverdue?'overdue':''}">📅 Follow-up: ${p.nextFollowup}${isOverdue?' (ครบกำหนด)':''}</div>`
+    : '<div></div>';
+  const noteHtml = p.lastContactNote
+    ? `<div class="pros-note">💬 ${esc(String(p.lastContactNote).slice(0,100))}${p.lastContactNote.length>100?'...':''}</div>`
+    : '';
+  return `<div class="pros-card ${cardClass}">
+    <div class="pros-card-head">
+      <div class="pros-name">${esc(p.name||'—')}</div>
+      ${statusBadge}
+    </div>
+    <div class="pros-meta">
+      ${p.contact?`<span>☎️ ${esc(p.contact)}</span>`:''}
+      <span>${chIcon} ${({call:'โทรศัพท์',line:'Line',email:'Email',visit:'เข้าพบ',other:'อื่นๆ'}[p.channel]||p.channel||'—')}</span>
+      ${p.bizType?`<span>🏭 ${esc(p.bizType)}</span>`:''}
+      ${p.address?`<span>📍 ${esc(String(p.address).slice(0,40))}${String(p.address).length>40?'...':''}</span>`:''}
+    </div>
+    ${noteHtml}
+    <div class="pros-footer">
+      ${followupHtml}
+      <div class="pros-actions">
+        <button class="btn btn-ghost-orange btn-sm" onclick="openProsContact('${esc(String(p.id))}')">📝 บันทึกติดต่อ</button>
+        <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border-color:var(--green-border)" onclick="closeDeal('${esc(String(p.id))}','${esc(p.name||'')}')">✅ ปิดการขาย</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openAddProspect() {
+  ['ap-name','ap-contact','ap-address','ap-biztype'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ap-channel').value = 'call';
+  document.getElementById('modal-add-prospect').classList.add('open');
+}
+
+let _savingProspect = false;
+async function saveNewProspect() {
+  if (_savingProspect) return;
+  const name = document.getElementById('ap-name').value.trim();
+  if (!name) { alert('กรุณาใส่ชื่อลูกค้า'); return; }
+  const dupPros = allProspects.find(p => (p.name||'').toLowerCase() === name.toLowerCase());
+  if (dupPros) { alert(`มี prospect "${name}" อยู่แล้ว`); return; }
+  _savingProspect = true;
+  const user = JSON.parse(sessionStorage.getItem('cnk_user')||'{}');
+  const data = {
+    id: 'PRO-' + Date.now(),
+    name,
+    contact: document.getElementById('ap-contact').value.trim(),
+    channel: document.getElementById('ap-channel').value,
+    address: document.getElementById('ap-address').value.trim(),
+    bizType: document.getElementById('ap-biztype').value.trim(),
+    status: 'pending',
+    nextFollowup: '',
+    lastContactNote: '',
+    createdBy: user.email || BY,
+    ts: new Date().toISOString()
+  };
+  try {
+    await apiGet({ _method:'save', table:'prospects', data: JSON.stringify(data) });
+    closeModal('modal-add-prospect');
+    await loadProspects();
+    alert('เพิ่ม prospect สำเร็จ!');
+  } catch(e) { alert('บันทึกไม่ได้: ' + e.message); }
+  finally { _savingProspect = false; }
+}
+
+function openProsContact(id) {
+  _currentProspectId = String(id);
+  const p = allProspects.find(x => x.id === _currentProspectId);
+  if (!p) return;
+  document.getElementById('pc-name').textContent = p.name || '—';
+  document.getElementById('pc-method').value = 'call';
+  document.getElementById('pc-note').value = '';
+  document.getElementById('pc-followup-preset').value = '2w';
+  const custom = document.getElementById('pc-followup-custom');
+  custom.style.display = 'none'; custom.value = '';
+  document.getElementById('modal-pros-contact').classList.add('open');
+}
+
+function prosFollowupChange() {
+  const v = document.getElementById('pc-followup-preset').value;
+  document.getElementById('pc-followup-custom').style.display = v === 'custom' ? 'block' : 'none';
+}
+
+function calcFollowupDate(preset) {
+  if (!preset || preset === 'none') return '';
+  const d = new Date();
+  if (preset === '2w') d.setDate(d.getDate() + 14);
+  else if (preset === '1m') d.setDate(d.getDate() + 30);
+  else if (preset === 'custom') return document.getElementById('pc-followup-custom').value || '';
+  return d.toISOString().slice(0,10);
+}
+
+let _savingContact = false;
+async function saveProsContact() {
+  if (_savingContact || !_currentProspectId) return;
+  const note = document.getElementById('pc-note').value.trim();
+  if (!note) { alert('กรุณาบันทึกผลการติดต่อ'); return; }
+  _savingContact = true;
+  const p = allProspects.find(x => x.id === _currentProspectId);
+  if (!p) { _savingContact = false; return; }
+  const method = document.getElementById('pc-method').value;
+  const nextFollowup = calcFollowupDate(document.getElementById('pc-followup-preset').value);
+  const user = JSON.parse(sessionStorage.getItem('cnk_user')||'{}');
+  const logData = {
+    id: 'LOG-' + Date.now(),
+    custId: p.id,
+    custName: p.name,
+    date: new Date().toISOString().slice(0,10),
+    method,
+    result: 'prospect_contact',
+    note,
+    followupDate: nextFollowup,
+    by: BY,
+    ts: new Date().toISOString()
+  };
+  const updateData = { status:'contacted', nextFollowup, lastContactNote: note };
+  try {
+    await Promise.all([
+      apiGet({ _method:'save', table:'crm_logs', data: JSON.stringify(logData) }),
+      apiGet({ _method:'update', table:'prospects', id: _currentProspectId, data: JSON.stringify(updateData) })
+    ]);
+    closeModal('modal-pros-contact');
+    await loadProspects();
+    alert('บันทึกสำเร็จ!');
+  } catch(e) { alert('บันทึกไม่ได้: ' + e.message); }
+  finally { _savingContact = false; }
+}
+
+async function closeDeal(id, name) {
+  if (!confirm(`ยืนยันปิดการขาย "${name}"?\nจะเด้งไปสร้างบิล/ลูกค้าที่ index.html`)) return;
+  try {
+    await apiGet({ _method:'update', table:'prospects', id: String(id), data: JSON.stringify({ status:'closed' }) });
+    await loadProspects();
+    window.open('https://cnk-billing.vercel.app/index.html?openBill=1&cust=' + encodeURIComponent(name), '_blank');
+  } catch(e) { alert('บันทึกไม่ได้: ' + e.message); }
+}
+
+// — Import —
+let _importRows = [];
+function openImportProspect() {
+  _importRows = [];
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-preview').innerHTML = '';
+  document.getElementById('imp-save').style.display = 'none';
+  document.getElementById('modal-import-prospect').classList.add('open');
+}
+
+function parseImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
+      if (!rows.length || rows.length < 2) { alert('ไฟล์ว่างหรือไม่มีข้อมูล'); return; }
+      const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
+      const fi = k => headers.findIndex(h => k.includes(h));
+      const colName    = fi(['ชื่อ','name','ลูกค้า','customer']);
+      const colContact = fi(['เบอร์','contact','โทร','phone','tel','เบอร์โทร']);
+      const colChannel = fi(['ช่องทาง','channel']);
+      const colAddress = fi(['ที่อยู่','address','addr']);
+      const colBiz     = fi(['ประเภทธุรกิจ','biztype','ประเภท','type']);
+      if (colName < 0) { alert('ไม่พบคอลัมน์ "ชื่อ" — ตรวจสอบ header แถวแรก'); return; }
+      const existingNames = new Set([
+        ...allProspects.map(p => (p.name||'').toLowerCase().trim()),
+        ...allCustomers.map(c => (c.custName||'').toLowerCase().trim())
+      ]);
+      const user = JSON.parse(sessionStorage.getItem('cnk_user')||'{}');
+      const ts = new Date().toISOString();
+      _importRows = rows.slice(1).map(row => {
+        const name = String(row[colName]||'').trim();
+        if (!name) return null;
+        return {
+          name,
+          contact: colContact >= 0 ? String(row[colContact]||'').trim() : '',
+          channel: colChannel >= 0 ? String(row[colChannel]||'').trim() : 'other',
+          address: colAddress >= 0 ? String(row[colAddress]||'').trim() : '',
+          bizType: colBiz >= 0 ? String(row[colBiz]||'').trim() : '',
+          status: 'pending', nextFollowup: '', lastContactNote: '',
+          createdBy: user.email || BY, ts,
+          _dup: existingNames.has(name.toLowerCase().trim())
+        };
+      }).filter(Boolean);
+      renderImportPreview();
+    } catch(e) { alert('อ่านไฟล์ไม่ได้: ' + e.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderImportPreview() {
+  const newRows = _importRows.filter(r => !r._dup);
+  const dups    = _importRows.filter(r =>  r._dup);
+  const btn = document.getElementById('imp-save');
+  btn.style.display = newRows.length > 0 ? '' : 'none';
+  btn.textContent = `💾 นำเข้า ${newRows.length} รายการ`;
+  if (!_importRows.length) { document.getElementById('imp-preview').innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
+  const trs = _importRows.map(r => `<tr class="${r._dup?'dup-row':''}">
+    <td>${esc(r.name)}</td>
+    <td>${esc(r.contact)}</td>
+    <td>${esc(r.bizType)}</td>
+    <td>${esc(String(r.address).slice(0,30))}</td>
+    <td>${r._dup?'<span class="tag tag-yellow">ซ้ำ — ข้าม</span>':'<span class="tag tag-green">ใหม่</span>'}</td>
+  </tr>`).join('');
+  document.getElementById('imp-preview').innerHTML =
+    `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">พบ ${_importRows.length} รายการ — ใหม่ <strong>${newRows.length}</strong> รายการ, ซ้ำ <strong>${dups.length}</strong> รายการ (จะไม่นำเข้า)</div>
+    <div class="import-preview"><table><thead><tr><th>ชื่อ</th><th>เบอร์</th><th>ประเภทธุรกิจ</th><th>ที่อยู่</th><th>สถานะ</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+let _importing = false;
+async function doImportProspects() {
+  if (_importing) return;
+  const newRows = _importRows.filter(r => !r._dup);
+  if (!newRows.length) { alert('ไม่มีรายการใหม่'); return; }
+  _importing = true;
+  const btn = document.getElementById('imp-save');
+  btn.disabled = true;
+  try {
+    for (let i = 0; i < newRows.length; i++) {
+      const r = newRows[i];
+      const data = { id:'PRO-'+Date.now()+'-'+i, name:r.name, contact:r.contact, channel:r.channel, address:r.address, bizType:r.bizType, status:r.status, nextFollowup:r.nextFollowup, lastContactNote:r.lastContactNote, createdBy:r.createdBy, ts:r.ts };
+      await apiGet({ _method:'save', table:'prospects', data: JSON.stringify(data) });
+      btn.textContent = `กำลังนำเข้า ${i+1}/${newRows.length}...`;
+    }
+    closeModal('modal-import-prospect');
+    await loadProspects();
+    alert(`นำเข้าสำเร็จ ${newRows.length} รายการ!`);
+  } catch(e) { alert('นำเข้าไม่ได้: ' + e.message); }
+  finally { _importing = false; btn.disabled = false; }
 }
 
 // ===== AUTH CHECK =====
