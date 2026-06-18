@@ -76,6 +76,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 .mbtn.a-cut{border-color:var(--cut);background:var(--cut-bg);color:var(--cut);}
 .mbtn.a-crease{border-color:var(--crease);background:var(--crease-bg);color:var(--crease);}
 .mbtn.a-wood{border-color:var(--wood);background:var(--wood-bg);color:var(--wood);}
+.mbtn.a-delete{border-color:#dc2626;background:#fef2f2;color:#dc2626;}
 .mode-hint{font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;}
 
 /* Stats */
@@ -283,12 +284,14 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <button class="mbtn a-cut" id="btn-cut" onclick="setMode('cut')">✂️ เส้นคม</button>
       <button class="mbtn" id="btn-crease" onclick="setMode('crease')">📐 เส้นพับ</button>
       <button class="mbtn" id="btn-wood" onclick="setMode('wood')">🪵 กรอบไม้</button>
+      <button class="mbtn" id="btn-delete" onclick="setMode('delete')" style="color:#dc2626;">🗑️ ลบเส้น</button>
     </div>
     <div class="mode-hint" id="mode-hint">ลากครอบหลายเส้น หรือแตะเดี่ยว · แตะซ้ำเพื่อยกเลิก</div>
-    <div style="margin-top:7px;display:flex;gap:5px;">
+    <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;">
       <button class="clr-btn" onclick="clearLines('cut')">ล้างเส้นคม</button>
       <button class="clr-btn" onclick="clearLines('crease')">ล้างเส้นพับ</button>
       <button class="clr-btn" onclick="clearLines('all')">ล้างทั้งหมด</button>
+      <button class="clr-btn" id="btn-undo" onclick="undo()" style="margin-left:auto;opacity:0.4;" disabled>↩ ยกเลิก</button>
     </div>
     <div class="obadge" id="obadge">⚠️ พบ+ตัดเส้นซ้อน <span id="ocount">0</span> เส้น อัตโนมัติ</div>
   </div>
@@ -363,6 +366,7 @@ const WOOD_PAD = 30;
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let lines = [];
+let history = []; // undo stack
 let currentAddL = null; // ใช้ใน svgPath/bezier/quad/svgArc เพื่อรองรับ transform
 let svgApplyTransform = false; // true เฉพาะ CloudConvert SVG (.ai/.pdf)
 let mode = 'cut', panMode = false;
@@ -371,6 +375,7 @@ let svgUnitToMM = 0.352778;
 let woodPts = [], woodBox = null, woodHover = null;
 let isPanning = false, panStart = {x:0,y:0}, panOff = {x:0,y:0};
 let isBoxing = false, boxStart = null, boxCur = null;
+let deleteHover = null;
 // Touch pan
 let lastTouch = null, touchPanStart = null;
 
@@ -1090,9 +1095,11 @@ function render(){
   for(let x=(viewOffX%50+50)%50;x<canvas.width;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
   for(let y=(viewOffY%50+50)%50;y<canvas.height;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
 
-  lines.forEach(l=>{
+  lines.forEach((l,idx)=>{
     const[sx1,sy1]=scr(l.x1,l.y1),[sx2,sy2]=scr(l.x2,l.y2);
-    if(l.lineType==='cut'){ctx.strokeStyle='#dc2626';ctx.lineWidth=2.5;ctx.setLineDash([]);}
+    const isHov=(mode==='delete'&&idx===deleteHover);
+    if(isHov){ctx.strokeStyle='rgba(220,38,38,0.85)';ctx.lineWidth=4;ctx.setLineDash([4,3]);}
+    else if(l.lineType==='cut'){ctx.strokeStyle='#dc2626';ctx.lineWidth=2.5;ctx.setLineDash([]);}
     else if(l.lineType==='crease'){ctx.strokeStyle='#2563eb';ctx.lineWidth=2.5;ctx.setLineDash([6,3]);}
     else{ctx.strokeStyle='rgba(80,90,120,0.45)';ctx.lineWidth=1;ctx.setLineDash([]);}
     ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke();
@@ -1170,13 +1177,19 @@ canvas.addEventListener('mousemove',e=>{
   const[mx,my]=getXY(e);
   if(isPanning){viewOffX=panOff.x+(mx-panStart.x);viewOffY=panOff.y+(my-panStart.y);render();return;}
   if(mode==='wood'&&woodPts.length===1){const[wx,wy]=wld(mx,my);woodHover={wx,wy};render();return;}
+  if(mode==='delete'&&!isBoxing){
+    const[wx,wy]=wld(mx,my);const THRESH=10/viewScale;let best=null,bestD=Infinity;
+    lines.forEach((l,idx)=>{const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);if(d<THRESH&&d<bestD){bestD=d;best=idx;}});
+    if(deleteHover!==best){deleteHover=best;render();}
+    return;
+  }
   if(isBoxing&&boxStart){const[wx,wy]=wld(mx,my);boxCur={wx,wy};render();}
 });
 canvas.addEventListener('mouseup',e=>{
   if(isPanning){isPanning=false;updateCursor();return;}
   const[mx,my]=getXY(e);handleSelect(mx,my);
 });
-canvas.addEventListener('mouseleave',()=>{isPanning=false;isBoxing=false;woodHover=null;boxStart=null;boxCur=null;render();});
+canvas.addEventListener('mouseleave',()=>{isPanning=false;isBoxing=false;woodHover=null;deleteHover=null;boxStart=null;boxCur=null;render();});
 canvas.addEventListener('wheel',e=>{
   e.preventDefault();const f=e.deltaY<0?1.1:0.9;
   const[mx,my]=getXY(e);
@@ -1251,7 +1264,22 @@ function handleSelect(mx,my){
     isBoxing=false;
     const dx=Math.abs(wx-boxStart.wx)*svgUnitToMM,dy=Math.abs(wy-boxStart.wy)*svgUnitToMM;
     const isClick=(dx<1.5&&dy<1.5);
-    if(isClick){
+    if(mode==='delete'){
+      const THRESH=10/viewScale;
+      if(isClick){
+        let best=null,bestD=Infinity;
+        lines.forEach((l,idx)=>{const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);if(d<THRESH&&d<bestD){bestD=d;best=idx;}});
+        if(best!==null){saveHistory();lines.splice(best,1);showToast('ลบ 1 เส้น','ok');}
+      } else {
+        const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
+        const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
+        const before=lines.length;
+        saveHistory();
+        lines=lines.filter(l=>{const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;return!(mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2);});
+        const del=before-lines.length;
+        if(del>0)showToast(`ลบ ${del} เส้น`,'ok');else history.pop();
+      }
+    } else if(isClick){
       const THRESH=10/viewScale;let best=null,bestD=Infinity;
       lines.forEach((l,idx)=>{const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);if(d<THRESH&&d<bestD){bestD=d;best=idx;}});
       if(best!==null)lines[best].lineType=lines[best].lineType===mode?null:mode;
@@ -1259,7 +1287,10 @@ function handleSelect(mx,my){
       const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
       const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
       let count=0;
-      lines.forEach(l=>{const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;if(mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2){l.lineType=mode;count++;}});
+      lines.forEach(l=>{
+        const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;
+        if(mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2&&l.lineType===null){l.lineType=mode;count++;}
+      });
       if(count>0)showToast(`เลือก ${count} เส้น`,'ok');
     }
     boxStart=null;boxCur=null;
@@ -1280,15 +1311,32 @@ function computeWoodBox(){
     wMM:wMM+WOOD_PAD*2,hMM:hMM+WOOD_PAD*2,workW:wMM,workH:hMM};
 }
 
+// ── UNDO ──────────────────────────────────────────────────────────────────────
+function saveHistory(){
+  history.push(lines.map(l=>({...l})));
+  if(history.length>20)history.shift();
+  const btn=document.getElementById('btn-undo');
+  if(btn){btn.disabled=false;btn.style.opacity='1';}
+}
+function undo(){
+  if(!history.length){showToast('ไม่มีอะไรให้ยกเลิก','warn');return;}
+  lines=history.pop();
+  const btn=document.getElementById('btn-undo');
+  if(btn&&!history.length){btn.disabled=true;btn.style.opacity='0.4';}
+  updateStats();render();showToast('ยกเลิกแล้ว','ok');
+}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();}});
+
 // ── MODE ──────────────────────────────────────────────────────────────────────
 const HINTS={
-  cut:'ลากครอบหลายเส้น หรือแตะเดี่ยว → เส้นคม (แดง) · แตะซ้ำยกเลิก',
-  crease:'ลากครอบหลายเส้น หรือแตะเดี่ยว → เส้นพับ (น้ำเงิน) · แตะซ้ำยกเลิก',
+  cut:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นคม (แดง) · แตะซ้ำยกเลิก',
+  crease:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นพับ (น้ำเงิน) · แตะซ้ำยกเลิก',
   wood:'แตะจุดที่ 1 → จุดที่ 2 เพื่อกำหนดกรอบไม้ (+30mm ทุกด้าน)',
+  delete:'แตะเดี่ยว หรือลากครอบ → ลบเส้นออกจากไฟล์ (กด Ctrl+Z เพื่อยกเลิก)',
 };
 function setMode(m){
   mode=m;panMode=false;
-  ['cut','crease','wood'].forEach(id=>document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:''));
+  ['cut','crease','wood','delete'].forEach(id=>document.getElementById('btn-'+id)&&(document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:'')));
   document.getElementById('btn-pan').classList.remove('active');
   document.getElementById('mode-hint').textContent=HINTS[m]||'';
   updateCursor();
@@ -1296,6 +1344,7 @@ function setMode(m){
 function togglePan(){panMode=!panMode;document.getElementById('btn-pan').classList.toggle('active',panMode);updateCursor();}
 function updateCursor(){canvas.style.cursor=panMode?'grab':'crosshair';}
 function clearLines(type){
+  saveHistory();
   if(type==='all'){lines.forEach(l=>l.lineType=null);woodPts=[];woodBox=null;woodHover=null;}
   else lines.forEach(l=>{if(l.lineType===type)l.lineType=null;});
   lastResult=null;
