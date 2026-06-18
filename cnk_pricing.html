@@ -1171,7 +1171,7 @@ function getXY(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left
 canvas.addEventListener('mousedown',e=>{
   const[mx,my]=getXY(e);
   if(panMode||e.altKey||e.button===1){isPanning=true;panStart={x:mx,y:my};panOff={x:viewOffX,y:viewOffY};canvas.style.cursor='grabbing';return;}
-  if(mode==='cut'||mode==='crease'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;}
+  if(mode==='cut'||mode==='crease'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;}
 });
 canvas.addEventListener('mousemove',e=>{
   const[mx,my]=getXY(e);
@@ -1203,7 +1203,7 @@ canvas.addEventListener('touchstart',e=>{
     const t=e.touches[0];const r=canvas.getBoundingClientRect();
     const mx=t.clientX-r.left,my=t.clientY-r.top;
     if(panMode){isPanning=true;panStart={x:mx,y:my};panOff={x:viewOffX,y:viewOffY};return;}
-    if(mode==='cut'||mode==='crease'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;return;}
+    if(mode==='cut'||mode==='crease'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;return;}
     if(mode==='wood'){lastTouch={mx,my};}
   } else if(e.touches.length===2){
     isPanning=false;isBoxing=false;
