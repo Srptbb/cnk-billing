@@ -1431,7 +1431,7 @@ function calculate(){
   const laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
   let raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
-    bladeChangeAdd=isBladeChange&&pCut?Math.round(cutMM/1000*2.5*var1):0;
+    bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*2.5*var1):0;
     if(isWoodChange&&woodBox){
       const bladeRate=isLaser?65:40;
       woodChangeAdd=Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
