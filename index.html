@@ -200,15 +200,17 @@ textarea{resize:vertical;min-height:64px;}
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ยาวไม้ (mm)</label>
           <input type="number" id="qp-wood-l" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:8px;">
-        <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;"> ⚡ ยิงเลเซอร์
-      </label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:8px;">
-        <input type="checkbox" id="qp-blade-change" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed;"> 🔪 เปลี่ยนมีด
-      </label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:10px;">
-        <input type="checkbox" id="qp-wood-change" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;accent-color:#16a34a;"> 🪵 เปลี่ยนไม้
-      </label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
+          <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;flex-shrink:0;"> ⚡ เลเซอร์
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
+          <input type="checkbox" id="qp-blade-change" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0;"> 🔪 เปลี่ยนมีด
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
+          <input type="checkbox" id="qp-wood-change" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;accent-color:#16a34a;flex-shrink:0;"> 🪵 เปลี่ยนไม้
+        </label>
+      </div>
       <div id="qp-result" style="display:none;background:#fff;border:1px solid rgba(230,81,0,.3);border-radius:8px;padding:9px 12px;margin-bottom:8px;align-items:baseline;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#888;">ราคาจริง</span>
         <span id="qp-raw" style="font-size:12px;color:#999;font-family:monospace;"></span>
@@ -1407,34 +1409,37 @@ function toggleQp(){
 function _roundPriceQp(v){var rem=v%100,base=Math.floor(v/100)*100;if(rem<=25)return base;if(rem<=74)return base+50;return base+100;}
 
 function qpCalc(){
+  var isLaser=document.getElementById('qp-laser').checked;
+  var isBladeChange=document.getElementById('qp-blade-change').checked;
+  var isWoodChange=document.getElementById('qp-wood-change').checked;
   var idx=parseInt(document.getElementById('qp-blade-cut').value);
   var pCut=qpPricingCut[idx];
-  if(!pCut||isNaN(idx)){qpLastResult=null;_qpShowResult(false);return;}
   var cutMM=parseFloat(document.getElementById('qp-cut-len').value)||0;
   var creaseMM=parseFloat(document.getElementById('qp-crease-len').value)||0;
   var woodW=parseFloat(document.getElementById('qp-wood-w').value)||0;
   var woodL=parseFloat(document.getElementById('qp-wood-l').value)||0;
-  if((cutMM===0&&creaseMM===0)||woodW===0||woodL===0){qpLastResult=null;_qpShowResult(false);return;}
+  var needBlade=cutMM>0||creaseMM>0||isLaser||isBladeChange;
+  if(needBlade&&(!pCut||isNaN(idx))){qpLastResult=null;_qpShowResult(false);return;}
+  if(!isWoodChange&&cutMM===0&&creaseMM===0){qpLastResult=null;_qpShowResult(false);return;}
+  if(!isBladeChange&&woodW===0&&woodL===0){qpLastResult=null;_qpShowResult(false);return;}
   var crIdx=document.getElementById('qp-blade-crease').value;
   var pCr=(crIdx!==''&&!isNaN(parseInt(crIdx)))?qpPricingCrease[parseInt(crIdx)]:null;
   var custName=(document.getElementById('cn').value||'').trim().toLowerCase();
   var cust=custs.find(function(c){return (c.n||'').toLowerCase()===custName;});
   var var2=(cust&&parseFloat(cust.multiplier))?parseFloat(cust.multiplier):1.0;
-  var costCut=cutMM*parseFloat(pCut.cost_per_mm);
+  var var1=pCut?parseFloat(pCut.var1||1):1;
+  var costCut=pCut?cutMM*parseFloat(pCut.cost_per_mm):0;
   var costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   var costWood=woodW*woodL*qpWoodCost;
   var total=costCut+costCr+costWood;
-  var raw=(total+total*2)*parseFloat(pCut.var1||1)*var2;
+  var raw=(total+total*2)*var1*var2;
   var price=_roundPriceQp(raw);
-  var isLaser=document.getElementById('qp-laser').checked;
-  var isBladeChange=document.getElementById('qp-blade-change').checked;
-  var isWoodChange=document.getElementById('qp-wood-change').checked;
   var laserAdd=isLaser?Math.round((cutMM+creaseMM)/1000*90):0;
-  var bladeChangeAdd=isBladeChange?Math.round(cutMM*parseFloat(pCut.cost_per_mm)*3*parseFloat(pCut.var1||1)):0;
+  var bladeChangeAdd=isBladeChange&&pCut?Math.round(cutMM*parseFloat(pCut.cost_per_mm)*3*var1):0;
   var woodChangeAdd=isWoodChange?Math.round(woodW*woodL*qpWoodCost*3*1.7):0;
   var extras=laserAdd+bladeChangeAdd+woodChangeAdd;
   var finalPrice=extras>0?_roundPriceQp(price+extras):price;
-  qpLastResult={bladeCut:pCut.blade,bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
+  qpLastResult={bladeCut:pCut?pCut.blade:'',bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
   document.getElementById('qp-raw').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.getElementById('qp-rounded').textContent='฿'+finalPrice.toLocaleString();
   _qpShowResult(true);
