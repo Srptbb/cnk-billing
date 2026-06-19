@@ -1424,15 +1424,19 @@ function calculate(){
   const costCut=pCut?cutMM*parseFloat(pCut.cost_per_mm):0;
   const costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
-  const total=costCut+costCr+costWood;
-  const raw=(total+total*2)*var1*var2;
-  const price=roundPrice(raw);
   const totalBladeMM=cutMM+creaseMM;
   const laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
-  const bladeChangeAdd=isBladeChange&&pCut?Math.round(cutMM*parseFloat(pCut.cost_per_mm)*3*var1):0;
-  const woodChangeAdd=isWoodChange&&woodBox?Math.round(woodBox.wMM*woodBox.hMM*WOOD_COST*3*1.7):0;
-  const extras=laserAdd+bladeChangeAdd+woodChangeAdd;
-  const finalPrice=extras>0?roundPrice(price+extras):price;
+  let raw,price,bladeChangeAdd=0,woodChangeAdd=0;
+  if(isBladeChange||isWoodChange){
+    bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
+    woodChangeAdd=isWoodChange&&woodBox?Math.round(costWood*3*1.7):0;
+    raw=bladeChangeAdd+woodChangeAdd;
+    price=roundPrice(raw);
+  }else{
+    const total=costCut+costCr+costWood; raw=(total+total*2)*var1*var2;
+    price=roundPrice(raw);
+  }
+  const finalPrice=laserAdd>0?roundPrice(price+laserAdd):price;
   const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
   const note=document.getElementById('note').value||'';
 
