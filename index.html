@@ -1470,6 +1470,8 @@ function _qpShowResult(on){
 function qpAdd(){
   if(!qpLastResult) return;
   var name=(document.getElementById('qp-name').value||'').trim()||'บล็อกไดคัท';
+  var _extras=[document.getElementById('qp-laser').checked?'ยิงเลเซอร์':'',document.getElementById('qp-blade-change').checked?'เปลี่ยนมีด':'',document.getElementById('qp-wood-change').checked?'เปลี่ยนไม้':''].filter(Boolean).join('+');
+  if(_extras)name=name+'('+_extras+')';
   var tb=document.getElementById('ib');
   var emptyRow=null;
   var rows=tb.querySelectorAll('tr');

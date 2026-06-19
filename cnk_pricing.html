@@ -1491,8 +1491,10 @@ function calculate(){
 function saveToWorklist(){
   if(!lastResult){showToast('คำนวณราคาก่อน','warn');return;}
   const id = 'q_'+Date.now();
+  const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':''].filter(Boolean).join('+');
   const data = {
     id, ...lastResult,
+    note: lastResult.note+(_extras?'('+_extras+')':''),
     price: lastResult.finalPrice,      // ราคาที่ใช้จริง (รวมเลเซอร์ถ้าติ๊ก)
     priceBeforeLaser: lastResult.price,// ราคาก่อนบวกเลเซอร์ (เก็บอ้างอิง)
     status: 'pending',
