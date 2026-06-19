@@ -246,6 +246,14 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
           <span class="price-label" style="color:var(--accent);">⚡ ค่ายิงเลเซอร์</span>
           <span class="price-real" id="laser-amt" style="color:var(--accent);">—</span>
         </div>
+        <div class="price-row" id="blade-change-row" style="display:none;">
+          <span class="price-label" style="color:#7c3aed;">🔪 ค่าเปลี่ยนมีด</span>
+          <span class="price-real" id="blade-change-amt" style="color:#7c3aed;">—</span>
+        </div>
+        <div class="price-row" id="wood-change-row" style="display:none;">
+          <span class="price-label" style="color:#16a34a;">🪵 ค่าเปลี่ยนไม้</span>
+          <span class="price-real" id="wood-change-amt" style="color:#16a34a;">—</span>
+        </div>
         <div class="price-row">
           <span class="price-label" style="font-weight:600;color:var(--text);">ราคาปัด ✓</span>
           <span class="price-rounded" id="ptotal">฿—</span>
@@ -349,7 +357,14 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:10px;margin-bottom:10px;">
       <input type="checkbox" id="laser-chk" onchange="if(lastResult)calculate()" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;">
       <span style="font-size:14px;font-weight:600;color:var(--text);">⚡ ยิงเลเซอร์</span>
-      <span style="font-size:11px;opacity:.6;margin-left:auto;">+ 90 บาท/เมตร (มีดรวม)</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px;margin-bottom:10px;">
+      <input type="checkbox" id="blade-change-chk" onchange="if(lastResult)calculate()" style="width:18px;height:18px;accent-color:#7c3aed;cursor:pointer;">
+      <span style="font-size:14px;font-weight:600;color:var(--text);">🔪 เปลี่ยนมีด</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:10px;margin-bottom:10px;">
+      <input type="checkbox" id="wood-change-chk" onchange="if(lastResult)calculate()" style="width:18px;height:18px;accent-color:#16a34a;cursor:pointer;">
+      <span style="font-size:14px;font-weight:600;color:var(--text);">🪵 เปลี่ยนไม้</span>
     </label>
     <button class="calc-btn" id="calc-btn" onclick="calculate()" disabled>💰 คำนวณราคา</button>
   </div>
@@ -1353,7 +1368,9 @@ function clearLines(type){
 }
 function clearAll(){lines=[];woodPts=[];woodBox=null;woodHover=null;svgUnitToMM=0.352778;lastResult=null;
   const rp=document.getElementById('result-panel');if(rp)rp.style.display='none';
-  const lc=document.getElementById('laser-chk');if(lc)lc.checked=false;}
+  const lc=document.getElementById('laser-chk');if(lc)lc.checked=false;
+  const bc=document.getElementById('blade-change-chk');if(bc)bc.checked=false;
+  const wc=document.getElementById('wood-change-chk');if(wc)wc.checked=false;}
 
 function finishLoad(label){
   resetZoom();render();updateStats();
@@ -1404,11 +1421,15 @@ function calculate(){
   const total=costCut+costCr+costWood;
   const raw=(total+total*2)*parseFloat(pCut.var1||1)*var2;
   const price=roundPrice(raw);
-  // ยิงเลเซอร์: ราคาปัด + (ความยาวมีดรวม cutMM+creaseMM × 90)
   const isLaser=document.getElementById('laser-chk').checked;
+  const isBladeChange=document.getElementById('blade-change-chk').checked;
+  const isWoodChange=document.getElementById('wood-change-chk').checked;
   const totalBladeMM=cutMM+creaseMM;
-  const laserAdd=Math.round(totalBladeMM/1000*90); // 90 บาท/เมตร (mm→m หาร 1000)
-  const finalPrice=isLaser?roundPrice(price+laserAdd):price;
+  const laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
+  const bladeChangeAdd=isBladeChange?Math.round(cutMM*parseFloat(pCut.cost_per_mm)*3*parseFloat(pCut.var1||1)):0;
+  const woodChangeAdd=isWoodChange?Math.round(woodBox.wMM*woodBox.hMM*WOOD_COST*3*1.7):0;
+  const extras=laserAdd+bladeChangeAdd+woodChangeAdd;
+  const finalPrice=extras>0?roundPrice(price+extras):price;
   const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
   const note=document.getElementById('note').value||'';
 
@@ -1422,8 +1443,9 @@ function calculate(){
     creaseMM: Math.round(creaseMM),
     rawPrice: Math.round(raw*100)/100,
     price,
-    laser: isLaser,
-    laserAdd,
+    laser: isLaser, laserAdd,
+    bladeChange: isBladeChange, bladeChangeAdd,
+    woodChange: isWoodChange, woodChangeAdd,
     finalPrice,
     ts: new Date().toISOString()
   };
@@ -1433,11 +1455,17 @@ function calculate(){
   document.getElementById('rticon').textContent='▲';
   document.getElementById('price-real').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.getElementById('ptotal').textContent='฿'+finalPrice.toLocaleString();
-  // แถวเลเซอร์ (โชว์เฉพาะตอนติ๊ก)
   const laserRow=document.getElementById('laser-row');
   if(isLaser){laserRow.style.display='flex';document.getElementById('laser-amt').textContent='+฿'+laserAdd.toLocaleString();}
   else laserRow.style.display='none';
-  document.getElementById('price-sub').textContent=`${pCut.blade} · ${custName}${note?' · '+note:''}${isLaser?' · ⚡เลเซอร์':''}`;
+  const bladeChangeRow=document.getElementById('blade-change-row');
+  if(isBladeChange&&bladeChangeAdd>0){bladeChangeRow.style.display='flex';document.getElementById('blade-change-amt').textContent='+฿'+bladeChangeAdd.toLocaleString();}
+  else bladeChangeRow.style.display='none';
+  const woodChangeRow=document.getElementById('wood-change-row');
+  if(isWoodChange&&woodChangeAdd>0){woodChangeRow.style.display='flex';document.getElementById('wood-change-amt').textContent='+฿'+woodChangeAdd.toLocaleString();}
+  else woodChangeRow.style.display='none';
+  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':''].filter(Boolean).join(' · ');
+  document.getElementById('price-sub').textContent=`${pCut.blade} · ${custName}${note?' · '+note:''}${extrasLabel?' · '+extrasLabel:''}`;
   showToast(`฿${finalPrice.toLocaleString()} / ชิ้น`,'ok');
   render(); // วาดราคาทับบนกรอบไม้
   document.getElementById('result-panel').scrollIntoView({behavior:'smooth',block:'nearest'});

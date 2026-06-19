@@ -200,8 +200,14 @@ textarea{resize:vertical;min-height:64px;}
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ยาวไม้ (mm)</label>
           <input type="number" id="qp-wood-l" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:8px;">
+        <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;"> ⚡ ยิงเลเซอร์
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:8px;">
+        <input type="checkbox" id="qp-blade-change" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed;"> 🔪 เปลี่ยนมีด
+      </label>
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:10px;">
-        <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;"> ⚡ ยิงเลเซอร์ (+90 ฿/ม. มีดรวม)
+        <input type="checkbox" id="qp-wood-change" onchange="qpCalc()" style="width:15px;height:15px;cursor:pointer;accent-color:#16a34a;"> 🪵 เปลี่ยนไม้
       </label>
       <div id="qp-result" style="display:none;background:#fff;border:1px solid rgba(230,81,0,.3);border-radius:8px;padding:9px 12px;margin-bottom:8px;align-items:baseline;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#888;">ราคาจริง</span>
@@ -1421,8 +1427,13 @@ function qpCalc(){
   var raw=(total+total*2)*parseFloat(pCut.var1||1)*var2;
   var price=_roundPriceQp(raw);
   var isLaser=document.getElementById('qp-laser').checked;
-  var laserAdd=Math.round((cutMM+creaseMM)/1000*90);
-  var finalPrice=isLaser?_roundPriceQp(price+laserAdd):price;
+  var isBladeChange=document.getElementById('qp-blade-change').checked;
+  var isWoodChange=document.getElementById('qp-wood-change').checked;
+  var laserAdd=isLaser?Math.round((cutMM+creaseMM)/1000*90):0;
+  var bladeChangeAdd=isBladeChange?Math.round(cutMM*parseFloat(pCut.cost_per_mm)*3*parseFloat(pCut.var1||1)):0;
+  var woodChangeAdd=isWoodChange?Math.round(woodW*woodL*qpWoodCost*3*1.7):0;
+  var extras=laserAdd+bladeChangeAdd+woodChangeAdd;
+  var finalPrice=extras>0?_roundPriceQp(price+extras):price;
   qpLastResult={bladeCut:pCut.blade,bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
   document.getElementById('qp-raw').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.getElementById('qp-rounded').textContent='฿'+finalPrice.toLocaleString();
