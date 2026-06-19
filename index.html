@@ -205,10 +205,10 @@ textarea{resize:vertical;min-height:64px;}
           <input type="checkbox" id="qp-laser" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;flex-shrink:0;"> ⚡ เลเซอร์
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
-          <input type="checkbox" id="qp-blade-change" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0;"> 🔪 เปลี่ยนมีด
+          <input type="checkbox" id="qp-blade-change" onchange="document.getElementById('qp-wood-change').checked=false;qpCalc();" style="width:14px;height:14px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0;"> 🔪 เปลี่ยนมีด
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
-          <input type="checkbox" id="qp-wood-change" onchange="qpCalc()" style="width:14px;height:14px;cursor:pointer;accent-color:#16a34a;flex-shrink:0;"> 🪵 เปลี่ยนไม้
+          <input type="checkbox" id="qp-wood-change" onchange="document.getElementById('qp-blade-change').checked=false;qpCalc();" style="width:14px;height:14px;cursor:pointer;accent-color:#16a34a;flex-shrink:0;"> 🪵 เปลี่ยนไม้
         </label>
       </div>
       <div id="qp-result" style="display:none;background:#fff;border:1px solid rgba(230,81,0,.3);border-radius:8px;padding:9px 12px;margin-bottom:8px;align-items:baseline;gap:8px;flex-wrap:wrap;">
@@ -1439,9 +1439,9 @@ function qpCalc(){
   var laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
   var raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
-    bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
+    bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*2.5*var1):0;
     if(isWoodChange){
-      var bladeRate=isLaser?90:60;
+      var bladeRate=isLaser?65:40;
       woodChangeAdd=Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
     }
     raw=bladeChangeAdd+woodChangeAdd;
