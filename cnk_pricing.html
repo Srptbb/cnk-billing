@@ -437,8 +437,11 @@ function populateSel(id, rows, isCrease) {
     }
     return;
   }
-  // Show blade name only (no cost)
   sel.innerHTML = rows.map((r,i) => `<option value="${i}">${r.blade}</option>`).join('');
+  if(isCrease){
+    const defIdx=rows.findIndex(r=>String(r.blade||'').includes('ธรรมดา'));
+    sel.value=defIdx>=0?String(defIdx):'0';
+  }
 }
 
 async function loadCustomers() {
@@ -1431,7 +1434,7 @@ function calculate(){
     bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
     if(isWoodChange&&woodBox){
       const bladeRate=isLaser?90:60;
-      woodChangeAdd=Math.round((costWood+totalBladeMM*bladeRate)*2);
+      woodChangeAdd=Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
     }
     raw=bladeChangeAdd+woodChangeAdd;
     price=roundPrice(raw);

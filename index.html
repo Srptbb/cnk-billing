@@ -186,19 +186,19 @@ textarea{resize:vertical;min-height:64px;}
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ชนิดมีด — เส้นคม</label>
           <select id="qp-blade-cut" onchange="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;font-family:Sarabun,sans-serif;"><option value="">⏳ กำลังโหลด...</option></select></div>
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ความยาวเส้นคม (mm)</label>
-          <input type="number" id="qp-cut-len" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+          <input type="number" id="qp-cut-len" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ชนิดมีด — เส้นพับ</label>
           <select id="qp-blade-crease" onchange="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;font-family:Sarabun,sans-serif;"><option value="">— ไม่มีเส้นพับ —</option></select></div>
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ความยาวเส้นพับ (mm)</label>
-          <input type="number" id="qp-crease-len" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+          <input type="number" id="qp-crease-len" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">กว้างไม้ (mm)</label>
-          <input type="number" id="qp-wood-w" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+          <input type="number" id="qp-wood-w" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ยาวไม้ (mm)</label>
-          <input type="number" id="qp-wood-l" value="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
+          <input type="number" id="qp-wood-l" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:6px 10px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:7px;flex:1;min-width:0;white-space:nowrap;">
@@ -1390,7 +1390,11 @@ function loadQpPricing(){
       var sc=document.getElementById('qp-blade-cut');
       if(sc) sc.innerHTML=cut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('')||'<option value="">— ไม่มีข้อมูล —</option>';
       var scr=document.getElementById('qp-blade-crease');
-      if(scr) scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+crease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+      if(scr){
+        scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+crease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+        var defCrease=crease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
+        if(defCrease>=0)scr.value=String(defCrease);
+      }
     })
     .catch(function(){
       var sc=document.getElementById('qp-blade-cut');
@@ -1438,7 +1442,7 @@ function qpCalc(){
     bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
     if(isWoodChange){
       var bladeRate=isLaser?90:60;
-      woodChangeAdd=Math.round((costWood+totalBladeMM*bladeRate)*2);
+      woodChangeAdd=Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
     }
     raw=bladeChangeAdd+woodChangeAdd;
     price=_roundPriceQp(raw);
