@@ -354,18 +354,18 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
   </div>
 
   <div class="section">
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:7px 11px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:8px;flex:1;min-width:0;">
-        <input type="checkbox" id="laser-chk" onchange="if(lastResult)calculate()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;">⚡ เลเซอร์</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="laser-chk" onchange="if(lastResult)calculate()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⚡ เลเซอร์</span>
       </label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:7px 11px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:8px;flex:1;min-width:0;">
-        <input type="checkbox" id="blade-change-chk" onchange="if(lastResult)calculate()" style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;">🔪 เปลี่ยนมีด</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="blade-change-chk" onchange="if(lastResult)calculate()" style="width:14px;height:14px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔪 เปลี่ยนมีด</span>
       </label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:7px 11px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:8px;flex:1;min-width:0;">
-        <input type="checkbox" id="wood-change-chk" onchange="if(lastResult)calculate()" style="width:16px;height:16px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;">🪵 เปลี่ยนไม้</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="wood-change-chk" onchange="if(lastResult)calculate()" style="width:14px;height:14px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🪵 เปลี่ยนไม้</span>
       </label>
     </div>
     <button class="calc-btn" id="calc-btn" onclick="calculate()" disabled>💰 คำนวณราคา</button>
@@ -1426,17 +1426,22 @@ function calculate(){
   const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
   const totalBladeMM=cutMM+creaseMM;
   const laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
-  let raw,price,bladeChangeAdd=0,woodChangeAdd=0;
+  let raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
     bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
-    woodChangeAdd=isWoodChange&&woodBox?Math.round(costWood*3*1.7):0;
+    if(isWoodChange&&woodBox){
+      const bladeRate=isLaser?90:60;
+      woodChangeAdd=Math.round((costWood+totalBladeMM*bladeRate)*2);
+    }
     raw=bladeChangeAdd+woodChangeAdd;
     price=roundPrice(raw);
+    const laserExtra=isLaser&&!isWoodChange?laserAdd:0;
+    finalPrice=laserExtra>0?roundPrice(price+laserExtra):price;
   }else{
     const total=costCut+costCr+costWood; raw=(total+total*2)*var1*var2;
     price=roundPrice(raw);
+    finalPrice=laserAdd>0?roundPrice(price+laserAdd):price;
   }
-  const finalPrice=laserAdd>0?roundPrice(price+laserAdd):price;
   const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
   const note=document.getElementById('note').value||'';
 

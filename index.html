@@ -1431,19 +1431,25 @@ function qpCalc(){
   var costCut=pCut?cutMM*parseFloat(pCut.cost_per_mm):0;
   var costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   var costWood=woodW*woodL*qpWoodCost;
-  var laserAdd=isLaser?Math.round((cutMM+creaseMM)/1000*90):0;
-  var raw,price,bladeChangeAdd=0,woodChangeAdd=0;
+  var totalBladeMM=cutMM+creaseMM;
+  var laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
+  var raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
     bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*3*var1):0;
-    woodChangeAdd=isWoodChange?Math.round(costWood*3*1.7):0;
+    if(isWoodChange){
+      var bladeRate=isLaser?90:60;
+      woodChangeAdd=Math.round((costWood+totalBladeMM*bladeRate)*2);
+    }
     raw=bladeChangeAdd+woodChangeAdd;
     price=_roundPriceQp(raw);
+    var laserExtra=isLaser&&!isWoodChange?laserAdd:0;
+    finalPrice=laserExtra>0?_roundPriceQp(price+laserExtra):price;
   }else{
     var total=costCut+costCr+costWood;
     raw=(total+total*2)*var1*var2;
     price=_roundPriceQp(raw);
+    finalPrice=laserAdd>0?_roundPriceQp(price+laserAdd):price;
   }
-  var finalPrice=laserAdd>0?_roundPriceQp(price+laserAdd):price;
   qpLastResult={bladeCut:pCut?pCut.blade:'',bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
   document.getElementById('qp-raw').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.getElementById('qp-rounded').textContent='฿'+finalPrice.toLocaleString();
