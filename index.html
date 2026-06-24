@@ -2785,7 +2785,7 @@ function doPrintInvoice(iv) {
   // Header
   doc.write('<div class="hd">');
   doc.write('<img src="'+LG+'" alt="CNK">');
-  doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div>');
+  doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+' | เลขประจำตัวผู้เสียภาษี 1101800960252</div></div>');
   doc.write('<div class="hr2"><h2 style="color:#f57f17;">ใบวางบิล</h2><p>เลขที่: '+h(iv.no)+'</p><p>วันที่เปิด: '+fmtDF(iv.date)+'</p></div>');
   doc.write('</div>');
 
@@ -2892,7 +2892,7 @@ function doPrintReceipt(iv) {
   // Header
   doc.write('<div class="hd">');
   doc.write('<img src="'+LG+'" alt="CNK">');
-  doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div>');
+  doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+' | เลขประจำตัวผู้เสียภาษี 1101800960252</div></div>');
   doc.write('<div class="hr2"><h2>ใบเสร็จรับเงิน</h2><p>อ้างอิง: '+h(iv.no)+'</p><p>วันที่รับเงิน: '+fmtDF(receiptDate)+'</p></div>');
   doc.write('</div>');
 
