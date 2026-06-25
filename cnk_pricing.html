@@ -1334,12 +1334,17 @@ function handleSelect(mx,my){
     } else {
       const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
       const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
+      const inBox=lines.filter(l=>{const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;return mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2;});
+      const hasSelected=inBox.some(l=>l.lineType===mode);
+      saveHistory();
       let count=0;
-      lines.forEach(l=>{
-        const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;
-        if(mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2&&l.lineType===null){l.lineType=mode;count++;}
-      });
-      if(count>0)showToast(`เลือก ${count} เส้น`,'ok');
+      if(hasSelected){
+        inBox.forEach(l=>{if(l.lineType===mode){l.lineType=null;count++;}});
+        if(count>0)showToast(`ยกเลิก ${count} เส้น`,'ok');else history.pop();
+      } else {
+        inBox.forEach(l=>{if(l.lineType===null){l.lineType=mode;count++;}});
+        if(count>0)showToast(`เลือก ${count} เส้น`,'ok');else history.pop();
+      }
     }
     boxStart=null;boxCur=null;
     updateStats();render();
