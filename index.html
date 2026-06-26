@@ -3630,10 +3630,11 @@ function _stRender(rangeMonths, hist, liveBills) {
   if (!cur.sales) {
     projEl.innerHTML = '<p style="color:#aaa;font-size:13px;">ยังไม่มีข้อมูลเดือนปัจจุบัน</p>';
   } else {
+    var remDays = Math.max(0, curDays - currentDay);
     var scenarios = [
-      {label:'Conservative', val:ratePerDay*0.75*curDays, desc:'ปลายเดือนอ่อนลง',        color:'#e74c3c'},
-      {label:'Base',         val:ratePerDay*avgRatio*curDays, desc:'pattern เหมือนเดือนก่อน', color:'#f39c12'},
-      {label:'Upside',       val:ratePerDay*1.35*curDays, desc:'ปลายเดือนพุ่งขึ้น',       color:'#27ae60'},
+      {label:'Conservative', val:cur.sales+ratePerDay*0.75*remDays, desc:'ปลายเดือนอ่อนลง',        color:'#e74c3c'},
+      {label:'Base',         val:cur.sales+ratePerDay*avgRatio*remDays, desc:'pattern เหมือนเดือนก่อน', color:'#f39c12'},
+      {label:'Upside',       val:cur.sales+ratePerDay*1.35*remDays, desc:'ปลายเดือนพุ่งขึ้น',       color:'#27ae60'},
     ];
     projEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">' +
       scenarios.map(function(s){
