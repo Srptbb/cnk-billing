@@ -3415,6 +3415,16 @@ function rdSalesTrend() {
   });
 }
 
+function _stWorkDays(ym, fromDay, toDay) {
+  // นับวันจันทร์-เสาร์ ในช่วง fromDay..toDay (inclusive) ของเดือน ym
+  var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7)) - 1;
+  var count = 0;
+  for (var d = fromDay; d <= toDay; d++) {
+    var dow = new Date(y, m, d).getDay(); // 0=อาทิตย์
+    if (dow !== 0) count++;
+  }
+  return count;
+}
 function _stGetMonthDays(ym) {
   var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7));
   return new Date(y, m, 0).getDate();
@@ -3479,20 +3489,25 @@ function _stRender(rangeMonths, hist, liveBills) {
   // --- Summary Cards ---
   var cur = dataMap[currentYM] || {sales:0, qty:0, days:{}};
   var curDays = _stGetMonthDays(currentYM);
-  var ratePerDay = currentDay > 0 ? cur.sales / currentDay : 0;
+  var workedWorkDays = _stWorkDays(currentYM, 1, currentDay);
+  var totalWorkDays  = _stWorkDays(currentYM, 1, curDays);
+  var remWorkDays    = Math.max(0, totalWorkDays - workedWorkDays);
+  var ratePerDay = workedWorkDays > 0 ? cur.sales / workedWorkDays : 0; // บาท/วันทำงาน
   var avgPerItem = cur.qty > 0 ? cur.sales / cur.qty : 0;
 
   var prevMonths = months.filter(function(ym){ return ym < currentYM; });
   var ratios = prevMonths.map(function(ym) {
     var d = dataMap[ym]; if (!d || !d.sales) return null;
     var daysInMonth = _stGetMonthDays(ym);
+    var wdMonth = _stWorkDays(ym, 1, daysInMonth);
+    var r10wd = _stWorkDays(ym, 1, 10);
     var r10 = 0;
     for (var dd=1; dd<=10; dd++) { if(d.days[dd]) r10 += d.days[dd].sales; }
-    if (!r10) return null;
-    return (d.sales/daysInMonth) / (r10/10);
+    if (!r10 || !r10wd) return null;
+    return (d.sales/wdMonth) / (r10/r10wd);
   }).filter(function(x){return x!==null;});
   var avgRatio = ratios.length ? ratios.reduce(function(a,b){return a+b;},0)/ratios.length : 1;
-  var projected = ratePerDay * avgRatio * curDays;
+  var projected = cur.sales + ratePerDay * avgRatio * remWorkDays;
 
   document.getElementById('st-cards').innerHTML = [
     {label:'งานเดือนนี้',      val: Math.round(cur.qty)+' ชิ้น', color:'#2A9D8F'},
@@ -3630,11 +3645,10 @@ function _stRender(rangeMonths, hist, liveBills) {
   if (!cur.sales) {
     projEl.innerHTML = '<p style="color:#aaa;font-size:13px;">ยังไม่มีข้อมูลเดือนปัจจุบัน</p>';
   } else {
-    var remDays = Math.max(0, curDays - currentDay);
     var scenarios = [
-      {label:'Conservative', val:cur.sales+ratePerDay*0.75*remDays, desc:'ปลายเดือนอ่อนลง',        color:'#e74c3c'},
-      {label:'Base',         val:cur.sales+ratePerDay*avgRatio*remDays, desc:'pattern เหมือนเดือนก่อน', color:'#f39c12'},
-      {label:'Upside',       val:cur.sales+ratePerDay*1.35*remDays, desc:'ปลายเดือนพุ่งขึ้น',       color:'#27ae60'},
+      {label:'Conservative', val:cur.sales+ratePerDay*0.75*remWorkDays, desc:'ปลายเดือนอ่อนลง',        color:'#e74c3c'},
+      {label:'Base',         val:cur.sales+ratePerDay*avgRatio*remWorkDays, desc:'pattern เหมือนเดือนก่อน', color:'#f39c12'},
+      {label:'Upside',       val:cur.sales+ratePerDay*1.35*remWorkDays, desc:'ปลายเดือนพุ่งขึ้น',       color:'#27ae60'},
     ];
     projEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">' +
       scenarios.map(function(s){
@@ -3643,7 +3657,7 @@ function _stRender(rangeMonths, hist, liveBills) {
           '<div style="font-size:20px;font-weight:700;color:'+s.color+';">'+fmtK(s.val)+'</div>'+
           '<div style="font-size:11px;color:#aaa;margin-top:4px;">'+s.desc+'</div></div>';
       }).join('')+'</div>'+
-      '<p style="font-size:12px;color:#aaa;margin-top:8px;">* rate ปัจจุบัน '+fmtK(ratePerDay)+' บาท/วัน | ผ่านมา '+currentDay+'/'+curDays+' วัน | base ratio '+avgRatio.toFixed(2)+'x</p>';
+      '<p style="font-size:12px;color:#aaa;margin-top:8px;">* rate '+fmtK(ratePerDay)+' บาท/วันทำงาน | ผ่าน '+workedWorkDays+' วันทำงาน เหลือ '+remWorkDays+' วัน (จาก '+totalWorkDays+' วันทำงาน/เดือน) | base ratio '+avgRatio.toFixed(2)+'x</p>';
   }
 }
 
