@@ -889,6 +889,15 @@ const now = new Date();
 const day = now.getDate();
 const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
 const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+function countWorkDays(y, m, from, to) {
+  let c = 0;
+  for (let d = from; d <= to; d++) { if (new Date(y,m,d).getDay() !== 0) c++; }
+  return c;
+}
+const _y = now.getFullYear(), _m = now.getMonth();
+const workedWorkDays = countWorkDays(_y, _m, 1, day);
+const totalWorkDays  = countWorkDays(_y, _m, 1, daysInMonth);
+const remWorkDays    = Math.max(0, totalWorkDays - workedWorkDays);
 
 async function apiGet(params) {
   const url = API + '?' + new URLSearchParams(params);
@@ -949,7 +958,7 @@ async function loadAll() {
     const actual = aEntry.amount || 0;
     const target = info.target || 0;
     const shop = info.shop || 'CNK';  // ลูกค้าใหม่ที่ยังไม่มีร้าน → กอง CNK
-    const pace = day > 0 ? Math.round((actual/day)*daysInMonth) : 0;
+    const pace = workedWorkDays > 0 ? Math.round((actual/workedWorkDays)*(workedWorkDays+remWorkDays)) : 0;
     const pct = target > 0 ? Math.round((pace/target)*100) : 0;
     const status = target === 0 ? 'none' : (pct >= 90 ? 'green' : pct >= 60 ? 'orange' : 'red');
     return { name, shop, target, actual, pace, pct, gap: target-actual, status };

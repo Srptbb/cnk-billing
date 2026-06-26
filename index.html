@@ -3560,7 +3560,9 @@ function _stRender(rangeMonths, hist, liveBills) {
 
       // projection สำหรับเดือนปัจจุบัน
       if (isCurrentMonth && maxDay < daysInMonth) {
-        var projEnd = maxDay > 0 ? (cum / maxDay) * avgRatio * daysInMonth : 0;
+        var _wd0 = _stWorkDays(ym, 1, maxDay);
+        var _wdRem = Math.max(0, totalWorkDays - _wd0);
+        var projEnd = _wd0 > 0 ? cum + (cum / _wd0) * avgRatio * _wdRem : 0;
         var projPts = new Array(daysInMonth+1).fill(null);
         projPts[maxDay] = cum;
         projPts[daysInMonth] = projEnd;
@@ -3617,9 +3619,10 @@ function _stRender(rangeMonths, hist, liveBills) {
     var daysInMonth = _stGetMonthDays(ym);
     var isCurrentMonth = ym === currentYM;
     var usedDays = isCurrentMonth ? currentDay : daysInMonth;
+    var usedWorkDays = _stWorkDays(ym, 1, usedDays);
     var qty = Math.round(d.qty);
     var avgItem = qty > 0 ? d.sales/qty : 0;
-    var rate = usedDays > 0 ? d.sales/usedDays : 0;
+    var rate = usedWorkDays > 0 ? d.sales/usedWorkDays : 0;
     var prevYM = months[i-1];
     var prevSales = prevYM && dataMap[prevYM] ? dataMap[prevYM].sales : null;
     var diffHtml = '';
@@ -3693,7 +3696,7 @@ function stExport() {
       daysUsed: usedDays, daysInMonth: daysInMonth,
       totalJobs: totalQty, totalSales: Math.round(totalSales),
       avgPerJob: totalQty>0 ? Math.round(totalSales/totalQty) : 0,
-      ratePerDay: usedDays>0 ? Math.round(totalSales/usedDays) : 0
+      ratePerDay: _stWorkDays(ym,1,usedDays)>0 ? Math.round(totalSales/_stWorkDays(ym,1,usedDays)) : 0
     };
   });
   var blob = new Blob([JSON.stringify({
