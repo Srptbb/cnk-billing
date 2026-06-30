@@ -260,7 +260,7 @@ textarea{resize:vertical;min-height:64px;}
 <div class="card">
   <div class="ctitle">รายชื่อลูกค้า <button class="btn bp bsm" onclick="opCM()">+ เพิ่มลูกค้า</button></div>
   <div style="margin-bottom:12px;">
-    <input id="cust-search" type="text" placeholder="🔍 ค้นหาชื่อลูกค้า, ผู้ติดต่อ, เลขภาษี..." oninput="rdC()" style="width:100%;padding:9px 12px;border:1.5px solid #e0e3eb;border-radius:8px;font-size:14px;font-family:Sarabun,sans-serif;outline:none;">
+    <input id="cust-search" type="text" placeholder="🔍 ค้นหาชื่อลูกค้า, ผู้ติดต่อ, เลขภาษี..." style="width:100%;padding:9px 12px;border:1.5px solid #e0e3eb;border-radius:8px;font-size:14px;font-family:Sarabun,sans-serif;outline:none;">
   </div>
   <div id="cl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p></div>
 </div>
@@ -993,6 +993,9 @@ var ctp='credit',eId=null,eCId=null,iRow=null,rc=0;
 window.onload=function(){
   document.getElementById('nl').src=LG;
   document.getElementById('login-logo').src=LG;
+  // Customer search listener (attach via JS ไม่ใช่ inline เพื่อป้องกัน cache issue)
+  var _cs=document.getElementById('cust-search');
+  if(_cs){_cs.addEventListener('input',function(){rdC();});_cs.addEventListener('keyup',function(){rdC();});}
   document.getElementById('bdate').value=td();
   document.getElementById('btp').value='ใบส่งของ (เครดิต)';
   addR();
