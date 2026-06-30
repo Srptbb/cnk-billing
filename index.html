@@ -260,7 +260,7 @@ textarea{resize:vertical;min-height:64px;}
 <div class="card">
   <div class="ctitle">รายชื่อลูกค้า <button class="btn bp bsm" onclick="opCM()">+ เพิ่มลูกค้า</button></div>
   <div style="margin-bottom:12px;">
-    <input id="cust-search" type="text" placeholder="🔍 ค้นหาชื่อลูกค้า, ผู้ติดต่อ, เลขภาษี..." style="width:100%;padding:9px 12px;border:1.5px solid #e0e3eb;border-radius:8px;font-size:14px;font-family:Sarabun,sans-serif;outline:none;">
+    <input id="cust-search" type="text" placeholder="🔍 ค้นหาชื่อลูกค้า, ผู้ติดต่อ, เลขภาษี..." autocomplete="off" oninput="rdC(this.value)" onkeyup="rdC(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid #e0e3eb;border-radius:8px;font-size:14px;font-family:Sarabun,sans-serif;outline:none;">
   </div>
   <div id="cl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p></div>
 </div>
@@ -994,9 +994,6 @@ var custSearchQ='';
 window.onload=function(){
   document.getElementById('nl').src=LG;
   document.getElementById('login-logo').src=LG;
-  // Customer search
-  var _cs=document.getElementById('cust-search');
-  if(_cs){_cs.addEventListener('input',function(){custSearchQ=this.value;rdC();});}
   document.getElementById('bdate').value=td();
   document.getElementById('btp').value='ใบส่งของ (เครดิต)';
   addR();
@@ -2250,10 +2247,13 @@ function svE(){
 
 
 
-function rdC(){
+function rdC(qstr){
   var c=document.getElementById('cl');
   if(!custs.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p>';return;}
-  var q2=custSearchQ.toLowerCase();
+  // รับค่าค้นหาจาก argument (oninput) ก่อน, ไม่งั้นอ่านจาก input element
+  if(qstr!==undefined) custSearchQ=qstr;
+  else { var _el=document.getElementById('cust-search'); if(_el) custSearchQ=_el.value; }
+  var q2=(custSearchQ||'').toLowerCase();
   var list=q2?custs.filter(function(c){
     return (c.n&&c.n.toLowerCase().includes(q2))||(c.c&&c.c.toLowerCase().includes(q2))||(c.tax&&String(c.tax).includes(q2))||(c.no&&c.no.toLowerCase().includes(q2));
   }):custs;
