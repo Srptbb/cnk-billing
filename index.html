@@ -2255,7 +2255,7 @@ function rdC(qstr){
   else { var _el=document.getElementById('cust-search'); if(_el) custSearchQ=_el.value; }
   var q2=(custSearchQ||'').toLowerCase();
   var list=q2?custs.filter(function(c){
-    return (c.n&&c.n.toLowerCase().includes(q2))||(c.c&&c.c.toLowerCase().includes(q2))||(c.tax&&String(c.tax).includes(q2))||(c.no&&c.no.toLowerCase().includes(q2));
+    return (c.n&&String(c.n).toLowerCase().includes(q2))||(c.c&&String(c.c).toLowerCase().includes(q2))||(c.tax&&String(c.tax).toLowerCase().includes(q2))||(c.no&&String(c.no).toLowerCase().includes(q2));
   }):custs;
   if(!list.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบลูกค้าที่ค้นหา</p>';return;}
   var out='<table class="ct"><thead><tr><th>ชื่อบริษัท</th><th>ผู้ติดต่อ</th><th>ประเภท</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>';
