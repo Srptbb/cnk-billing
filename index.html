@@ -259,6 +259,9 @@ textarea{resize:vertical;min-height:64px;}
 <div id="sec-customers" class="sec">
 <div class="card">
   <div class="ctitle">รายชื่อลูกค้า <button class="btn bp bsm" onclick="opCM()">+ เพิ่มลูกค้า</button></div>
+  <div style="margin-bottom:12px;">
+    <input id="cust-search" type="text" placeholder="🔍 ค้นหาชื่อลูกค้า, ผู้ติดต่อ, เลขภาษี..." oninput="rdC()" style="width:100%;padding:9px 12px;border:1.5px solid #e0e3eb;border-radius:8px;font-size:14px;font-family:Sarabun,sans-serif;outline:none;">
+  </div>
   <div id="cl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p></div>
 </div>
 </div>
@@ -1118,6 +1121,12 @@ function loadAll(){
         var s = String(c.t).replace(/\D/g,'');
         if (s.length >= 9 && s.length <= 10) c.t = s.padStart(10,'0');
         else if (s.length > 0) c.t = s;
+      }
+      // Restore leading zero on tax ID (13 digits, Sheets may strip leading 0)
+      if (c.tax) {
+        var tx = String(c.tax).replace(/\D/g,'');
+        if (tx.length >= 12 && tx.length <= 13) c.tax = tx.padStart(13,'0');
+        else if (tx.length > 0) c.tax = tx;
       }
       return c;
     });
@@ -1995,8 +2004,10 @@ function saveB(){
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
   var sub=items.reduce(function(s,i){return s+i.t;},0);
   var vat=document.getElementById('vat').checked?sub*0.07:0;
+  var _cust=custs.find(function(c){return c.n===cn;});
   var b={id:Date.now(),no:document.getElementById('bno').value,date:document.getElementById('bdate').value,type:ctp,createdBy:getCreatedBy(),
     cn:cn,cc:document.getElementById('cc').value.trim(),ca:document.getElementById('ca').value.trim(),
+    tax:_cust?(_cust.tax||''):'',
     items:items,sub:sub,vat:vat,grand:sub+vat,remark:document.getElementById('br').value.trim(),
     status:'active',ts:new Date().toISOString()};
   svB2(b);toast('บันทึกบิล '+b.no);clrF();
@@ -2238,8 +2249,14 @@ function svE(){
 function rdC(){
   var c=document.getElementById('cl');
   if(!custs.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีลูกค้า</p>';return;}
+  var q=(document.getElementById('cust-search')||{}).value||'';
+  var q2=q.toLowerCase();
+  var list=q2?custs.filter(function(c){
+    return (c.n&&c.n.toLowerCase().includes(q2))||(c.c&&c.c.toLowerCase().includes(q2))||(c.tax&&String(c.tax).includes(q2))||(c.no&&c.no.toLowerCase().includes(q2));
+  }):custs;
+  if(!list.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบลูกค้าที่ค้นหา</p>';return;}
   var out='<table class="ct"><thead><tr><th>ชื่อบริษัท</th><th>ผู้ติดต่อ</th><th>ประเภท</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>';
-  custs.forEach(function(c){
+  list.forEach(function(c){
     out+='<tr><td><strong>'+h(c.n)+'</strong>'+(c.a?'<br><small style="color:#999;">'+h(c.a)+'</small>':'')+
       '</td><td>'+h(c.c||'-')+'</td><td><span class="bdg '+(c.ty==='credit'?'bc':'bcs')+'">'+(c.ty==='credit'?'เครดิต':'เงินสด')+'</span></td>'+
       '<td style="color:#888;font-size:13px;">'+h(c.no||'-')+'</td>'+
@@ -2307,8 +2324,10 @@ function prvB(){
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
   var sub=items.reduce(function(s,i){return s+i.t;},0);
   var vat=document.getElementById('vat').checked?sub*0.07:0;
+  var _cust2=custs.find(function(c){return c.n===cn;});
   doPrint({no:document.getElementById('bno').value,date:document.getElementById('bdate').value,type:ctp,
     cn:cn,cc:document.getElementById('cc').value.trim(),ca:document.getElementById('ca').value.trim(),
+    tax:_cust2?(_cust2.tax||''):'',
     items:items,sub:sub,vat:vat,grand:sub+vat,remark:document.getElementById('br').value.trim()});
 }
 function prtB(id){var b=bills.find(function(b){return b.id===id;});if(b)doPrint(b);}
@@ -2339,10 +2358,9 @@ function doPrint(bill){
   doc.write('<div class="cu"><div style="font-size:13px;color:#888;">ลูกค้า</div><div class="cv">'+h(bill.cn)+'</div>');
   if(bill.cc)doc.write('<div style="font-size:13px;color:#666;margin-top:2px;">ผู้ติดต่อ: '+h(bill.cc)+'</div>');
   if(bill.ca)doc.write('<div style="font-size:13px;color:#777;margin-top:2px;">'+h(bill.ca)+'</div>');
-  // แสดงเลขประจำตัวผู้เสียภาษี (ถ้ามี)
-  var custTaxId = '';
-  var bc = custs.find(function(c){return c.n===bill.cn;});
-  if(bc&&bc.tax) custTaxId = bc.tax;
+  // แสดงเลขประจำตัวผู้เสียภาษี (ถ้ามี) — ใช้จาก bill.tax ก่อน fallback custs
+  var custTaxId = bill.tax || '';
+  if(!custTaxId){var bc=custs.find(function(c){return c.n===bill.cn;});if(bc&&bc.tax)custTaxId=bc.tax;}
   if(custTaxId) doc.write('<div style="font-size:12px;color:#888;margin-top:2px;">เลขประจำตัวผู้เสียภาษี: '+h(custTaxId)+'</div>');
   doc.write('</div>');
   doc.write('<div class="tbl-wrap">');doc.write('<table><thead><tr><th style="width:32%">รายการ</th><th style="width:8%;text-align:center;">จำนวน</th><th style="width:15%;text-align:right;">ราคา/หน่วย</th><th style="width:15%;text-align:right;">รวม</th>'+imgTh+'</tr></thead>');
@@ -2932,7 +2950,6 @@ function doPrintReceipt(iv) {
   doc.write('<div class="paid-detail">');
   doc.write('<div><strong>วิธีชำระ:</strong> '+h(payMethodTh)+'</div>');
   doc.write('<div><strong>วันที่รับเงิน:</strong> '+fmtDF(receiptDate)+'</div>');
-  if(iv.chequeDate) doc.write('<div><strong>วันสั่งจ่ายเช็ค:</strong> '+fmtDF(iv.chequeDate)+'</div>');
   if(iv.paidNote) doc.write('<div><strong>หมายเหตุ:</strong> '+h(iv.paidNote)+'</div>');
   doc.write('</div></div>');
 
