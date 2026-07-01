@@ -1389,7 +1389,7 @@ function pkF(n){document.getElementById('fs').value=n;document.getElementById('d
 // ===== QUICK PRICE (คำนวณราคาจากความยาวมีด/ไม้ ในหน้าเปิดบิล) =====
 var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpLastResult=null;
 
-function loadQpPricing(){
+function loadQpPricing(cb){
   fetch(API+'?action=getAll&table=pricing')
     .then(function(r){return r.json();})
     .then(function(rows){
@@ -1406,11 +1406,21 @@ function loadQpPricing(){
         var defCrease=crease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
         if(defCrease>=0)scr.value=String(defCrease);
       }
+      if(cb) cb();
     })
     .catch(function(){
       var sc=document.getElementById('qp-blade-cut');
       if(sc) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
+      if(cb) cb();
     });
+}
+
+// เติมชนิดมีด/เส้นพับ ในฟอร์มเพิ่มงาน (ใช้ข้อมูลชุดเดียวกับ Quick Price)
+function wlPopulateBladeSelects(){
+  var sc=document.getElementById('wla-blade-type');
+  if(sc) sc.innerHTML='<option value="">— ไม่ระบุ —</option>'+qpPricingCut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+  var scr=document.getElementById('wla-crease-type');
+  if(scr) scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+qpPricingCrease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
 }
 
 function toggleQp(){
@@ -1672,8 +1682,8 @@ function wlOpenAddModal() {
   if(!m) return;
   document.getElementById('wla-cust').value = '';
   document.getElementById('wla-jobname').value = '';
-  document.getElementById('wla-blade').value = '';
-  document.getElementById('wla-wood').value = '';
+  document.getElementById('wla-wood-w').value = '';
+  document.getElementById('wla-wood-h').value = '';
   document.getElementById('wla-price').value = '';
   document.getElementById('wla-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('wla-laser').checked = false;
@@ -1683,6 +1693,9 @@ function wlOpenAddModal() {
   if(dl && typeof custs !== 'undefined' && custs) {
     dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
   }
+  // เติมชนิดมีด/เส้นพับ (โหลดจากชีท pricing ครั้งแรก แล้ว cache ไว้)
+  if(qpPricingCut.length === 0) loadQpPricing(wlPopulateBladeSelects);
+  else wlPopulateBladeSelects();
   m.style.display = 'flex';
 }
 
@@ -1695,8 +1708,12 @@ function wlSaveNewJob() {
   var cust = document.getElementById('wla-cust').value.trim();
   if(!cust) { alert('กรุณากรอกชื่อลูกค้า'); return; }
   var jobName = document.getElementById('wla-jobname').value.trim();
-  var blade = document.getElementById('wla-blade').value.trim();
-  var wood  = document.getElementById('wla-wood').value.trim();
+  var bcIdx = document.getElementById('wla-blade-type').value;
+  var bladeCut = (bcIdx!=='' && qpPricingCut[bcIdx]) ? qpPricingCut[bcIdx].blade : '';
+  var crIdx = document.getElementById('wla-crease-type').value;
+  var bladeCrease = (crIdx!=='' && qpPricingCrease[crIdx]) ? qpPricingCrease[crIdx].blade : '';
+  var woodW = parseFloat(document.getElementById('wla-wood-w').value) || 0;
+  var woodH = parseFloat(document.getElementById('wla-wood-h').value) || 0;
   var price = parseFloat(document.getElementById('wla-price').value) || 0;
   var dateVal = document.getElementById('wla-date').value || new Date().toISOString().slice(0,10);
   var isLaser = document.getElementById('wla-laser').checked;
@@ -1711,8 +1728,10 @@ function wlSaveNewJob() {
     id: id,
     custName: cust,
     note: (jobName + (extras ? (jobName?' ':'')+'('+extras+')' : '')).trim(),
-    bladeCount: blade,
-    woodCount: wood,
+    bladeCut: bladeCut,
+    bladeCrease: bladeCrease,
+    woodW: woodW,
+    woodH: woodH,
     price: price,
     priceBeforeLaser: price,
     laser: isLaser,
@@ -5161,12 +5180,20 @@ function doPrintQt(qt) {
       </div>
       <div style="display:flex;gap:10px;">
         <div style="flex:1;">
-          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนมีด</label>
-          <input id="wla-blade" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ชนิดมีด (เส้นตัด)</label>
+          <select id="wla-blade-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"><option value="">— ไม่ระบุ —</option></select>
         </div>
         <div style="flex:1;">
-          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนไม้</label>
-          <input id="wla-wood" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">เส้นพับ</label>
+          <select id="wla-crease-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"><option value="">— ไม่มีเส้นพับ —</option></select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ขนาดไม้ (mm)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="wla-wood-w" type="number" min="0" placeholder="กว้าง" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+          <span style="color:#888;font-weight:700;">×</span>
+          <input id="wla-wood-h" type="number" min="0" placeholder="ยาว" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
         </div>
       </div>
       <div style="display:flex;gap:10px;">
