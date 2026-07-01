@@ -150,7 +150,7 @@ textarea{resize:vertical;min-height:64px;}
 <div id="tst"></div>
 <div id="main-content" style="display:none;"><div class="main">
 
-<div id="sec-create" class="sec on">
+<div id="sec-create" class="sec">
 <div class="card">
   <div class="ctitle">เปิดบิลใหม่</div>
   <div class="trow">
@@ -1162,9 +1162,7 @@ function loadAll(){
           window.dispatchEvent(new Event('cnk_ready'));
           var params = new URLSearchParams(window.location.search);
           var tab = params.get('tab');
-          if(tab === 'worklist') {
-            goMain('worklist', document.getElementById('ntab-worklist'));
-          } else if(params.get('openBill') === '1') {
+          if(params.get('openBill') === '1') {
             var custName = params.get('cust') || '';
             var note = params.get('note') || '';
             goMain('songof', document.getElementById('ntab-songof'));
@@ -1175,6 +1173,9 @@ function loadAll(){
                 if(note) { var rk = document.getElementById('remark'); if(rk) rk.value = note; }
               }, 300);
             }
+          } else {
+            // ค่าเริ่มต้น: หน้าลิสงาน (รวมกรณี ?tab=worklist)
+            goMain('worklist', document.getElementById('ntab-worklist'));
           }
         });
       }, 3); // โหลดแค่ 3 เดือนล่าสุด
@@ -1530,8 +1531,12 @@ function loadWorklist() {
       if(!month) return true;
       return String(r.ts||r.date||'').slice(0,7) === month;
     });
-    // sort newest first
-    wlData.sort(function(a,b){ return String(b.ts||'') > String(a.ts||'') ? 1 : -1; });
+    // sort newest first (วันที่ล่าสุดอยู่บน)
+    wlData.sort(function(a,b){
+      var ta = new Date(a.ts||a.date||0).getTime() || 0;
+      var tb = new Date(b.ts||b.date||0).getTime() || 0;
+      return tb - ta;
+    });
     document.getElementById('wl-loading').style.display = 'none';
     document.getElementById('wl-table-wrap').style.display = 'block';
     renderWorklist();
@@ -5078,7 +5083,7 @@ function doPrintQt(qt) {
 <div id="sec-crm" class="sec" style="padding:0;height:calc(100vh - 60px);"><iframe id="crm-frame" src="" style="width:100%;height:100%;border:none;display:block;"></iframe></div>
 
 <!-- ===== WORKLIST SECTION ===== -->
-<div id="sec-worklist" class="sec" style="padding:0;">
+<div id="sec-worklist" class="sec on" style="padding:0;">
 <div style="background:#fff;border-bottom:1.5px solid #e0e3eb;padding:16px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
   <span style="font-size:15px;font-weight:700;color:#1a1a2e;margin-right:8px;">📋 ลิสงาน</span>
   <div style="display:flex;align-items:center;gap:8px;">
@@ -5158,15 +5163,15 @@ function doPrintQt(qt) {
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px;">ตัวเลือกเพิ่ม</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <label style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;border:1.5px solid #fed7aa;color:#c2410c;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
-            <input id="wla-laser" type="checkbox" style="accent-color:#e65100;cursor:pointer;">⚡ ยิงเลเซอร์
+        <div style="display:flex;gap:8px;flex-wrap:nowrap;">
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fff7ed;border:1.5px solid #fed7aa;color:#c2410c;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-laser" type="checkbox" style="accent-color:#e65100;cursor:pointer;">ยิงเลเซอร์
           </label>
-          <label style="display:inline-flex;align-items:center;gap:6px;background:#f5f3ff;border:1.5px solid #ddd6fe;color:#6d28d9;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
-            <input id="wla-bladechange" type="checkbox" style="accent-color:#7c3aed;cursor:pointer;">🔪 เปลี่ยนมีด
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#f5f3ff;border:1.5px solid #ddd6fe;color:#6d28d9;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-bladechange" type="checkbox" style="accent-color:#7c3aed;cursor:pointer;">เปลี่ยนมีด
           </label>
-          <label style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #bbf7d0;color:#15803d;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
-            <input id="wla-woodchange" type="checkbox" style="accent-color:#16a34a;cursor:pointer;">🪵 เปลี่ยนไม้
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#f0fdf4;border:1.5px solid #bbf7d0;color:#15803d;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-woodchange" type="checkbox" style="accent-color:#16a34a;cursor:pointer;">เปลี่ยนไม้
           </label>
         </div>
       </div>
