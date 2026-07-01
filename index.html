@@ -1562,8 +1562,12 @@ function renderWorklist() {
     var canCheck = status === 'pending';
     var dateStr = r.ts ? new Date(r.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
     var priceFmt = r.price ? '฿'+parseFloat(r.price).toLocaleString() : '-';
-    var woodStr = (r.woodW && r.woodH) ? r.woodW+'×'+r.woodH : '-';
-    var bladeStr = r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-';
+    var woodStr = (r.woodCount!==undefined && r.woodCount!=='' && r.woodCount!==null)
+      ? h(String(r.woodCount))+' อัน'
+      : ((r.woodW && r.woodH) ? r.woodW+'×'+r.woodH : '-');
+    var bladeStr = (r.bladeCount!==undefined && r.bladeCount!=='' && r.bladeCount!==null)
+      ? h(String(r.bladeCount))+' อัน'
+      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-');
     var trStyle = status==='billed' ? 'background:#f6fffe;opacity:0.7;' : '';
     var rid = h(String(r.id||''));
     var rcust = h(r.custName||'');
@@ -1589,6 +1593,7 @@ function renderWorklist() {
       +'<td style="padding:10px 12px;text-align:center;font-size:12px;font-family:monospace;">'+woodStr+'</td>'
       +'<td style="padding:10px 12px;text-align:right;font-family:monospace;font-weight:700;color:#e65100;">'+priceFmt+'</td>'
       +'<td style="padding:10px 12px;text-align:center;">'+statusBadge+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;white-space:nowrap;">'+wlProgressCell(r)+'</td>'
       +'<td style="padding:10px 12px;text-align:center;white-space:nowrap;">'
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
@@ -1604,6 +1609,101 @@ function renderWorklist() {
       +'</tr>';
   }).join('');
   updateWlSelCount();
+}
+
+var WL_STATUS_DEFS = [
+  ['statusDesigned','เขียนแบบ'],
+  ['statusWorking','ลงมือทำ'],
+  ['statusComplete','งานเสร็จ'],
+  ['statusShipped','ส่งแล้ว'],
+  ['statusPaid','จ่ายแล้ว']
+];
+
+function wlProgressCell(r) {
+  var rid = h(String(r.id||''));
+  return '<div style="display:inline-flex;gap:8px;align-items:flex-start;">'
+    + WL_STATUS_DEFS.map(function(d){
+        var v = r[d[0]];
+        var on = (v===true || v==='true' || v===1 || v==='1');
+        return '<label style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:'+(on?'#16a34a':'#999')+';cursor:pointer;line-height:1.1;">'
+          +'<input type="checkbox"'+(on?' checked':'')+' onchange="wlToggleStatus(\''+rid+'\',\''+d[0]+'\',this.checked)" style="cursor:pointer;width:15px;height:15px;accent-color:#16a34a;">'
+          +'<span>'+d[1]+'</span>'
+          +'</label>';
+      }).join('')
+    + '</div>';
+}
+
+function wlToggleStatus(id, field, checked) {
+  var row = wlData.find(function(r){ return String(r.id)===String(id); });
+  if(row) row[field] = checked;
+  var data = {}; data[field] = checked;
+  apiSet('update','worklist',id,data,function(){
+    // อัปเดต label สีทันที (re-render เฉพาะแถวไม่จำเป็น — สีเปลี่ยนตอน render ครั้งถัดไป)
+  });
+}
+
+// ===== เพิ่มงานเอง (manual add) =====
+function wlOpenAddModal() {
+  var m = document.getElementById('wl-add-modal');
+  if(!m) return;
+  document.getElementById('wla-cust').value = '';
+  document.getElementById('wla-blade').value = '';
+  document.getElementById('wla-wood').value = '';
+  document.getElementById('wla-price').value = '';
+  document.getElementById('wla-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('wla-laser').checked = false;
+  document.getElementById('wla-bladechange').checked = false;
+  document.getElementById('wla-woodchange').checked = false;
+  var dl = document.getElementById('wla-cust-list');
+  if(dl && typeof custs !== 'undefined' && custs) {
+    dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
+  }
+  m.style.display = 'flex';
+}
+
+function wlCloseAddModal() {
+  var m = document.getElementById('wl-add-modal');
+  if(m) m.style.display = 'none';
+}
+
+function wlSaveNewJob() {
+  var cust = document.getElementById('wla-cust').value.trim();
+  if(!cust) { alert('กรุณากรอกชื่อลูกค้า'); return; }
+  var blade = document.getElementById('wla-blade').value.trim();
+  var wood  = document.getElementById('wla-wood').value.trim();
+  var price = parseFloat(document.getElementById('wla-price').value) || 0;
+  var dateVal = document.getElementById('wla-date').value || new Date().toISOString().slice(0,10);
+  var isLaser = document.getElementById('wla-laser').checked;
+  var isBladeChange = document.getElementById('wla-bladechange').checked;
+  var isWoodChange = document.getElementById('wla-woodchange').checked;
+  var now = new Date();
+  var timeStr = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  var ts = new Date(dateVal+'T'+timeStr).toISOString();
+  var extras = [isLaser?'ยิงเลเซอร์':'', isBladeChange?'เปลี่ยนมีด':'', isWoodChange?'เปลี่ยนไม้':''].filter(Boolean).join('+');
+  var id = 'q_'+Date.now();
+  var data = {
+    id: id,
+    custName: cust,
+    note: extras ? ('('+extras+')') : '',
+    bladeCount: blade,
+    woodCount: wood,
+    price: price,
+    priceBeforeLaser: price,
+    laser: isLaser,
+    bladeChange: isBladeChange,
+    woodChange: isWoodChange,
+    status: 'pending',
+    manual: true,
+    ts: ts
+  };
+  var btn = document.getElementById('wla-save-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+  apiSet('save','worklist',id,data,function(){
+    if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+    wlCloseAddModal();
+    toast('เพิ่มงานแล้ว ✓');
+    loadWorklist();
+  });
 }
 
 function wlToggleAll(checked) {
@@ -4976,6 +5076,7 @@ function doPrintQt(qt) {
   </div>
   <div style="flex:1;"></div>
   <button id="wl-open-bill-btn" onclick="wlOpenBillSelected()" style="display:none;background:#e65100;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ เปิดบิลรวม (<span id="wl-sel-count">0</span> งาน)</button>
+  <button onclick="wlOpenAddModal()" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➕ เพิ่มงาน</button>
   <button onclick="window.open('cnk_pricing.html','_blank')" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">💰 ตีราคาใหม่</button>
 </div>
 <div style="padding:20px 28px;">
@@ -4992,6 +5093,7 @@ function doPrintQt(qt) {
           <th style="padding:10px 12px;text-align:center;">ไม้ (mm)</th>
           <th style="padding:10px 12px;text-align:right;">ราคา</th>
           <th style="padding:10px 12px;text-align:center;">สถานะ</th>
+          <th style="padding:10px 12px;text-align:center;">ความคืบหน้า</th>
           <th style="padding:10px 12px;text-align:center;">จัดการ</th>
           <th style="padding:10px 12px;text-align:left;">หมายเหตุ</th>
         </tr>
@@ -4999,6 +5101,57 @@ function doPrintQt(qt) {
       <tbody id="wl-tbody"></tbody>
     </table>
     <div id="wl-empty-msg" style="display:none;text-align:center;color:#aaa;padding:40px 0;">ไม่มีรายการ</div>
+  </div>
+</div>
+<!-- ===== MODAL: เพิ่มงานเอง ===== -->
+<div id="wl-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:24px 26px;width:430px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.35);font-family:Sarabun,sans-serif;">
+    <div style="font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:18px;">➕ เพิ่มงานใหม่</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ลูกค้า *</label>
+        <input id="wla-cust" list="wla-cust-list" autocomplete="off" placeholder="พิมพ์หรือเลือกชื่อลูกค้า" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        <datalist id="wla-cust-list"></datalist>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนมีด</label>
+          <input id="wla-blade" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนไม้</label>
+          <input id="wla-wood" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ราคา (฿)</label>
+          <input id="wla-price" type="number" min="0" step="0.01" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">วันที่</label>
+          <input id="wla-date" type="date" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px;">ตัวเลือกเพิ่ม</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;border:1.5px solid #fed7aa;color:#c2410c;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input id="wla-laser" type="checkbox" style="accent-color:#e65100;cursor:pointer;">⚡ ยิงเลเซอร์
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;background:#f5f3ff;border:1.5px solid #ddd6fe;color:#6d28d9;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input id="wla-bladechange" type="checkbox" style="accent-color:#7c3aed;cursor:pointer;">🔪 เปลี่ยนมีด
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #bbf7d0;color:#15803d;padding:6px 11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input id="wla-woodchange" type="checkbox" style="accent-color:#16a34a;cursor:pointer;">🪵 เปลี่ยนไม้
+          </label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:22px;">
+      <button onclick="wlCloseAddModal()" style="flex:1;background:#f0f2f5;color:#555;border:none;border-radius:9px;padding:11px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">ยกเลิก</button>
+      <button id="wla-save-btn" onclick="wlSaveNewJob()" style="flex:2;background:#16a34a;color:#fff;border:none;border-radius:9px;padding:11px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">💾 บันทึก</button>
+    </div>
   </div>
 </div>
 </div>
