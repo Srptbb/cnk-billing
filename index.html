@@ -1556,9 +1556,7 @@ function renderWorklist() {
   emptyMsg.style.display = 'none';
   tbody.innerHTML = filtered.map(function(r) {
     var status = r.status || 'pending';
-    var statusBadge = status === 'billed'
-      ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ เปิดบิลแล้ว</span>'
-      : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ รอยืนยัน</span>';
+    var statusBadge = wlStatusBadge(r);
     var canCheck = status === 'pending';
     var dateStr = r.ts ? new Date(r.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
     var priceFmt = r.price ? '฿'+parseFloat(r.price).toLocaleString() : '-';
@@ -1619,27 +1617,46 @@ var WL_STATUS_DEFS = [
   ['statusPaid','จ่ายแล้ว']
 ];
 
+function wlIsOn(v){ return (v===true || v==='true' || v===1 || v==='1'); }
+
 function wlProgressCell(r) {
   var rid = h(String(r.id||''));
-  return '<div style="display:inline-flex;gap:8px;align-items:flex-start;">'
+  return '<div style="display:inline-flex;gap:12px;align-items:flex-start;">'
     + WL_STATUS_DEFS.map(function(d){
-        var v = r[d[0]];
-        var on = (v===true || v==='true' || v===1 || v==='1');
-        return '<label style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:'+(on?'#16a34a':'#999')+';cursor:pointer;line-height:1.1;">'
-          +'<input type="checkbox"'+(on?' checked':'')+' onchange="wlToggleStatus(\''+rid+'\',\''+d[0]+'\',this.checked)" style="cursor:pointer;width:15px;height:15px;accent-color:#16a34a;">'
+        var on = wlIsOn(r[d[0]]);
+        return '<label style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:'+(on?'700':'400')+';color:'+(on?'#16a34a':'#999')+';cursor:pointer;line-height:1.15;">'
+          +'<input type="checkbox"'+(on?' checked':'')+' onchange="wlToggleStatus(\''+rid+'\',\''+d[0]+'\',this.checked)" style="cursor:pointer;width:20px;height:20px;accent-color:#16a34a;">'
           +'<span>'+d[1]+'</span>'
           +'</label>';
       }).join('')
     + '</div>';
 }
 
+// สถานะแสดงผล = ขั้นที่ติ๊กสูงสุด (ถ้าไม่มี → ใช้ pending/billed เดิม)
+function wlStatusBadge(r) {
+  var steps = [
+    ['statusPaid',    '💰 จ่ายแล้ว',       '#dcfce7','#166534'],
+    ['statusShipped', '🚚 ส่งแล้ว',        '#dbeafe','#1e40af'],
+    ['statusComplete','✅ งานเสร็จ',       '#d1fae5','#065f46'],
+    ['statusWorking', '🔨 กำลังทำ',        '#fef9c3','#854d0e'],
+    ['statusDesigned','✏️ กำลังเขียนแบบ',  '#ede9fe','#5b21b6']
+  ];
+  for(var i=0;i<steps.length;i++){
+    if(wlIsOn(r[steps[i][0]])){
+      return '<span style="background:'+steps[i][2]+';color:'+steps[i][3]+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;">'+steps[i][1]+'</span>';
+    }
+  }
+  return (r.status==='billed')
+    ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ เปิดบิลแล้ว</span>'
+    : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ รอยืนยัน</span>';
+}
+
 function wlToggleStatus(id, field, checked) {
   var row = wlData.find(function(r){ return String(r.id)===String(id); });
   if(row) row[field] = checked;
   var data = {}; data[field] = checked;
-  apiSet('update','worklist',id,data,function(){
-    // อัปเดต label สีทันที (re-render เฉพาะแถวไม่จำเป็น — สีเปลี่ยนตอน render ครั้งถัดไป)
-  });
+  apiSet('update','worklist',id,data,function(){});
+  renderWorklist(); // อัปเดต badge สถานะ + สี checkbox ทันที
 }
 
 // ===== เพิ่มงานเอง (manual add) =====
@@ -1647,6 +1664,7 @@ function wlOpenAddModal() {
   var m = document.getElementById('wl-add-modal');
   if(!m) return;
   document.getElementById('wla-cust').value = '';
+  document.getElementById('wla-jobname').value = '';
   document.getElementById('wla-blade').value = '';
   document.getElementById('wla-wood').value = '';
   document.getElementById('wla-price').value = '';
@@ -1669,6 +1687,7 @@ function wlCloseAddModal() {
 function wlSaveNewJob() {
   var cust = document.getElementById('wla-cust').value.trim();
   if(!cust) { alert('กรุณากรอกชื่อลูกค้า'); return; }
+  var jobName = document.getElementById('wla-jobname').value.trim();
   var blade = document.getElementById('wla-blade').value.trim();
   var wood  = document.getElementById('wla-wood').value.trim();
   var price = parseFloat(document.getElementById('wla-price').value) || 0;
@@ -1684,7 +1703,7 @@ function wlSaveNewJob() {
   var data = {
     id: id,
     custName: cust,
-    note: extras ? ('('+extras+')') : '',
+    note: (jobName + (extras ? (jobName?' ':'')+'('+extras+')' : '')).trim(),
     bladeCount: blade,
     woodCount: wood,
     price: price,
@@ -5112,6 +5131,10 @@ function doPrintQt(qt) {
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ลูกค้า *</label>
         <input id="wla-cust" list="wla-cust-list" autocomplete="off" placeholder="พิมพ์หรือเลือกชื่อลูกค้า" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
         <datalist id="wla-cust-list"></datalist>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ชื่องาน</label>
+        <input id="wla-jobname" autocomplete="off" placeholder="เช่น กล่องเค้ก 2 ปอนด์" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
       </div>
       <div style="display:flex;gap:10px;">
         <div style="flex:1;">
