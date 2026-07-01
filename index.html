@@ -1415,12 +1415,20 @@ function loadQpPricing(cb){
     });
 }
 
-// เติมชนิดมีด/เส้นพับ ในฟอร์มเพิ่มงาน (ใช้ข้อมูลชุดเดียวกับ Quick Price)
+// เติมชนิดมีด/เส้นพับ ในฟอร์มเพิ่มงาน (ใช้ข้อมูลชุดเดียวกับ Quick Price) + ตั้งค่า default
 function wlPopulateBladeSelects(){
   var sc=document.getElementById('wla-blade-type');
-  if(sc) sc.innerHTML='<option value="">— ไม่ระบุ —</option>'+qpPricingCut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+  if(sc){
+    sc.innerHTML='<option value="">— ไม่ระบุ —</option>'+qpPricingCut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+    var def2pt=qpPricingCut.findIndex(function(r){return String(r.blade||'').replace(/\s+/g,'').toLowerCase().indexOf('2pt')>=0;});
+    if(def2pt>=0) sc.value=String(def2pt);
+  }
   var scr=document.getElementById('wla-crease-type');
-  if(scr) scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+qpPricingCrease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+  if(scr){
+    scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+qpPricingCrease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+    var defCrease=qpPricingCrease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
+    if(defCrease>=0) scr.value=String(defCrease);
+  }
 }
 
 function toggleQp(){
@@ -1682,6 +1690,8 @@ function wlOpenAddModal() {
   if(!m) return;
   document.getElementById('wla-cust').value = '';
   document.getElementById('wla-jobname').value = '';
+  document.getElementById('wla-cut-mm').value = '';
+  document.getElementById('wla-crease-mm').value = '';
   document.getElementById('wla-wood-w').value = '';
   document.getElementById('wla-wood-h').value = '';
   document.getElementById('wla-price').value = '';
@@ -1712,6 +1722,8 @@ function wlSaveNewJob() {
   var bladeCut = (bcIdx!=='' && qpPricingCut[bcIdx]) ? qpPricingCut[bcIdx].blade : '';
   var crIdx = document.getElementById('wla-crease-type').value;
   var bladeCrease = (crIdx!=='' && qpPricingCrease[crIdx]) ? qpPricingCrease[crIdx].blade : '';
+  var cutMM = parseFloat(document.getElementById('wla-cut-mm').value) || 0;
+  var creaseMM = parseFloat(document.getElementById('wla-crease-mm').value) || 0;
   var woodW = parseFloat(document.getElementById('wla-wood-w').value) || 0;
   var woodH = parseFloat(document.getElementById('wla-wood-h').value) || 0;
   var price = parseFloat(document.getElementById('wla-price').value) || 0;
@@ -1730,6 +1742,8 @@ function wlSaveNewJob() {
     note: (jobName + (extras ? (jobName?' ':'')+'('+extras+')' : '')).trim(),
     bladeCut: bladeCut,
     bladeCrease: bladeCrease,
+    cutMM: cutMM,
+    creaseMM: creaseMM,
     woodW: woodW,
     woodH: woodH,
     price: price,
@@ -5184,8 +5198,18 @@ function doPrintQt(qt) {
           <select id="wla-blade-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"><option value="">— ไม่ระบุ —</option></select>
         </div>
         <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนมีดตัด (mm)</label>
+          <input id="wla-cut-mm" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
           <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">เส้นพับ</label>
           <select id="wla-crease-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"><option value="">— ไม่มีเส้นพับ —</option></select>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนเส้นพับ (mm)</label>
+          <input id="wla-crease-mm" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
         </div>
       </div>
       <div>
