@@ -1507,6 +1507,8 @@ function qpAdd(){
 
 // ===== WORKLIST (ลิสงาน) =====
 var wlData = []; // all rows loaded from sheet
+var _wlBillingIds = [];   // worklist id ที่กำลังเปิดบิลอยู่ (มาร์ค billed อัตโนมัติเมื่อบันทึกบิล)
+var _wlBillingCust = '';  // ชื่อลูกค้าที่ผูกกับ id ข้างบน (กันมาร์คผิดเจ้า)
 
 function wlInitMonthSel() {
   var sel = document.getElementById('wl-month-sel');
@@ -1769,6 +1771,7 @@ function wlGetSelectedRows() {
 function wlOpenSingle(btn) {
   var tr = btn.closest('tr');
   wlDoOpenBill({
+    wlIds:     [tr.dataset.id],
     custName:  tr.dataset.cust || '',
     note:      tr.dataset.note || '',
     price:     parseFloat(tr.dataset.price) || 0,
@@ -1791,6 +1794,7 @@ function wlOpenBillSelected() {
     return;
   }
   wlDoOpenBill({
+    wlIds: rows.map(function(r){ return r.id; }),
     custName: rows[0].custName,
     note: rows.map(function(r){ return r.note; }).filter(Boolean).join(', '),
     price: 0, // multiple items — price ไม่ใช้
@@ -1807,6 +1811,10 @@ function wlDoOpenBill(rowData) {
   var woodH       = rowData.woodH || 0;
   var cutMM       = rowData.cutMM || 0;
   var creaseMM    = rowData.creaseMM || 0;
+
+  // จำ worklist id ที่กำลังเปิดบิล → มาร์ค billed อัตโนมัติเมื่อกดบันทึกบิล
+  _wlBillingIds = (rowData.wlIds || []).filter(Boolean);
+  _wlBillingCust = custName;
 
   goMain('songof', document.getElementById('ntab-songof'));
 
@@ -2135,7 +2143,17 @@ function saveB(){
     tax:_cust?(_cust.tax||''):'',
     items:items,sub:sub,vat:vat,grand:sub+vat,remark:document.getElementById('br').value.trim(),
     status:'active',ts:new Date().toISOString()};
-  svB2(b);toast('บันทึกบิล '+b.no);clrF();
+  svB2(b);
+  // มาร์ค worklist ที่ผูกไว้เป็น "เปิดบิลแล้ว" อัตโนมัติ (เฉพาะลูกค้าที่ตรงกัน)
+  if(_wlBillingIds.length && cn===_wlBillingCust){
+    var _n=_wlBillingIds.length;
+    _wlBillingIds.forEach(function(wid){ if(wid) apiSet('update','worklist',wid,{status:'billed'}); });
+    _wlBillingIds=[]; _wlBillingCust='';
+    toast('บันทึกบิล '+b.no+' + อัปเดตลิสงาน '+_n+' รายการ ✅');
+  } else {
+    toast('บันทึกบิล '+b.no);
+  }
+  clrF();
 }
 function clrF(){
   ['cn','cc','ca','br'].forEach(function(id){document.getElementById(id).value='';});
