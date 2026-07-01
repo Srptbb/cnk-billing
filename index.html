@@ -1769,6 +1769,55 @@ function wlCloseAddModal() {
   _wlEditId = null;
 }
 
+// ประเมินราคา — กดเองเท่านั้น (ไม่คำนวณอัตโนมัติ) ใช้สูตรเดียวกับ Quick Price ในหน้าเปิดบิล
+function wlEstimatePrice() {
+  var bcIdx = document.getElementById('wla-blade-type').value;
+  var pCut = (bcIdx!=='' && qpPricingCut[bcIdx]) ? qpPricingCut[bcIdx] : null;
+  var crIdx = document.getElementById('wla-crease-type').value;
+  var pCr = (crIdx!=='' && qpPricingCrease[crIdx]) ? qpPricingCrease[crIdx] : null;
+  var cutMM = parseFloat(document.getElementById('wla-cut-mm').value) || 0;
+  var creaseMM = parseFloat(document.getElementById('wla-crease-mm').value) || 0;
+  var woodW = parseFloat(document.getElementById('wla-wood-w').value) || 0;
+  var woodH = parseFloat(document.getElementById('wla-wood-h').value) || 0;
+  var isLaser = document.getElementById('wla-laser').checked;
+  var isBladeChange = document.getElementById('wla-bladechange').checked;
+  var isWoodChange = document.getElementById('wla-woodchange').checked;
+
+  var needBlade = cutMM>0 || creaseMM>0 || isLaser || isBladeChange;
+  if(needBlade && !pCut) { toast('เลือกชนิดมีด (เส้นตัด) ก่อนประเมินราคา'); return; }
+  if(!isWoodChange && cutMM===0 && creaseMM===0) { toast('กรอกจำนวนมีดตัด/เส้นพับ (mm) ก่อน'); return; }
+  if(!isBladeChange && woodW===0 && woodH===0) { toast('กรอกขนาดไม้ (กว้าง×ยาว) ก่อน'); return; }
+
+  var custName = (document.getElementById('wla-cust').value||'').trim().toLowerCase();
+  var cust = (typeof custs!=='undefined' && custs) ? custs.find(function(c){ return (c.n||'').toLowerCase()===custName; }) : null;
+  var var2 = (cust && parseFloat(cust.multiplier)) ? parseFloat(cust.multiplier) : 1.0;
+  var var1 = pCut ? parseFloat(pCut.var1||1) : 1;
+  var costCut = pCut ? cutMM*parseFloat(pCut.cost_per_mm) : 0;
+  var costCr = creaseMM*(pCr ? parseFloat(pCr.cost_per_mm) : 0);
+  var costWood = woodW*woodH*qpWoodCost;
+  var totalBladeMM = cutMM+creaseMM;
+  var laserAdd = isLaser ? Math.round(totalBladeMM/1000*90) : 0;
+  var raw, price, bladeChangeAdd=0, woodChangeAdd=0, finalPrice;
+  if(isBladeChange || isWoodChange) {
+    bladeChangeAdd = (isBladeChange && pCut) ? Math.round(costCut*2.5*var1) : 0;
+    if(isWoodChange) {
+      var bladeRate = isLaser ? 65 : 40;
+      woodChangeAdd = Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
+    }
+    raw = bladeChangeAdd+woodChangeAdd;
+    price = _roundPriceQp(raw);
+    var laserExtra = (isLaser && !isWoodChange) ? laserAdd : 0;
+    finalPrice = laserExtra>0 ? _roundPriceQp(price+laserExtra) : price;
+  } else {
+    var total = costCut+costCr+costWood;
+    raw = (total+total*2)*var1*var2;
+    price = _roundPriceQp(raw);
+    finalPrice = laserAdd>0 ? _roundPriceQp(price+laserAdd) : price;
+  }
+  document.getElementById('wla-price').value = finalPrice;
+  toast('ประเมินราคา ฿'+finalPrice.toLocaleString()+' ✓');
+}
+
 function wlSaveNewJob() {
   var cust = document.getElementById('wla-cust').value.trim();
   if(!cust) { alert('กรุณากรอกชื่อลูกค้า'); return; }
@@ -5272,7 +5321,10 @@ function doPrintQt(qt) {
       <div style="display:flex;gap:10px;">
         <div style="flex:1;">
           <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ราคา (฿)</label>
-          <input id="wla-price" type="number" min="0" step="0.01" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+          <div style="display:flex;gap:6px;">
+            <input id="wla-price" type="number" min="0" step="0.01" placeholder="0" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+            <button type="button" onclick="wlEstimatePrice()" title="ประเมินราคาจากชนิดมีด/ไม้ ด้วยสูตรเดียวกับหน้าเปิดบิล" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:0 12px;font-family:Sarabun,sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">📐 ประเมิน</button>
+          </div>
         </div>
         <div style="flex:1;">
           <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">วันที่</label>
