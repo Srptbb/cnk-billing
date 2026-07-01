@@ -1620,8 +1620,8 @@ function renderWorklist() {
       +'<td style="padding:10px 12px;text-align:center;white-space:nowrap;">'
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
-          +'<button onclick="wlConfirmBilled(this)" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✅ บิลแล้ว</button>'
         : '')
+      +'<button onclick="wlEditRow(this)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✏️ แก้ไข</button>'
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
       +'</td>'
       +'<td style="padding:6px 12px;">'
@@ -1684,10 +1684,15 @@ function wlToggleStatus(id, field, checked) {
   renderWorklist(); // อัปเดต badge สถานะ + สี checkbox ทันที
 }
 
-// ===== เพิ่มงานเอง (manual add) =====
+// ===== เพิ่มงานเอง (manual add) / แก้ไขงาน =====
+var _wlEditId = null; // ถ้าไม่ null = กำลังแก้ไขงานนี้อยู่ (แทนการเพิ่มใหม่)
+
 function wlOpenAddModal() {
   var m = document.getElementById('wl-add-modal');
   if(!m) return;
+  _wlEditId = null;
+  document.getElementById('wl-add-modal-title').textContent = '➕ เพิ่มงานใหม่';
+  document.getElementById('wla-save-btn').textContent = '💾 บันทึก';
   document.getElementById('wla-cust').value = '';
   document.getElementById('wla-jobname').value = '';
   document.getElementById('wla-cut-mm').value = '';
@@ -1709,9 +1714,59 @@ function wlOpenAddModal() {
   m.style.display = 'flex';
 }
 
+// ตัดวงเล็บส่วนขยาย (ยิงเลเซอร์/เปลี่ยนมีด/เปลี่ยนไม้) ท้ายชื่องานออก ก่อนเอาไปโชว์ในช่องแก้ไข
+// (ตอนบันทึกจะต่อกลับให้ใหม่ตามสถานะติ๊กปัจจุบัน กันซ้ำซ้อน)
+function _wlStripExtrasSuffix(note) {
+  return String(note||'').replace(/\s*\((?:ยิงเลเซอร์|เปลี่ยนมีด|เปลี่ยนไม้|\+)+\)\s*$/,'').trim();
+}
+
+// เปิด modal เดียวกันในโหมดแก้ไข — เติมค่าจากงานเดิม แก้ราคา/รายละเอียดแล้วบันทึกทับ
+function wlEditRow(btn) {
+  var tr = btn.closest('tr');
+  var id = tr ? tr.dataset.id : null;
+  var row = wlData.find(function(r){ return String(r.id)===String(id); });
+  if(!row) { toast('ไม่พบข้อมูลงานนี้'); return; }
+  var m = document.getElementById('wl-add-modal');
+  if(!m) return;
+  _wlEditId = id;
+  document.getElementById('wl-add-modal-title').textContent = '✏️ แก้ไขงาน';
+  document.getElementById('wla-save-btn').textContent = '💾 บันทึกการแก้ไข';
+  document.getElementById('wla-cust').value = row.custName || '';
+  document.getElementById('wla-jobname').value = _wlStripExtrasSuffix(row.note);
+  document.getElementById('wla-cut-mm').value = row.cutMM || '';
+  document.getElementById('wla-crease-mm').value = row.creaseMM || '';
+  document.getElementById('wla-wood-w').value = row.woodW || '';
+  document.getElementById('wla-wood-h').value = row.woodH || '';
+  document.getElementById('wla-price').value = row.price || '';
+  document.getElementById('wla-date').value = row.ts ? new Date(row.ts).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  document.getElementById('wla-laser').checked = !!row.laser;
+  document.getElementById('wla-bladechange').checked = !!row.bladeChange;
+  document.getElementById('wla-woodchange').checked = !!row.woodChange;
+  var dl = document.getElementById('wla-cust-list');
+  if(dl && typeof custs !== 'undefined' && custs) {
+    dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
+  }
+  function selectBladeValues() {
+    var ci = qpPricingCut.findIndex(function(p){ return p.blade===row.bladeCut; });
+    var cs = document.getElementById('wla-blade-type');
+    if(cs) cs.value = ci>=0 ? String(ci) : '';
+    var cri = qpPricingCrease.findIndex(function(p){ return p.blade===row.bladeCrease; });
+    var crs = document.getElementById('wla-crease-type');
+    if(crs) crs.value = cri>=0 ? String(cri) : '';
+  }
+  if(qpPricingCut.length === 0) {
+    loadQpPricing(function(){ wlPopulateBladeSelects(); selectBladeValues(); });
+  } else {
+    wlPopulateBladeSelects();
+    selectBladeValues();
+  }
+  m.style.display = 'flex';
+}
+
 function wlCloseAddModal() {
   var m = document.getElementById('wl-add-modal');
   if(m) m.style.display = 'none';
+  _wlEditId = null;
 }
 
 function wlSaveNewJob() {
@@ -1735,9 +1790,9 @@ function wlSaveNewJob() {
   var timeStr = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
   var ts = new Date(dateVal+'T'+timeStr).toISOString();
   var extras = [isLaser?'ยิงเลเซอร์':'', isBladeChange?'เปลี่ยนมีด':'', isWoodChange?'เปลี่ยนไม้':''].filter(Boolean).join('+');
-  var id = 'q_'+Date.now();
+  var isEdit = !!_wlEditId;
+  var id = isEdit ? _wlEditId : 'q_'+Date.now();
   var data = {
-    id: id,
     custName: cust,
     note: (jobName + (extras ? (jobName?' ':'')+'('+extras+')' : '')).trim(),
     bladeCut: bladeCut,
@@ -1751,16 +1806,21 @@ function wlSaveNewJob() {
     laser: isLaser,
     bladeChange: isBladeChange,
     woodChange: isWoodChange,
-    status: 'pending',
-    manual: true,
     ts: ts
   };
+  if(!isEdit) {
+    data.id = id;
+    data.status = 'pending';
+    data.manual = true;
+  }
   var btn = document.getElementById('wla-save-btn');
-  if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
-  apiSet('save','worklist',id,data,function(){
-    if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+  var savingLabel = isEdit ? 'กำลังบันทึกการแก้ไข...' : 'กำลังบันทึก...';
+  var doneLabel = isEdit ? '💾 บันทึกการแก้ไข' : '💾 บันทึก';
+  if(btn){ btn.disabled = true; btn.textContent = savingLabel; }
+  apiSet(isEdit?'update':'save', 'worklist', id, data, function(){
+    if(btn){ btn.disabled = false; btn.textContent = doneLabel; }
     wlCloseAddModal();
-    toast('เพิ่มงานแล้ว ✓');
+    toast(isEdit ? 'แก้ไขงานแล้ว ✓' : 'เพิ่มงานแล้ว ✓');
     loadWorklist();
   });
 }
@@ -1926,17 +1986,6 @@ function wlAddBillRow(name, price, bladeCut, woodW, woodH, cutMM, creaseMM) {
   if(emptyRow) tb.replaceChild(tr, emptyRow);
   else tb.appendChild(tr);
   calc();
-}
-
-function wlConfirmBilled(btn) {
-  if(!confirm('ยืนยันว่าเปิดบิลรายการนี้แล้วใช่ไหม?')) return;
-  var tr = btn.closest('tr');
-  var id = tr.dataset.id;
-  if(!id) return;
-  apiSet('update', 'worklist', id, {status:'billed'}, function() {
-    loadWorklist();
-    toast('อัปเดตสถานะแล้ว ✅');
-  });
 }
 
 function wlDelete(btn) {
@@ -5181,7 +5230,7 @@ function doPrintQt(qt) {
 <!-- ===== MODAL: เพิ่มงานเอง ===== -->
 <div id="wl-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;padding:24px 26px;width:430px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.35);font-family:Sarabun,sans-serif;">
-    <div style="font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:18px;">➕ เพิ่มงานใหม่</div>
+    <div id="wl-add-modal-title" style="font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:18px;">➕ เพิ่มงานใหม่</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ลูกค้า *</label>
