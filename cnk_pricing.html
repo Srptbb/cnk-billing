@@ -351,6 +351,23 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <label>หมายเหตุ / ชื่องาน</label>
       <input type="text" id="note" placeholder="เช่น กล่องสบู่ / รหัสงาน">
     </div>
+    <div class="fg">
+      <label>ที่มาของงาน</label>
+      <div style="display:flex;gap:6px;flex-wrap:nowrap;">
+        <label style="display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+          <input type="checkbox" id="src-line" onchange="srcExclusive('src-line')" style="width:14px;height:14px;accent-color:#2563eb;cursor:pointer;flex-shrink:0;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">💬 Line</span>
+        </label>
+        <label style="display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(192,38,211,.06);border:1px solid rgba(192,38,211,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+          <input type="checkbox" id="src-email" onchange="srcExclusive('src-email')" style="width:14px;height:14px;accent-color:#c026d3;cursor:pointer;flex-shrink:0;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">✉️ Email</span>
+        </label>
+        <label style="display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(202,138,4,.06);border:1px solid rgba(202,138,4,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+          <input type="checkbox" id="src-onsite" onchange="srcExclusive('src-onsite')" style="width:14px;height:14px;accent-color:#ca8a04;cursor:pointer;flex-shrink:0;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">🏭 On site</span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <div class="section">
@@ -1440,6 +1457,11 @@ function updateStats(){
 // ── CALCULATE ─────────────────────────────────────────────────────────────────
 let lastResult = null;
 
+// ที่มาของงาน (Line/Email/On site) — ติ๊กได้ทีละอันเท่านั้น
+function srcExclusive(id){
+  ['src-line','src-email','src-onsite'].forEach(i=>{ if(i!==id) document.getElementById(i).checked=false; });
+}
+
 function roundPrice(v){const rem=v%100,base=Math.floor(v/100)*100;if(rem<=25)return base;if(rem<=74)return base+50;return base+100;}
 
 function calculate(){
@@ -1480,9 +1502,12 @@ function calculate(){
   }
   const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
   const note=document.getElementById('note').value||'';
+  const jobSource=document.getElementById('src-line').checked?'Line'
+    :document.getElementById('src-email').checked?'Email'
+    :document.getElementById('src-onsite').checked?'On site':'';
 
   lastResult = {
-    custName, note,
+    custName, note, jobSource,
     bladeCut: pCut?pCut.blade:'-',
     bladeCrease: pCr?pCr.blade:'-',
     woodW: woodBox?Math.round(woodBox.wMM):0,

@@ -1704,6 +1704,9 @@ function wlOpenAddModal() {
   document.getElementById('wla-laser').checked = false;
   document.getElementById('wla-bladechange').checked = false;
   document.getElementById('wla-woodchange').checked = false;
+  document.getElementById('wla-src-line').checked = false;
+  document.getElementById('wla-src-email').checked = false;
+  document.getElementById('wla-src-onsite').checked = false;
   var dl = document.getElementById('wla-cust-list');
   if(dl && typeof custs !== 'undefined' && custs) {
     dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
@@ -1712,6 +1715,13 @@ function wlOpenAddModal() {
   if(qpPricingCut.length === 0) loadQpPricing(wlPopulateBladeSelects);
   else wlPopulateBladeSelects();
   m.style.display = 'flex';
+}
+
+// ที่มาของงาน (Line/Email/On site) — ติ๊กได้ทีละอันเท่านั้น
+function wlSrcExclusive(id) {
+  ['wla-src-line','wla-src-email','wla-src-onsite'].forEach(function(i){
+    if(i!==id) document.getElementById(i).checked = false;
+  });
 }
 
 // ตัดวงเล็บส่วนขยาย (ยิงเลเซอร์/เปลี่ยนมีด/เปลี่ยนไม้) ท้ายชื่องานออก ก่อนเอาไปโชว์ในช่องแก้ไข
@@ -1742,6 +1752,9 @@ function wlEditRow(btn) {
   document.getElementById('wla-laser').checked = !!row.laser;
   document.getElementById('wla-bladechange').checked = !!row.bladeChange;
   document.getElementById('wla-woodchange').checked = !!row.woodChange;
+  document.getElementById('wla-src-line').checked = row.jobSource === 'Line';
+  document.getElementById('wla-src-email').checked = row.jobSource === 'Email';
+  document.getElementById('wla-src-onsite').checked = row.jobSource === 'On site';
   var dl = document.getElementById('wla-cust-list');
   if(dl && typeof custs !== 'undefined' && custs) {
     dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
@@ -1835,6 +1848,9 @@ function wlSaveNewJob() {
   var isLaser = document.getElementById('wla-laser').checked;
   var isBladeChange = document.getElementById('wla-bladechange').checked;
   var isWoodChange = document.getElementById('wla-woodchange').checked;
+  var jobSource = document.getElementById('wla-src-line').checked ? 'Line'
+    : document.getElementById('wla-src-email').checked ? 'Email'
+    : document.getElementById('wla-src-onsite').checked ? 'On site' : '';
   var now = new Date();
   var timeStr = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
   var ts = new Date(dateVal+'T'+timeStr).toISOString();
@@ -1855,6 +1871,7 @@ function wlSaveNewJob() {
     laser: isLaser,
     bladeChange: isBladeChange,
     woodChange: isWoodChange,
+    jobSource: jobSource,
     ts: ts
   };
   if(!isEdit) {
@@ -2276,11 +2293,25 @@ function saveB(){
     status:'active',ts:new Date().toISOString()};
   svB2(b);
   // มาร์ค worklist ที่ผูกไว้เป็น "เปิดบิลแล้ว" อัตโนมัติ (เฉพาะลูกค้าที่ตรงกัน)
+  // อัปเดตทีละรายการตามลำดับ (ไม่ยิงพร้อมกันทั้งหมด) กัน backend ชนกันแล้วอัปเดตได้แค่รายการเดียว
   if(_wlBillingIds.length && cn===_wlBillingCust){
-    var _n=_wlBillingIds.length;
-    _wlBillingIds.forEach(function(wid){ if(wid) apiSet('update','worklist',wid,{status:'billed'}); });
+    var idsToBill = _wlBillingIds.slice();
+    var _n = idsToBill.length;
     _wlBillingIds=[]; _wlBillingCust='';
-    toast('บันทึกบิล '+b.no+' + อัปเดตลิสงาน '+_n+' รายการ ✅');
+    (function billNext(i){
+      if(i >= idsToBill.length){
+        toast('บันทึกบิล '+b.no+' + อัปเดตลิสงาน '+_n+' รายการ ✅');
+        return;
+      }
+      var wid = idsToBill[i];
+      if(!wid){ billNext(i+1); return; }
+      apiSet('update','worklist',wid,{status:'billed'},function(){
+        // sync cache ในเครื่องทันที กันกรณี render ก่อน loadWorklist ครั้งถัดไป
+        var row = wlData.find(function(r){ return String(r.id)===String(wid); });
+        if(row) row.status = 'billed';
+        billNext(i+1);
+      });
+    })(0);
   } else {
     toast('บันทึกบิล '+b.no);
   }
@@ -4609,7 +4640,8 @@ function rdCashFlow() {
         var baseDate = iv.actualDate || iv.date;
         if (!typDay || !baseDate) {
           // ไม่มีประวัติ / ประเมินไม่ได้ → กลุ่มยังไม่กำหนดวันรับ
-          var saleD0 = iv.actualDate || iv.date || '';
+          // (เดือนขาย) ใช้วันที่เปิดบิล (iv.date) เป็นหลัก ไม่ใช่วันวางบิลจริง
+          var saleD0 = iv.date || iv.actualDate || '';
           return {
             custName: iv.custName,
             total: Number(iv.total)||0,
@@ -4636,7 +4668,8 @@ function rdCashFlow() {
       }
     }
 
-    var saleDate = iv.actualDate || iv.date || '';
+    // (เดือนขาย) ใช้วันที่เปิดบิล (iv.date) เป็นหลัก ไม่ใช่วันวางบิลจริง
+    var saleDate = iv.date || iv.actualDate || '';
     return {
       custName: iv.custName,
       total: Number(iv.total)||0,
@@ -5342,6 +5375,20 @@ function doPrintQt(qt) {
           </label>
           <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#f0fdf4;border:1.5px solid #bbf7d0;color:#15803d;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
             <input id="wla-woodchange" type="checkbox" style="accent-color:#16a34a;cursor:pointer;">เปลี่ยนไม้
+          </label>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px;">ที่มาของงาน</label>
+        <div style="display:flex;gap:8px;flex-wrap:nowrap;">
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#eff6ff;border:1.5px solid #bfdbfe;color:#1d4ed8;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-src-line" type="checkbox" onchange="wlSrcExclusive('wla-src-line')" style="accent-color:#2563eb;cursor:pointer;">Line
+          </label>
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fdf4ff;border:1.5px solid #f0abfc;color:#a21caf;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-src-email" type="checkbox" onchange="wlSrcExclusive('wla-src-email')" style="accent-color:#c026d3;cursor:pointer;">Email
+          </label>
+          <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fefce8;border:1.5px solid #fde047;color:#a16207;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <input id="wla-src-onsite" type="checkbox" onchange="wlSrcExclusive('wla-src-onsite')" style="accent-color:#ca8a04;cursor:pointer;">On site
           </label>
         </div>
       </div>
