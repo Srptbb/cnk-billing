@@ -1509,6 +1509,8 @@ function qpAdd(){
   tr.dataset.i=i;tr.dataset.img='';
   tr.dataset.bladeType=qpLastResult.bladeCut;
   tr.dataset.bladeLen=qpLastResult.cutMM;
+  tr.dataset.bladeCrease=qpLastResult.bladeCrease;
+  tr.dataset.creaseLen=qpLastResult.creaseMM;
   tr.dataset.woodW=qpLastResult.woodW;
   tr.dataset.woodL=qpLastResult.woodL;
   tr.innerHTML='<td><input type="text" value="'+ha(name)+'" placeholder="รายการสินค้า"></td>'+
@@ -1979,6 +1981,7 @@ function wlDoOpenBill(rowData) {
   var note        = rowData.note || '';
   var price       = rowData.price || 0;
   var bladeCut    = rowData.bladeCut || '';
+  var bladeCrease = rowData.bladeCrease || '';
   var woodW       = rowData.woodW || 0;
   var woodH       = rowData.woodH || 0;
   var cutMM       = rowData.cutMM || 0;
@@ -2022,6 +2025,7 @@ function wlDoOpenBill(rowData) {
           r.note || 'งาน',
           parseFloat(r.price) || 0,
           r.bladeCut || '',
+          r.bladeCrease || '',
           parseFloat(r.woodW) || 0,
           parseFloat(r.woodH) || 0,
           parseFloat(r.cutMM) || 0,
@@ -2029,14 +2033,14 @@ function wlDoOpenBill(rowData) {
         );
       });
     } else {
-      wlAddBillRow(note || 'งาน', price, bladeCut, woodW, woodH, cutMM, creaseMM);
+      wlAddBillRow(note || 'งาน', price, bladeCut, bladeCrease, woodW, woodH, cutMM, creaseMM);
     }
 
     toast('พร้อมเปิดบิล — เลือกประเภทบิล (เครดิต/เงินสด) แล้วบันทึก');
   }, 200);
 }
 
-function wlAddBillRow(name, price, bladeCut, woodW, woodH, cutMM, creaseMM) {
+function wlAddBillRow(name, price, bladeCut, bladeCrease, woodW, woodH, cutMM, creaseMM) {
   var tb = document.getElementById('ib');
   if(!tb) return;
   // แทนที่แถวว่างแรก หรือ append
@@ -2053,6 +2057,8 @@ function wlAddBillRow(name, price, bladeCut, woodW, woodH, cutMM, creaseMM) {
   // ข้อมูลแฝง → บันทึกใน items JSON (ไม่โชว์ในใบพิมพ์)
   tr.dataset.bladeType = bladeCut;
   tr.dataset.bladeLen  = cutMM;
+  tr.dataset.bladeCrease = bladeCrease;
+  tr.dataset.creaseLen   = creaseMM;
   tr.dataset.woodW     = woodW;
   tr.dataset.woodL     = woodH;
   tr.innerHTML =
@@ -2169,6 +2175,8 @@ function getIt(){
       var item={d:d,q:q,p:p,t:q*p,img:tr.dataset.img||''};
       if(tr.dataset.bladeType) item.bladeType=tr.dataset.bladeType;
       if(tr.dataset.bladeLen)  item.bladeLen=parseFloat(tr.dataset.bladeLen)||0;
+      if(tr.dataset.bladeCrease) item.bladeCrease=tr.dataset.bladeCrease;
+      if(tr.dataset.creaseLen) item.creaseLen=parseFloat(tr.dataset.creaseLen)||0;
       if(tr.dataset.woodW)     item.woodW=parseFloat(tr.dataset.woodW)||0;
       if(tr.dataset.woodL)     item.woodL=parseFloat(tr.dataset.woodL)||0;
       items.push(item);
@@ -4103,15 +4111,25 @@ function renderMaterials() {
     var items = b.items || [];
     if (!Array.isArray(items)) { try { items = JSON.parse(items); } catch(e) { items = []; } }
     items.forEach(function(it) {
-      if (!it.bladeType) return;
+      var hasCut = !!it.bladeType;
+      var hasCrease = !!it.bladeCrease;
+      if (!hasCut && !hasCrease) return;
       itemCount++;
       var w = parseFloat(it.woodW)||0;
       var l = parseFloat(it.woodL)||0;
       if (w && l) totalWoodMM2 += w * l;
-      var blade = it.bladeType;
-      var bLen  = parseFloat(it.bladeLen)||0;
-      if (!bladeMap[blade]) bladeMap[blade] = 0;
-      bladeMap[blade] += bLen;
+      if (hasCut) {
+        var blade = it.bladeType;
+        var bLen  = parseFloat(it.bladeLen)||0;
+        if (!bladeMap[blade]) bladeMap[blade] = 0;
+        bladeMap[blade] += bLen;
+      }
+      if (hasCrease) {
+        var cr = it.bladeCrease;
+        var crLen = parseFloat(it.creaseLen)||0;
+        if (!bladeMap[cr]) bladeMap[cr] = 0;
+        bladeMap[cr] += crLen;
+      }
     });
   });
 
@@ -4122,47 +4140,48 @@ function renderMaterials() {
   var totalBladeLen = Object.values(bladeMap).reduce(function(s,v){return s+v;},0);
   document.getElementById('mat-cards').innerHTML =
     matCard('📦 บิลทั้งหมด', billCount + ' บิล', '#1a1a2e') +
-    matCard('🪵 ไม้รวม', woodM2.toFixed(3) + ' ตร.ม.', '#795548') +
-    matCard('🔪 มีดรวมทุกชนิด', fmt(totalBladeLen) + ' mm', '#e65100');
+    matCard('🪵 ไม้รวม', woodM2.toFixed(2) + ' ตร.ม.', '#795548') +
+    matCard('🔪 มีดรวมทุกชนิด', (totalBladeLen/1000).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' เมตร', '#e65100');
 
   // === ไม้ ===
   if (totalWoodMM2 === 0) {
     document.getElementById('mat-wood-detail').innerHTML = '<p style="color:#aaa;">ไม่มีข้อมูล (บิลยังไม่ได้ใช้ pricing panel)</p>';
   } else {
+    var sheetsExact = woodM2 / 2.88;
+    var sheetsInt = Math.ceil(sheetsExact);
     document.getElementById('mat-wood-detail').innerHTML =
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">' +
-      matInfoCard('พื้นที่รวม (mm²)', fmt(totalWoodMM2)) +
-      matInfoCard('พื้นที่รวม (ตร.ม.)', woodM2.toFixed(4)) +
-      matInfoCard('ต้นทุนไม้โดยประมาณ', '฿'+fmt(totalWoodMM2 * qpWoodCost)) +
+      matInfoCard('พื้นที่รวม (ตารางเมตร)', woodM2.toFixed(2)+' ตร.ม.') +
+      matInfoCard('จำนวนแผ่น (ไม้ 1 แผ่น = 2.88 ตร.ม.)', sheetsInt+' แผ่น <span style="font-size:11px;font-weight:400;color:#999;">('+sheetsExact.toFixed(2)+' แผ่นจริง)</span>') +
+      matInfoCard('ต้นทุนโดยประมาณ (บาท)', '฿'+fmt(totalWoodMM2 * qpWoodCost)) +
       '</div>';
   }
 
-  // === มีดแต่ละชนิด ===
+  // === มีดแต่ละชนิด (รวมเส้นคม + เส้นพับ) ===
   var bladeKeys = Object.keys(bladeMap).sort();
   if (!bladeKeys.length) {
     document.getElementById('mat-blade-detail').innerHTML = '<p style="color:#aaa;">ไม่มีข้อมูล</p>';
     return;
   }
-  var maxLen = Math.max.apply(null, bladeKeys.map(function(k){return bladeMap[k];}));
-  var colors = {'2pt':'#e65100','2pt plastic':'#1565C0','1.3pt':'#2E7D32','1.3pt plastic':'#6A1B9A','2pt steel':'#37474F','2pt AIT':'#AD1457'};
-  var rows = bladeKeys.map(function(blade) {
-    var len = bladeMap[blade];
-    var pct = maxLen ? Math.round(len/maxLen*100) : 0;
+  var namedColors = {'2pt':'#e65100','2pt plastic':'#1565C0','1.3pt':'#2E7D32','1.3pt plastic':'#6A1B9A','2pt steel':'#37474F','2pt AIT':'#AD1457'};
+  var PALETTE = ['#00838f','#c2185b','#558b2f','#5d4037','#3949ab','#00695c','#ad1457','#4527a0'];
+  var cards = bladeKeys.map(function(blade, idx) {
+    var len = bladeMap[blade]; // mm
+    var lenM = len/1000;
     var pRow = qpPricingCut.find(function(x){return x.blade===blade;}) || qpPricingCrease.find(function(x){return x.blade===blade;});
     var cost = len * (pRow ? parseFloat(pRow.cost_per_mm)||0 : 0);
-    var col = colors[blade] || '#888';
-    return '<div style="margin-bottom:14px;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">' +
-        '<span style="font-size:13px;font-weight:700;color:'+col+';">'+blade+'</span>' +
-        '<span style="font-size:13px;color:#555;">'+fmt(len)+' mm &nbsp;|&nbsp; ฿'+fmt(cost)+'</span>' +
-      '</div>' +
-      '<div style="background:#f0f2f5;border-radius:4px;height:10px;overflow:hidden;">' +
-        '<div style="background:'+col+';width:'+pct+'%;height:100%;border-radius:4px;transition:width .4s;"></div>' +
+    var col = namedColors[blade] || PALETTE[idx % PALETTE.length];
+    return '<div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;border-left:4px solid '+col+';">' +
+      '<div style="font-size:13px;font-weight:700;color:'+col+';margin-bottom:10px;">'+h(blade)+'</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' +
+        matInfoCard('ความยาวมีดรวมที่ใช้ (เมตร)', lenM.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+' ม.') +
+        matInfoCard('ต้นทุนโดยประมาณ (บาท)', '฿'+fmt(cost)) +
       '</div>' +
     '</div>';
   }).join('');
 
-  document.getElementById('mat-blade-detail').innerHTML = rows;
+  document.getElementById('mat-blade-detail').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">'+cards+'</div>';
 }
 
 function matCard(label, value, color) {
