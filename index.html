@@ -1596,6 +1596,7 @@ function renderWorklist() {
     var rcust = h(r.custName||'');
     var rnote = h(r.note||'');
     var rmemo = h(r.memo||'');
+    var sourceTag = wlSourceTag(r.jobSource);
     return '<tr data-id="'+rid+'" data-cust="'+rcust
       +'" data-price="'+h(String(r.price||''))
       +'" data-note="'+rnote
@@ -1611,7 +1612,7 @@ function renderWorklist() {
       +'</td>'
       +'<td style="padding:10px 12px;font-size:12px;color:#888;white-space:nowrap;">'+dateStr+'</td>'
       +'<td style="padding:10px 12px;font-weight:600;">'+rcust+'</td>'
-      +'<td style="padding:10px 12px;font-size:13px;color:#555;">'+rnote+'</td>'
+      +'<td style="padding:10px 12px;font-size:13px;color:#555;">'+rnote+sourceTag+'</td>'
       +'<td style="padding:10px 12px;font-size:12px;color:#555;">'+bladeStr+'</td>'
       +'<td style="padding:10px 12px;text-align:center;font-size:12px;font-family:monospace;">'+woodStr+'</td>'
       +'<td style="padding:10px 12px;text-align:right;font-family:monospace;font-weight:700;color:#e65100;">'+priceFmt+'</td>'
@@ -1674,6 +1675,18 @@ function wlStatusBadge(r) {
   return (r.status==='billed')
     ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ เปิดบิลแล้ว</span>'
     : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ รอยืนยัน</span>';
+}
+
+// ป้ายช่องทางรับงาน (Line/Email/On site) โชว์ต่อท้ายชื่องานในตารางลิสงาน
+function wlSourceTag(source) {
+  if(!source) return '';
+  var map = {
+    'Line':    {bg:'#eff6ff', color:'#1d4ed8'},
+    'Email':   {bg:'#fdf4ff', color:'#a21caf'},
+    'On site': {bg:'#fefce8', color:'#a16207'}
+  };
+  var c = map[source] || {bg:'#f0f2f5', color:'#555'};
+  return '<span style="background:'+c.bg+';color:'+c.color+';padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;white-space:nowrap;">'+h(source)+'</span>';
 }
 
 function wlToggleStatus(id, field, checked) {
@@ -5379,7 +5392,7 @@ function doPrintQt(qt) {
         </div>
       </div>
       <div>
-        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px;">ที่มาของงาน</label>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px;">ช่องทางรับงาน</label>
         <div style="display:flex;gap:8px;flex-wrap:nowrap;">
           <label style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#eff6ff;border:1.5px solid #bfdbfe;color:#1d4ed8;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
             <input id="wla-src-line" type="checkbox" onchange="wlSrcExclusive('wla-src-line')" style="accent-color:#2563eb;cursor:pointer;">Line
