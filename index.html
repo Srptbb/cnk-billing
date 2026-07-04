@@ -87,6 +87,7 @@ textarea{resize:vertical;min-height:64px;}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 <!-- Login Overlay -->
@@ -586,12 +587,16 @@ textarea{resize:vertical;min-height:64px;}
   <div class="ctitle" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
     <span>📈 แนวโน้มยอดขาย</span>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <select id="st-range" onchange="rdSalesTrend()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1.5px solid #e0e3eb;">
-        <option value="6">6 เดือนย้อนหลัง</option>
-        <option value="4">4 เดือนย้อนหลัง</option>
-        <option value="3">3 เดือนย้อนหลัง</option>
-        <option value="12">12 เดือนย้อนหลัง</option>
-      </select>
+      <div style="position:relative;display:inline-block;">
+        <button id="st-month-picker-btn" onclick="stToggleMonthPicker()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1.5px solid #e0e3eb;background:#fff;cursor:pointer;font-family:Sarabun,sans-serif;">🗓️ เลือกเดือน (<span id="st-month-picker-count">0</span>)</button>
+        <div id="st-month-picker-panel" style="display:none;position:absolute;top:110%;right:0;background:#fff;border:1.5px solid #e0e3eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);padding:12px;z-index:50;max-height:340px;overflow-y:auto;min-width:220px;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <button onclick="stSelectAllMonths(true)" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #e0e3eb;background:#f8f9fa;cursor:pointer;font-family:Sarabun,sans-serif;">เลือกทั้งหมด</button>
+            <button onclick="stSelectAllMonths(false)" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #e0e3eb;background:#f8f9fa;cursor:pointer;font-family:Sarabun,sans-serif;">ล้าง</button>
+          </div>
+          <div id="st-month-checklist"></div>
+        </div>
+      </div>
       <div id="st-loading" style="display:none;font-size:13px;color:#888;">⏳ กำลังโหลด...</div>
     </div>
   </div>
@@ -601,13 +606,20 @@ textarea{resize:vertical;min-height:64px;}
 
   <!-- กราฟยอดขายสะสม -->
   <div style="margin-bottom:28px;">
-    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">ยอดขายสะสมรายเดือน</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">
+      <div style="font-size:14px;font-weight:700;color:#1a1a2e;">ยอดขายสะสมรายเดือน</div>
+      <button onclick="_stChart1&&_stChart1.resetZoom()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #e0e3eb;background:#f8f9fa;cursor:pointer;font-family:Sarabun,sans-serif;">🔍 รีเซ็ตซูม</button>
+    </div>
+    <div style="font-size:11px;color:#aaa;margin-bottom:6px;">เลื่อนล้อเมาส์ (scroll) เพื่อซูม, ลากเพื่อเลื่อนดูช่วงวันที่</div>
     <canvas id="st-chart-sales" style="max-height:300px;"></canvas>
   </div>
 
   <!-- กราฟจำนวนงานสะสม -->
   <div style="margin-bottom:28px;">
-    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">จำนวนงานสะสมรายเดือน</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">
+      <div style="font-size:14px;font-weight:700;color:#1a1a2e;">จำนวนงานสะสมรายเดือน</div>
+      <button onclick="_stChart2&&_stChart2.resetZoom()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #e0e3eb;background:#f8f9fa;cursor:pointer;font-family:Sarabun,sans-serif;">🔍 รีเซ็ตซูม</button>
+    </div>
     <canvas id="st-chart-jobs" style="max-height:300px;"></canvas>
   </div>
 
@@ -1568,9 +1580,11 @@ function loadWorklist() {
 
 function renderWorklist() {
   var statusFilter = document.getElementById('wl-status-sel')?.value || 'all';
+  var custSearch = (document.getElementById('wl-cust-search')?.value || '').trim().toLowerCase();
   var filtered = wlData.filter(function(r) {
-    if(statusFilter === 'all') return true;
-    return (r.status||'pending') === statusFilter;
+    if(statusFilter !== 'all' && (r.status||'pending') !== statusFilter) return false;
+    if(custSearch && (r.custName||'').toLowerCase().indexOf(custSearch) === -1) return false;
+    return true;
   });
   var tbody = document.getElementById('wl-tbody');
   var emptyMsg = document.getElementById('wl-empty-msg');
@@ -3742,19 +3756,126 @@ var matAllBills = [];
 // ===== SALES TREND =====
 var _stChart1 = null, _stChart2 = null;
 var _stHistoryData = null;
+var _stLiveBills = null;
 var ST_LIVE_FROM = '2026-05'; // live bills ดึงตั้งแต่เดือนนี้เป็นต้นไป
+var ST_LOOKBACK_MONTHS = 24; // ช่วงเดือนย้อนหลังคงที่ที่ใช้คำนวณข้อมูล/ตัวเลือกเดือน (ไม่ผูกกับเดือนที่เลือกโชว์กราฟ)
+var _stSelectedMonths = null; // array ของ 'YYYY-MM' ที่ผู้ใช้ติ๊กเลือกให้โชว์กราฟ/ตาราง
+
+var ST_MONTH_COLORS = {
+  1:'#3b82f6', 2:'#10b981', 3:'#f59e0b', 4:'#8b5cf6',
+  5:'#ec4899', 6:'#14b8a6', 7:'#0891b2', 8:'#6366f1',
+  9:'#84cc16', 10:'#eab308', 11:'#a855f7', 12:'#64748b'
+};
+function _stMonthColor(ym) {
+  var m = parseInt(ym.slice(5,7));
+  return ST_MONTH_COLORS[m] || '#94a3b8';
+}
+
+function _stAllMonths() {
+  var today = new Date();
+  var months = [];
+  for (var i = ST_LOOKBACK_MONTHS - 1; i >= 0; i--) {
+    var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return months;
+}
+
+function _stPrevYM(ym) {
+  var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7)) - 1;
+  if (m === 0) { m = 12; y -= 1; }
+  return y + '-' + String(m).padStart(2,'0');
+}
+
+function _stLoadSelectedMonths() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('cnk_st_selected_months') || 'null');
+    if (Array.isArray(saved) && saved.length) {
+      var all = _stAllMonths();
+      var valid = saved.filter(function(ym){ return all.indexOf(ym) !== -1; });
+      if (valid.length) return valid;
+    }
+  } catch(e) {}
+  return _stAllMonths().slice(-6); // ค่าเริ่มต้น 6 เดือนล่าสุด
+}
+
+function _stSaveSelectedMonths() {
+  try { localStorage.setItem('cnk_st_selected_months', JSON.stringify(_stSelectedMonths)); } catch(e) {}
+}
+
+function stRenderMonthPicker() {
+  var all = _stAllMonths();
+  var byYear = {};
+  all.forEach(function(ym){
+    var y = ym.slice(0,4);
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(ym);
+  });
+  var years = Object.keys(byYear).sort();
+  var names = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var html = years.map(function(y){
+    var beYear = parseInt(y) + 543;
+    var rows = byYear[y].map(function(ym){
+      var m = parseInt(ym.slice(5,7));
+      var checked = _stSelectedMonths.indexOf(ym) !== -1 ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:13px;cursor:pointer;">'
+        + '<input type="checkbox" '+checked+' onchange="stToggleMonth(\''+ym+'\',this.checked)"> '
+        + '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+_stMonthColor(ym)+';"></span> '
+        + names[m] + ' ' + beYear
+        + '</label>';
+    }).join('');
+    return '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#888;margin-bottom:3px;">ปี '+beYear+'</div>'+rows+'</div>';
+  }).join('');
+  document.getElementById('st-month-checklist').innerHTML = html;
+  document.getElementById('st-month-picker-count').textContent = _stSelectedMonths.length;
+}
+
+function stToggleMonthPicker() {
+  var panel = document.getElementById('st-month-picker-panel');
+  panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  var panel = document.getElementById('st-month-picker-panel');
+  var btn = document.getElementById('st-month-picker-btn');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+  panel.style.display = 'none';
+});
+
+function stToggleMonth(ym, checked) {
+  var idx = _stSelectedMonths.indexOf(ym);
+  if (checked && idx === -1) _stSelectedMonths.push(ym);
+  if (!checked && idx !== -1) _stSelectedMonths.splice(idx, 1);
+  _stSelectedMonths.sort();
+  _stSaveSelectedMonths();
+  document.getElementById('st-month-picker-count').textContent = _stSelectedMonths.length;
+  _stRenderFromCache();
+}
+
+function stSelectAllMonths(selectAll) {
+  _stSelectedMonths = selectAll ? _stAllMonths() : [];
+  _stSaveSelectedMonths();
+  stRenderMonthPicker();
+  _stRenderFromCache();
+}
+
+function _stRenderFromCache() {
+  if (_stLiveBills && _stHistoryData) _stRender(_stHistoryData, _stLiveBills);
+}
 
 function rdSalesTrend() {
-  var rangeMonths = parseInt(document.getElementById('st-range').value) || 6;
+  if (!_stSelectedMonths) _stSelectedMonths = _stLoadSelectedMonths();
+  stRenderMonthPicker();
   document.getElementById('st-loading').style.display = 'inline';
   apiGet('bills', function(freshBills) {
-    var liveBills = freshBills.map(normalizeBill);
+    _stLiveBills = freshBills.map(normalizeBill);
     if (_stHistoryData) {
-      _stRender(rangeMonths, _stHistoryData, liveBills);
+      _stRender(_stHistoryData, _stLiveBills);
     } else {
       apiGet('bills_history', function(hist) {
         _stHistoryData = hist;
-        _stRender(rangeMonths, hist, liveBills);
+        _stRender(hist, _stLiveBills);
       });
     }
   });
@@ -3783,16 +3904,12 @@ function _stCountItems(b) {
   return items.length;
 }
 
-function _stRender(rangeMonths, hist, liveBills) {
+function _stRender(hist, liveBills) {
   liveBills = liveBills || bills;
   document.getElementById('st-loading').style.display = 'none';
 
   var today = new Date();
-  var months = [];
-  for (var i = rangeMonths - 1; i >= 0; i--) {
-    var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
-  }
+  var months = _stAllMonths(); // ช่วงคงที่ (lookback) สำหรับคำนวณ ไม่ผูกกับเดือนที่ติ๊กเลือกโชว์
 
   var currentYM = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
   var currentDay = today.getDate();
@@ -3866,9 +3983,8 @@ function _stRender(rangeMonths, hist, liveBills) {
   }).join('');
 
   // --- กราฟ ---
-  var COLORS = ['#94a3b8','#86bfa0','#a78bab','#b8a080','#80a8b8','#9ca3af'];
   var CURRENT_COLOR = '#e60000';
-  var showMonths = months.slice(-6);
+  var showMonths = (_stSelectedMonths || []).slice().sort();
 
   function thaiMonthShort(ym) {
     var names = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -3880,12 +3996,13 @@ function _stRender(rangeMonths, hist, liveBills) {
     var ctx = document.getElementById(canvasId);
     if (!ctx) return null;
     if (chartRef) chartRef.destroy();
+    if (!showMonths.length) return null;
     var datasets = showMonths.map(function(ym, i) {
       var d = dataMap[ym] || {sales:0, qty:0, days:{}};
       var daysInMonth = _stGetMonthDays(ym);
       var isCurrentMonth = ym === currentYM;
       var maxDay = isCurrentMonth ? currentDay : daysInMonth;
-      var color = isCurrentMonth ? CURRENT_COLOR : COLORS[i % COLORS.length];
+      var color = isCurrentMonth ? CURRENT_COLOR : _stMonthColor(ym);
 
       // สร้าง cumulative solid
       var solidPts = new Array(daysInMonth+1).fill(null);
@@ -3938,6 +4055,14 @@ function _stRender(rangeMonths, hist, liveBills) {
               title: function(items){ return 'วันที่ '+items[0].label; },
               label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw||0); }
             }
+          },
+          zoom: {
+            pan: { enabled: true, mode: 'x', modifierKey: null },
+            zoom: {
+              wheel: { enabled: true },
+              pinch: { enabled: true },
+              mode: 'x'
+            }
           }
         },
         scales: {
@@ -3950,15 +4075,21 @@ function _stRender(rangeMonths, hist, liveBills) {
     });
   }
 
-  _stChart1 = buildChart('st-chart-sales','sales','ยอดสะสม (บาท)',
-    function(v){return v?fmtK(v):'0';}, _stChart1);
-  _stChart2 = buildChart('st-chart-jobs','qty','งานสะสม (ชิ้น)',
-    function(v){return v?Math.round(v):'0';}, _stChart2);
+  if (!showMonths.length) {
+    if (_stChart1) { _stChart1.destroy(); _stChart1 = null; }
+    if (_stChart2) { _stChart2.destroy(); _stChart2 = null; }
+    toast('กรุณาเลือกเดือนอย่างน้อย 1 เดือนเพื่อแสดงกราฟ');
+  } else {
+    _stChart1 = buildChart('st-chart-sales','sales','ยอดสะสม (บาท)',
+      function(v){return v?fmtK(v):'0';}, _stChart1);
+    _stChart2 = buildChart('st-chart-jobs','qty','งานสะสม (ชิ้น)',
+      function(v){return v?Math.round(v):'0';}, _stChart2);
+  }
 
   // --- ตารางสรุปรายเดือน ---
   var tbody = document.getElementById('st-month-tbody');
   var rows = '';
-  months.forEach(function(ym, i) {
+  showMonths.forEach(function(ym, i) {
     var d = dataMap[ym];
     if (!d) return;
     var daysInMonth = _stGetMonthDays(ym);
@@ -3968,7 +4099,7 @@ function _stRender(rangeMonths, hist, liveBills) {
     var qty = Math.round(d.qty);
     var avgItem = qty > 0 ? d.sales/qty : 0;
     var rate = usedWorkDays > 0 ? d.sales/usedWorkDays : 0;
-    var prevYM = months[i-1];
+    var prevYM = _stPrevYM(ym); // เทียบกับเดือนก่อนหน้าตามปฏิทินจริง ไม่ใช่ index ในลิสต์ที่เลือกโชว์
     var prevSales = prevYM && dataMap[prevYM] ? dataMap[prevYM].sales : null;
     var diffHtml = '';
     if (prevSales !== null && prevSales > 0) {
@@ -4010,20 +4141,17 @@ function _stRender(rangeMonths, hist, liveBills) {
 }
 
 function stExport() {
-  var rangeMonths = parseInt(document.getElementById('st-range').value) || 6;
+  // export ตามเดือนที่ผู้ใช้ติ๊กเลือกไว้ในกราฟ (ถ้ายังไม่ได้เลือกเลย ใช้ 6 เดือนล่าสุดแทน)
+  var months = (_stSelectedMonths && _stSelectedMonths.length) ? _stSelectedMonths.slice().sort() : _stAllMonths().slice(-6);
+  var liveBillsSrc = _stLiveBills || bills;
   var today = new Date();
   var currentYM = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
   var currentDay = today.getDate();
-  var months = [];
-  for (var i=rangeMonths-1; i>=0; i--) {
-    var d = new Date(today.getFullYear(), today.getMonth()-i, 1);
-    months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
-  }
   var names = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var summary = months.map(function(ym) {
     var liveSales=0, liveQty=0;
     if (ym >= ST_LIVE_FROM) {
-      liveBills.filter(function(b){ return b.status!=='cancelled'&&(b.date||'').slice(0,7)===ym; })
+      liveBillsSrc.filter(function(b){ return b.status!=='cancelled'&&(b.date||'').slice(0,7)===ym; })
         .forEach(function(b){ liveSales+=parseFloat(b.grand)||0; liveQty+=_stCountItems(b); });
     }
     var histSales=0, histQty=0;
@@ -5311,6 +5439,10 @@ function doPrintQt(qt) {
       <option value="pending">รอยืนยัน</option>
       <option value="billed">เปิดบิลแล้ว</option>
     </select>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:12px;font-weight:700;color:#555;">ค้นหาลูกค้า</label>
+    <input type="text" id="wl-cust-search" oninput="renderWorklist()" placeholder="พิมพ์ชื่อลูกค้า..." style="padding:6px 10px;border:1.5px solid #e0e3eb;border-radius:7px;font-family:Sarabun,sans-serif;font-size:13px;width:170px;">
   </div>
   <div style="flex:1;"></div>
   <button id="wl-open-bill-btn" onclick="wlOpenBillSelected()" style="display:none;background:#e65100;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ เปิดบิลรวม (<span id="wl-sel-count">0</span> งาน)</button>
