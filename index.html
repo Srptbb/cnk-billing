@@ -2374,7 +2374,15 @@ function rdL(){
     var matchTo   = !fTo   || (b.date||'') <= fTo;
     var matchType2 = !fType || b.type === fType;
     return matchCust2 && matchFrom && matchTo && matchType2 && (!sv||b.cn.toLowerCase().includes(sv)||b.no.toLowerCase().includes(sv))&&(!tv||b.type===tv)&&(!stv||b.status===stv);
-  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  }).sort(function(a,b){
+    var dc = (b.date||'').localeCompare(a.date||'');
+    if (dc !== 0) return dc;
+    // วันที่เดียวกัน: เรียงบิลที่เปิดล่าสุดไว้บนสุด
+    // เลขบิล (no) เรียงต่อท้ายวันที่แบบรันตัวเลข ใช้เทียบก่อน เพราะมีทุกบิลแน่นอน
+    var noCmp = String(b.no||'').localeCompare(String(a.no||''));
+    if (noCmp !== 0) return noCmp;
+    return new Date(b.ts||0) - new Date(a.ts||0);
+  });
   // หา billNos ที่อยู่ใน invoice แล้ว (สำหรับซ่อนปุ่มเปลี่ยนเป็นเงินสด)
   var invoicedNos = [];
   invoices.forEach(function(iv){ if(iv.status!=='cancelled')(iv.billNos||[]).forEach(function(no){invoicedNos.push(no);}); });
