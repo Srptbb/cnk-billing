@@ -1582,7 +1582,14 @@ function renderWorklist() {
   var statusFilter = document.getElementById('wl-status-sel')?.value || 'all';
   var custSearch = (document.getElementById('wl-cust-search')?.value || '').trim().toLowerCase();
   var filtered = wlData.filter(function(r) {
-    if(statusFilter !== 'all' && (r.status||'pending') !== statusFilter) return false;
+    var st = r.status || 'pending';
+    if(statusFilter === 'unconfirmed') {
+      if (!(st === 'pending' && !wlIsConfirmed(r))) return false;
+    } else if(statusFilter === 'pending') {
+      if (!(st === 'pending' && wlIsConfirmed(r))) return false;
+    } else if(statusFilter !== 'all' && st !== statusFilter) {
+      return false;
+    }
     if(custSearch && (r.custName||'').toLowerCase().indexOf(custSearch) === -1) return false;
     return true;
   });
@@ -1597,8 +1604,9 @@ function renderWorklist() {
   emptyMsg.style.display = 'none';
   tbody.innerHTML = filtered.map(function(r) {
     var status = r.status || 'pending';
+    var confirmed = wlIsConfirmed(r);
     var statusBadge = wlStatusBadge(r);
-    var canCheck = status === 'pending';
+    var canCheck = status === 'pending' && confirmed;
     var dateStr = r.ts ? new Date(r.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
     var priceFmt = r.price ? '฿'+parseFloat(r.price).toLocaleString() : '-';
     var woodStr = (r.woodCount!==undefined && r.woodCount!=='' && r.woodCount!==null)
@@ -1607,7 +1615,9 @@ function renderWorklist() {
     var bladeStr = (r.bladeCount!==undefined && r.bladeCount!=='' && r.bladeCount!==null)
       ? h(String(r.bladeCount))+' อัน'
       : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-');
-    var trStyle = status==='billed' ? 'background:#f6fffe;opacity:0.7;' : '';
+    var accent = wlRowAccent(r);
+    var trStyle = 'border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';'
+      + (status==='billed' ? 'background:#f6fffe;opacity:0.7;' : (!confirmed ? 'background:#fafafa;' : ''));
     var rid = h(String(r.id||''));
     var rcust = h(r.custName||'');
     var rnote = h(r.note||'');
@@ -1638,6 +1648,9 @@ function renderWorklist() {
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
         : '')
+      +(status==='pending' && !confirmed
+        ? '<button onclick="wlConfirmRow(\''+rid+'\')" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✅ ลูกค้ายืนยันแล้ว</button>'
+        : '')
       +'<button onclick="wlEditRow(this)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✏️ แก้ไข</button>'
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
       +'</td>'
@@ -1660,6 +1673,33 @@ var WL_STATUS_DEFS = [
 ];
 
 function wlIsOn(v){ return (v===true || v==='true' || v===1 || v==='1'); }
+
+// งานที่มาจากหน้าตีราคา (cnk_pricing.html saveToWorklist) = แค่เสนอราคา ลูกค้ายังไม่ยืนยัน
+// งานที่เพิ่มเองในลิสงาน (wlSaveNewJob ตั้ง manual=true) = สตาฟคุยกับลูกค้าแล้วถึงบันทึก = ยืนยันแล้ว
+function wlIsConfirmed(r) { return wlIsOn(r.manual); }
+
+// สีเส้นซ้ายของแถว ใช้บอกสถานะงานแบบเห็นชัดตาเดียว
+function wlRowAccent(r) {
+  var status = r.status || 'pending';
+  if (status === 'billed')     return {color:'#10b981', dash:false};
+  if (wlIsOn(r.statusPaid))     return {color:'#16a34a', dash:false};
+  if (wlIsOn(r.statusShipped))  return {color:'#2563eb', dash:false};
+  if (wlIsOn(r.statusComplete)) return {color:'#059669', dash:false};
+  if (wlIsOn(r.statusWorking))  return {color:'#ca8a04', dash:false};
+  if (wlIsOn(r.statusDesigned)) return {color:'#7c3aed', dash:false};
+  if (!wlIsConfirmed(r))        return {color:'#9ca3af', dash:true}; // เสนอราคา ยังไม่ยืนยัน
+  return {color:'#f59e0b', dash:false}; // ยืนยันแล้ว รอเริ่มงาน
+}
+
+// ลูกค้ายืนยันงานแล้ว (กดจากปุ่มในตาราง) — เปลี่ยนจาก "เสนอราคา" เป็นงานจริงที่นับใน backlog
+function wlConfirmRow(id) {
+  var row = wlData.find(function(r){ return String(r.id)===String(id); });
+  if(row) row.manual = true;
+  apiSet('update','worklist',id,{manual:true},function(){});
+  renderWorklist();
+  updateWlBadge();
+  toast('ยืนยันงานจากลูกค้าแล้ว ✅');
+}
 
 function wlProgressCell(r) {
   var rid = h(String(r.id||''));
@@ -1688,9 +1728,13 @@ function wlStatusBadge(r) {
       return '<span style="background:'+steps[i][2]+';color:'+steps[i][3]+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;">'+steps[i][1]+'</span>';
     }
   }
-  return (r.status==='billed')
-    ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ เปิดบิลแล้ว</span>'
-    : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ รอยืนยัน</span>';
+  if (r.status==='billed') {
+    return '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ เปิดบิลแล้ว</span>';
+  }
+  if (!wlIsConfirmed(r)) {
+    return '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;">📝 เสนอราคา (รอลูกค้ายืนยัน)</span>';
+  }
+  return '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;">🕐 รอเริ่มงาน</span>';
 }
 
 // ป้ายช่องทางรับงาน (Line/Email/On site) โชว์ต่อท้ายชื่องานในตารางลิสงาน
@@ -2131,7 +2175,8 @@ function wlNoteEdit(el) {
 }
 
 function updateWlBadge() {
-  var pending = wlData.filter(function(r){ return (r.status||'pending')==='pending'; }).length;
+  // นับเฉพาะงานที่ลูกค้ายืนยันแล้ว ไม่รวมงานที่แค่เสนอราคา (ยังไม่ manual/ยืนยัน)
+  var pending = wlData.filter(function(r){ return (r.status||'pending')==='pending' && wlIsConfirmed(r); }).length;
   var badge = document.getElementById('wl-badge');
   if(badge) {
     badge.textContent = pending;
@@ -5446,7 +5491,8 @@ function doPrintQt(qt) {
     <label style="font-size:12px;font-weight:700;color:#555;">สถานะ</label>
     <select id="wl-status-sel" onchange="renderWorklist()" style="padding:6px 10px;border:1.5px solid #e0e3eb;border-radius:7px;font-family:Sarabun,sans-serif;font-size:13px;">
       <option value="all">ทั้งหมด</option>
-      <option value="pending">รอยืนยัน</option>
+      <option value="unconfirmed">📝 เสนอราคา (รอลูกค้ายืนยัน)</option>
+      <option value="pending">ยังไม่เปิดบิล (ยืนยันแล้ว)</option>
       <option value="billed">เปิดบิลแล้ว</option>
     </select>
   </div>
