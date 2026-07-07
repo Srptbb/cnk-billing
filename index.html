@@ -1616,7 +1616,7 @@ function renderWorklist() {
       ? h(String(r.bladeCount))+' อัน'
       : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-');
     var accent = wlRowAccent(r);
-    var trStyle = 'border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';'
+    var trStyle = (accent ? ('border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';') : '')
       + (status==='billed' ? 'background:#f6fffe;opacity:0.7;' : (!confirmed ? 'background:#fafafa;' : ''));
     var rid = h(String(r.id||''));
     var rcust = h(r.custName||'');
@@ -1648,9 +1648,6 @@ function renderWorklist() {
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
         : '')
-      +(status==='pending' && !confirmed
-        ? '<button onclick="wlConfirmRow(\''+rid+'\')" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✅ ลูกค้ายืนยันแล้ว</button>'
-        : '')
       +'<button onclick="wlEditRow(this)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✏️ แก้ไข</button>'
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
       +'</td>'
@@ -1674,31 +1671,23 @@ var WL_STATUS_DEFS = [
 
 function wlIsOn(v){ return (v===true || v==='true' || v===1 || v==='1'); }
 
-// งานที่มาจากหน้าตีราคา (cnk_pricing.html saveToWorklist) = แค่เสนอราคา ลูกค้ายังไม่ยืนยัน
-// งานที่เพิ่มเองในลิสงาน (wlSaveNewJob ตั้ง manual=true) = สตาฟคุยกับลูกค้าแล้วถึงบันทึก = ยืนยันแล้ว
-function wlIsConfirmed(r) { return wlIsOn(r.manual); }
-
-// สีเส้นซ้ายของแถว ใช้บอกสถานะงานแบบเห็นชัดตาเดียว
-function wlRowAccent(r) {
-  var status = r.status || 'pending';
-  if (status === 'billed')     return {color:'#10b981', dash:false};
-  if (wlIsOn(r.statusPaid))     return {color:'#16a34a', dash:false};
-  if (wlIsOn(r.statusShipped))  return {color:'#2563eb', dash:false};
-  if (wlIsOn(r.statusComplete)) return {color:'#059669', dash:false};
-  if (wlIsOn(r.statusWorking))  return {color:'#ca8a04', dash:false};
-  if (wlIsOn(r.statusDesigned)) return {color:'#7c3aed', dash:false};
-  if (!wlIsConfirmed(r))        return {color:'#9ca3af', dash:true}; // เสนอราคา ยังไม่ยืนยัน
-  return {color:'#f59e0b', dash:false}; // ยืนยันแล้ว รอเริ่มงาน
+// ลูกค้ายืนยันงานแล้วก็ต่อเมื่อติ๊ก "เขียนแบบ" ขึ้นไป (หรือเปิดบิลแล้ว)
+// การเพิ่มงานเอง (manual) ไม่ได้แปลว่ายืนยัน — ต้องรอติ๊กเขียนแบบก่อนเสมอ
+function wlIsConfirmed(r) {
+  return r.status === 'billed'
+    || wlIsOn(r.statusDesigned) || wlIsOn(r.statusWorking)
+    || wlIsOn(r.statusComplete) || wlIsOn(r.statusShipped) || wlIsOn(r.statusPaid);
 }
 
-// ลูกค้ายืนยันงานแล้ว (กดจากปุ่มในตาราง) — เปลี่ยนจาก "เสนอราคา" เป็นงานจริงที่นับใน backlog
-function wlConfirmRow(id) {
-  var row = wlData.find(function(r){ return String(r.id)===String(id); });
-  if(row) row.manual = true;
-  apiSet('update','worklist',id,{manual:true},function(){});
-  renderWorklist();
-  updateWlBadge();
-  toast('ยืนยันงานจากลูกค้าแล้ว ✅');
+// สีเส้นซ้ายของแถว — มีแค่ 5 สถานะเท่านั้น ที่เหลือไม่มีแถบสี (คืนค่า null)
+function wlRowAccent(r) {
+  var status = r.status || 'pending';
+  if (wlIsOn(r.statusShipped))  return {color:'#2563eb', dash:false}; // น้ำเงิน = ส่งแล้ว
+  if (wlIsOn(r.statusComplete)) return {color:'#059669', dash:false}; // เขียวเข้ม = งานเสร็จ
+  if (wlIsOn(r.statusWorking))  return {color:'#f97316', dash:false}; // ส้ม = กำลังทำ
+  if (wlIsOn(r.statusDesigned)) return {color:'#7c3aed', dash:false}; // ม่วง = กำลังเขียนแบบ
+  if (status !== 'billed' && !wlIsConfirmed(r)) return {color:'#9ca3af', dash:true}; // เทาเส้นประ = เสนอราคา ยังไม่ยืนยัน
+  return null; // สถานะอื่น (จ่ายแล้ว/ยืนยันแล้วรอเริ่มงาน/เปิดบิลแล้ว) ไม่ต้องมีแถบสี
 }
 
 function wlProgressCell(r) {
