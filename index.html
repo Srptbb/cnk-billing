@@ -3758,7 +3758,7 @@ var _stChart1 = null, _stChart2 = null;
 var _stHistoryData = null;
 var _stLiveBills = null;
 var ST_LIVE_FROM = '2026-05'; // live bills ดึงตั้งแต่เดือนนี้เป็นต้นไป
-var ST_LOOKBACK_MONTHS = 24; // ช่วงเดือนย้อนหลังคงที่ที่ใช้คำนวณข้อมูล/ตัวเลือกเดือน (ไม่ผูกกับเดือนที่เลือกโชว์กราฟ)
+var ST_START_YM = '2026-01'; // เดือนแรกสุดที่ให้เลือกได้ (ปี 2569 เป็นต้นไป) ไม่ย้อนไปก่อนหน้านี้
 var _stSelectedMonths = null; // array ของ 'YYYY-MM' ที่ผู้ใช้ติ๊กเลือกให้โชว์กราฟ/ตาราง
 
 var ST_MONTH_COLORS = {
@@ -3773,10 +3773,14 @@ function _stMonthColor(ym) {
 
 function _stAllMonths() {
   var today = new Date();
+  var currentYM = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
   var months = [];
-  for (var i = ST_LOOKBACK_MONTHS - 1; i >= 0; i--) {
-    var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  var y = parseInt(ST_START_YM.slice(0,4)), m = parseInt(ST_START_YM.slice(5,7));
+  var ym = y + '-' + String(m).padStart(2,'0');
+  while (ym <= currentYM) {
+    months.push(ym);
+    m++; if (m > 12) { m = 1; y++; }
+    ym = y + '-' + String(m).padStart(2,'0');
   }
   return months;
 }
@@ -4004,13 +4008,12 @@ function _stRender(hist, liveBills) {
       var maxDay = isCurrentMonth ? currentDay : daysInMonth;
       var color = isCurrentMonth ? CURRENT_COLOR : _stMonthColor(ym);
 
-      // สร้าง cumulative solid
-      var solidPts = new Array(daysInMonth+1).fill(null);
+      // สร้าง cumulative solid (ใช้จุด {x,y} บน linear scale เพื่อให้ซูมได้ตรงตำแหน่งเมาส์จริง)
+      var solidPts = [{x:0, y:0}];
       var cum = 0;
-      solidPts[0] = 0;
       for (var dd=1; dd<=maxDay; dd++) {
         cum += (d.days[dd] ? d.days[dd][field] : 0);
-        solidPts[dd] = cum;
+        solidPts.push({x:dd, y:cum});
       }
 
       var ds = [{
@@ -4025,25 +4028,22 @@ function _stRender(hist, liveBills) {
         var _wd0 = _stWorkDays(ym, 1, maxDay);
         var _wdRem = Math.max(0, totalWorkDays - _wd0);
         var projEnd = _wd0 > 0 ? cum + (cum / _wd0) * avgRatio * _wdRem : 0;
-        var projPts = new Array(daysInMonth+1).fill(null);
-        projPts[maxDay] = cum;
-        projPts[daysInMonth] = projEnd;
+        var projPts = [{x:maxDay, y:cum}, {x:daysInMonth, y:projEnd}];
         ds.push({
           label: thaiMonthShort(ym)+' (ประมาณ '+fmtFn(projEnd)+')',
           data: projPts,
           borderColor: color, backgroundColor: 'transparent',
           borderWidth: 1.5, borderDash: [6,4],
-          pointRadius: function(ctx){ return ctx.dataIndex===daysInMonth?5:0; },
+          pointRadius: function(ctx){ return ctx.dataIndex === ctx.dataset.data.length-1 ? 5 : 0; },
           tension: 0.1, spanGaps: true
         });
       }
       return ds;
     }).flat();
 
-    var xLabels = Array.from({length:32}, function(_,i){return i;});
     return new Chart(ctx, {
       type: 'line',
-      data: { labels: xLabels, datasets: datasets },
+      data: { datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: true,
         interaction: { mode:'index', intersect:false },
@@ -4052,8 +4052,8 @@ function _stRender(hist, liveBills) {
           tooltip: {
             filter: function(item){ return !item.dataset.label.includes('ประมาณ'); },
             callbacks: {
-              title: function(items){ return 'วันที่ '+items[0].label; },
-              label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw||0); }
+              title: function(items){ return 'วันที่ '+items[0].parsed.x; },
+              label: function(item){ return item.dataset.label.split('  ')[0]+': '+fmtFn(item.raw.y||0); }
             }
           },
           zoom: {
@@ -4062,12 +4062,14 @@ function _stRender(hist, liveBills) {
               wheel: { enabled: true },
               pinch: { enabled: true },
               mode: 'x'
-            }
+            },
+            limits: { x: { min: 0, max: 31 } }
           }
         },
         scales: {
-          x: { title:{display:true,text:'วันที่',font:{family:'Sarabun'}},
-               ticks:{font:{family:'Sarabun'},callback:function(v){return v%5===0?v:'';}} },
+          x: { type:'linear', min:0, max:31,
+               title:{display:true,text:'วันที่',font:{family:'Sarabun'}},
+               ticks:{font:{family:'Sarabun'},stepSize:5,callback:function(v){return v%5===0?v:'';}} },
           y: { title:{display:true,text:yLabel,font:{family:'Sarabun'}},
                ticks:{font:{family:'Sarabun'},callback:function(v){return fmtFn(v);}} }
         }
