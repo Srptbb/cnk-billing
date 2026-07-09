@@ -1496,7 +1496,8 @@ function calculate(){
     const laserExtra=isLaser&&!isWoodChange?laserAdd:0;
     finalPrice=laserExtra>0?roundPrice(price+laserExtra):price;
   }else{
-    const total=costCut+costCr+costWood; raw=(total+total*2)*var1*var2;
+    const bladeLenAdd=(totalBladeMM/5000)*350;
+    raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price=roundPrice(raw);
     finalPrice=laserAdd>0?roundPrice(price+laserAdd):price;
   }
