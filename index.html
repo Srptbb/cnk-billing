@@ -1490,8 +1490,8 @@ function qpCalc(){
     var laserExtra=isLaser&&!isWoodChange?laserAdd:0;
     finalPrice=laserExtra>0?_roundPriceQp(price+laserExtra):price;
   }else{
-    var total=costCut+costCr+costWood;
-    raw=(total+total*2)*var1*var2;
+    var bladeLenAdd=(totalBladeMM/5000)*350;
+    raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price=_roundPriceQp(raw);
     finalPrice=laserAdd>0?_roundPriceQp(price+laserAdd):price;
   }
@@ -1884,8 +1884,8 @@ function wlEstimatePrice() {
     var laserExtra = (isLaser && !isWoodChange) ? laserAdd : 0;
     finalPrice = laserExtra>0 ? _roundPriceQp(price+laserExtra) : price;
   } else {
-    var total = costCut+costCr+costWood;
-    raw = (total+total*2)*var1*var2;
+    var bladeLenAdd = (totalBladeMM/5000)*350;
+    raw = (bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price = _roundPriceQp(raw);
     finalPrice = laserAdd>0 ? _roundPriceQp(price+laserAdd) : price;
   }
