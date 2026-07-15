@@ -227,6 +227,17 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div class="sb">
     <div class="sr"><span>รวมก่อนภาษี</span><span id="st">0.00</span></div>
+    <div class="sr" style="align-items:center;">
+      <span>ส่วนลด</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;">
+        <input id="b-disc-val" type="number" min="0" value="0" oninput="calc()" style="width:88px;text-align:right;padding:4px 8px;border:1px solid #d0d4de;border-radius:6px;font-family:Sarabun,sans-serif;font-size:13px;">
+        <select id="b-disc-type" onchange="calc()" style="padding:4px 6px;border:1px solid #d0d4de;border-radius:6px;font-family:Sarabun,sans-serif;font-size:13px;cursor:pointer;">
+          <option value="thb">฿</option>
+          <option value="pct">%</option>
+        </select>
+        <span id="b-disc-amt" style="color:#e74c3c;min-width:66px;text-align:right;">-0.00</span>
+      </span>
+    </div>
     <div class="sr"><span>VAT 7%</span><span id="sv">0.00</span></div>
     <div class="sr big"><span>ยอดรวมสุทธิ</span><span id="sg">0.00</span></div>
   </div>
@@ -712,6 +723,22 @@ textarea{resize:vertical;min-height:64px;}
   <div class="fg" style="margin-bottom:12px;"><label>ผู้ติดต่อ</label><input id="ec" type="text"></div>
   <div class="fg" style="margin-bottom:16px;"><label>หมายเหตุ</label><input id="er" type="text"></div>
   <div id="ei"></div>
+  <div class="sb" style="margin-top:12px;">
+    <div class="sr"><span>รวมก่อนภาษี</span><span id="e-st">0.00</span></div>
+    <div class="sr" style="align-items:center;">
+      <span>ส่วนลด</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;">
+        <input id="e-disc-val" type="number" min="0" value="0" oninput="calcETotal()" style="width:88px;text-align:right;padding:4px 8px;border:1px solid #d0d4de;border-radius:6px;font-family:Sarabun,sans-serif;font-size:13px;">
+        <select id="e-disc-type" onchange="calcETotal()" style="padding:4px 6px;border:1px solid #d0d4de;border-radius:6px;font-family:Sarabun,sans-serif;font-size:13px;cursor:pointer;">
+          <option value="thb">฿</option>
+          <option value="pct">%</option>
+        </select>
+        <span id="e-disc-amt" style="color:#e74c3c;min-width:66px;text-align:right;">-0.00</span>
+      </span>
+    </div>
+    <div class="sr" id="e-sv-row"><span>VAT 7%</span><span id="e-sv">0.00</span></div>
+    <div class="sr big"><span>ยอดรวมสุทธิ</span><span id="e-sg">0.00</span></div>
+  </div>
   <div class="mf"><button class="btn bo" onclick="clEM()">ยกเลิก</button><button class="btn bp" onclick="svE()">บันทึก</button></div>
 </div>
 </div>
@@ -2207,10 +2234,16 @@ function calc(){
     var cell=tr.querySelector('.rt');if(cell)cell.textContent=fmt(t);
     sub+=t;
   });
-  var vat=document.getElementById('vat').checked?sub*0.07:0;
+  var discVal=parseFloat(document.getElementById('b-disc-val').value)||0;
+  var discType=document.getElementById('b-disc-type').value;
+  var discAmt=discType==='pct'?sub*(discVal/100):discVal;
+  if(discAmt>sub)discAmt=sub;
+  var afterDisc=sub-discAmt;
+  var vat=document.getElementById('vat').checked?afterDisc*0.07:0;
   document.getElementById('st').textContent=fmt(sub);
+  document.getElementById('b-disc-amt').textContent=discAmt>0?'-'+fmt(discAmt):'-0.00';
   document.getElementById('sv').textContent=fmt(vat);
-  document.getElementById('sg').textContent=fmt(sub+vat);
+  document.getElementById('sg').textContent=fmt(afterDisc+vat);
 }
 function getIt(){
   var items=[];
@@ -2353,12 +2386,18 @@ function saveB(){
   var cn=document.getElementById('cn').value.trim();if(!cn){toast('กรุณากรอกชื่อลูกค้า');return;}
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
   var sub=items.reduce(function(s,i){return s+i.t;},0);
-  var vat=document.getElementById('vat').checked?sub*0.07:0;
+  var discVal=parseFloat(document.getElementById('b-disc-val').value)||0;
+  var discType=document.getElementById('b-disc-type').value;
+  var discAmt=discType==='pct'?sub*(discVal/100):discVal;
+  if(discAmt>sub)discAmt=sub;
+  var afterDisc=sub-discAmt;
+  var hasVat=document.getElementById('vat').checked;
+  var vat=hasVat?afterDisc*0.07:0;
   var _cust=custs.find(function(c){return c.n===cn;});
   var b={id:Date.now(),no:document.getElementById('bno').value,date:document.getElementById('bdate').value,type:ctp,createdBy:getCreatedBy(),
     cn:cn,cc:document.getElementById('cc').value.trim(),ca:document.getElementById('ca').value.trim(),
     tax:_cust?(_cust.tax||''):'',
-    items:items,sub:sub,vat:vat,grand:sub+vat,remark:document.getElementById('br').value.trim(),
+    items:items,sub:sub,discVal:discVal,discType:discType,discAmt:discAmt,hasVat:hasVat,vat:vat,grand:afterDisc+vat,remark:document.getElementById('br').value.trim(),
     status:'active',ts:new Date().toISOString()};
   svB2(b);
   // มาร์ค worklist ที่ผูกไว้เป็น "เปิดบิลแล้ว" อัตโนมัติ (เฉพาะลูกค้าที่ตรงกัน)
@@ -2390,6 +2429,8 @@ function clrF(){
   ['cn','cc','ca','br'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('cc').dataset.cid='';
   document.getElementById('vat').checked=false;
+  document.getElementById('b-disc-val').value=0;
+  document.getElementById('b-disc-type').value='thb';
   document.getElementById('ib').innerHTML='';rc=0;
   document.getElementById('bdate').value=td();
   genNo();addR();calc();
@@ -2468,6 +2509,7 @@ function billToCredit(id){
     .then(function(){ rdL(); toast('เปลี่ยนเป็นบิลเครดิตแล้ว'); })
     .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
 }
+var _eHasVat=false;
 function opEM(id){
   eId=id;
   var b=bills.find(function(b){return b.id===id;});
@@ -2476,8 +2518,34 @@ function opEM(id){
   document.getElementById('en').value=b.cn;
   document.getElementById('ec').value=b.cc||'';
   document.getElementById('er').value=b.remark||'';
+  _eHasVat=(b.hasVat!==undefined)?!!b.hasVat:((b.vat||0)>0);
+  document.getElementById('e-disc-val').value=b.discVal||0;
+  document.getElementById('e-disc-type').value=b.discType||'thb';
+  document.getElementById('e-sv-row').style.display=_eHasVat?'':'none';
   renderEditItems(b.items);
+  calcETotal();
   document.getElementById('me').classList.add('on');
+}
+function calcETotal(){
+  var sub=0;
+  var tbody=document.getElementById('ei-body');
+  if(tbody){
+    tbody.querySelectorAll('tr').forEach(function(tr,i){
+      var q=parseFloat(document.getElementById('eq'+i)?document.getElementById('eq'+i).value:0)||0;
+      var p=parseFloat(document.getElementById('ep'+i)?document.getElementById('ep'+i).value:0)||0;
+      sub+=q*p;
+    });
+  }
+  var discVal=parseFloat(document.getElementById('e-disc-val').value)||0;
+  var discType=document.getElementById('e-disc-type').value;
+  var discAmt=discType==='pct'?sub*(discVal/100):discVal;
+  if(discAmt>sub)discAmt=sub;
+  var afterDisc=sub-discAmt;
+  var vat=_eHasVat?afterDisc*0.07:0;
+  document.getElementById('e-st').textContent=fmt(sub);
+  document.getElementById('e-disc-amt').textContent=discAmt>0?'-'+fmt(discAmt):'-0.00';
+  document.getElementById('e-sv').textContent=fmt(vat);
+  document.getElementById('e-sg').textContent=fmt(afterDisc+vat);
 }
 
 function renderEditItems(items){
@@ -2513,6 +2581,7 @@ function calcE(i){
   var p=parseFloat(document.getElementById('ep'+i)&&document.getElementById('ep'+i).value)||0;
   var el=document.getElementById('et'+i);
   if(el)el.textContent=fmt(q*p);
+  calcETotal();
 }
 
 function addEditRow(){
@@ -2531,6 +2600,7 @@ function addEditRow(){
     '<td style="text-align:center;"><div class="iph" onclick="trigEditImg('+i+')" style="width:44px;height:44px;font-size:13px;">[รูป]</div></td>'+
     '<td style="text-align:center;"><button class="delbtn" onclick="delEditRow('+i+')">X</button></td>';
   tbody.appendChild(tr);
+  calcETotal();
 }
 
 function delEditRow(i){
@@ -2557,6 +2627,7 @@ function delEditRow(i){
     var delBtn=tr.querySelector('.delbtn');
     if(delBtn)delBtn.setAttribute('onclick','delEditRow('+idx+')');
   });
+  calcETotal();
 }
 
 var editImgRow=null;
@@ -2620,7 +2691,15 @@ function svE(){
   if(!newItems.length){toast('ต้องมีอย่างน้อย 1 รายการ');return;}
   b.items=newItems;
   b.sub=b.items.reduce(function(s,i){return s+i.t;},0);
-  b.grand=b.sub+b.vat;
+  var discVal=parseFloat(document.getElementById('e-disc-val').value)||0;
+  var discType=document.getElementById('e-disc-type').value;
+  var discAmt=discType==='pct'?b.sub*(discVal/100):discVal;
+  if(discAmt>b.sub)discAmt=b.sub;
+  var afterDisc=b.sub-discAmt;
+  b.discVal=discVal;b.discType=discType;b.discAmt=discAmt;
+  b.hasVat=_eHasVat;
+  b.vat=_eHasVat?afterDisc*0.07:0;
+  b.grand=afterDisc+b.vat;
   localStorage.setItem('b',JSON.stringify(bills));
   apiPost('update','bills',b,b.id).catch(function(e){console.error(e);});
   clEM();rdL();toast('แก้ไขบิลสำเร็จ');
@@ -2707,12 +2786,17 @@ function prvB(){
   var cn=document.getElementById('cn').value.trim();if(!cn){toast('กรุณากรอกข้อมูลก่อน');return;}
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
   var sub=items.reduce(function(s,i){return s+i.t;},0);
-  var vat=document.getElementById('vat').checked?sub*0.07:0;
+  var discVal=parseFloat(document.getElementById('b-disc-val').value)||0;
+  var discType=document.getElementById('b-disc-type').value;
+  var discAmt=discType==='pct'?sub*(discVal/100):discVal;
+  if(discAmt>sub)discAmt=sub;
+  var afterDisc=sub-discAmt;
+  var vat=document.getElementById('vat').checked?afterDisc*0.07:0;
   var _cust2=custs.find(function(c){return c.n===cn;});
   doPrint({no:document.getElementById('bno').value,date:document.getElementById('bdate').value,type:ctp,
     cn:cn,cc:document.getElementById('cc').value.trim(),ca:document.getElementById('ca').value.trim(),
     tax:_cust2?(_cust2.tax||''):'',
-    items:items,sub:sub,vat:vat,grand:sub+vat,remark:document.getElementById('br').value.trim()});
+    items:items,sub:sub,discVal:discVal,discType:discType,discAmt:discAmt,vat:vat,grand:afterDisc+vat,remark:document.getElementById('br').value.trim()});
 }
 function prtB(id){var b=bills.find(function(b){return b.id===id;});if(b)doPrint(b);}
 function doPrint(bill){
@@ -2749,7 +2833,8 @@ function doPrint(bill){
   doc.write('</div>');
   doc.write('<div class="tbl-wrap">');doc.write('<table><thead><tr><th style="width:32%">รายการ</th><th style="width:8%;text-align:center;">จำนวน</th><th style="width:15%;text-align:right;">ราคา/หน่วย</th><th style="width:15%;text-align:right;">รวม</th>'+imgTh+'</tr></thead>');
   doc.write('<tbody>'+rows+'</tbody>');
-  doc.write('</table></div><div class="total-section">'+(bill.vat>0?'<div class="total-row total-vat"><span>VAT 7%</span><span>'+fmt(bill.vat)+'</span></div>':'')+'<div class="total-row total-grand"><span>ยอดรวมสุทธิ</span><span>'+fmt(bill.grand)+' บาท</span></div></div>');
+  var discRows=(bill.discAmt&&bill.discAmt>0)?'<div class="total-row total-vat"><span>ยอดก่อนส่วนลด</span><span>'+fmt(bill.sub)+'</span></div><div class="total-row total-vat" style="color:#e74c3c;"><span>ส่วนลด</span><span>-'+fmt(bill.discAmt)+'</span></div>':'';
+  doc.write('</table></div><div class="total-section">'+discRows+(bill.vat>0?'<div class="total-row total-vat"><span>VAT 7%</span><span>'+fmt(bill.vat)+'</span></div>':'')+'<div class="total-row total-grand"><span>ยอดรวมสุทธิ</span><span>'+fmt(bill.grand)+' บาท</span></div></div>');
   if(bill.remark)doc.write('<div class="rmk">หมายเหตุ: '+h(bill.remark)+'</div>');
   doc.write('<div class="sg2"><table style="width:100%;"><tbody><tr>'+signs+'</tr></tbody></table></div>');
   doc.write('</body></html>');
