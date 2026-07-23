@@ -429,31 +429,11 @@ tr.dup-row td { background: #fef9c3; }
       </div>
     </div>
 
-    <!-- ALERT BANNER (Pace only) -->
-    <div class="alert-banner" id="alert-banner">
-      <div class="alert-left">
-        <div class="alert-title" id="alert-title">กำลังคำนวณ...</div>
-        <div class="alert-sub" id="alert-sub">—</div>
-      </div>
-      <div class="alert-right">
-        <div>
-          <div class="alert-big" id="alert-pct">—%</div>
-          <div class="alert-big-label">pace ของเป้า</div>
-        </div>
-      </div>
-    </div>
-
     <!-- PAGES -->
     <div class="content">
 
       <!-- SALES PACE -->
       <div id="page-pace" class="page active">
-        <div class="stat-grid">
-          <div class="stat-card orange"><div class="stat-label">เป้ารวม/เดือน</div><div class="stat-value orange" id="s-target">—</div><div class="stat-sub">ทุกลูกค้า</div></div>
-          <div class="stat-card green"><div class="stat-label">ยอดจริงวันนี้</div><div class="stat-value green" id="s-actual">—</div><div class="stat-sub" id="s-actual-breakdown">จากระบบบิล</div></div>
-          <div class="stat-card orange"><div class="stat-label">Pace (ประมาณการ)</div><div class="stat-value orange" id="s-pace">—</div><div class="stat-sub">ถ้าขายอัตรานี้ถึงสิ้นเดือน</div></div>
-          <div class="stat-card red"><div class="stat-label">ต้องดันอีก</div><div class="stat-value red" id="s-gap">—</div><div class="stat-sub">เป้า − ยอดจริง</div></div>
-        </div>
         <div class="section">
           <div class="section-head">
             <div class="section-title">รายลูกค้า</div>
@@ -964,7 +944,6 @@ async function loadAll() {
     return { name, shop, target, actual, pace, pct, gap: target-actual, status };
   });
 
-  updateBanner();
   renderPace();
   renderFlags();
   renderCustomers();
@@ -1253,7 +1232,6 @@ function nav(id, btn) {
   btn.classList.add('active');
   const titles = { pace:'📈 Sales Pace', flag:'🚨 Red Flag', customers:'👥 ลูกค้าทั้งหมด', logs:'📝 บันทึกการติดต่อ', commission:'💰 ค่าคอมเซลล์', prospect:'🎯 Prospect Pipeline' };
   document.getElementById('page-title').textContent = titles[id];
-  document.getElementById('alert-banner').style.display = id==='pace'?'flex':'none';
   if (id==='commission') commInit();
 }
 
@@ -1265,7 +1243,6 @@ function rLabel(r) { return {reached:'✅ มีงาน',reached_wait:'🔄 �
 
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 document.getElementById('lf-date').value = new Date().toISOString().slice(0,10);
-document.getElementById('alert-banner').style.display = 'flex';
 
 
 // ===== COMMISSION LOGIC =====
