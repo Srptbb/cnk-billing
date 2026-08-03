@@ -1056,13 +1056,26 @@ function showLoading(on){
   if(el)el.style.display=on?'block':'none';
 }
 
-function apiGet(table,cb,months){
+function apiGet(table,cb,months,_try){
+  _try = _try || 0;
   var url = API+'?action=getAll&table='+table;
   if (months) url += '&months='+months;
   fetch(url)
-    .then(function(r){return r.json();})
-    .then(function(d){cb(Array.isArray(d)?d:[]);})
-    .catch(function(e){console.error(e);cb([]);});
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var d;
+      try { d = JSON.parse(t); } catch(e){ throw new Error('non-JSON response (cold-start?)'); }
+      cb(Array.isArray(d)?d:[]);
+    })
+    .catch(function(e){
+      if (_try < 3) {
+        // Apps Script cold-start คืน HTML บางครั้ง → ลองใหม่ (backoff 0.8s, 1.6s, 2.4s)
+        setTimeout(function(){ apiGet(table,cb,months,_try+1); }, 800*(_try+1));
+      } else {
+        console.error('apiGet failed after retries:', table, e);
+        cb([]);
+      }
+    });
 }
 
 function stripImages(data) {
