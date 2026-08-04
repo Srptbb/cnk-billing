@@ -146,6 +146,7 @@ textarea{resize:vertical;min-height:64px;}
   <button class="sub-tab" id="stab-sales-trend" onclick="goSub('sales-trend',this,'analytics')">📈 แนวโน้ม</button>
   <button class="sub-tab" id="stab-cashflow" onclick="goSub('cashflow',this,'analytics')">💵 กระแสเงินเข้า</button>
   <button class="sub-tab" id="stab-materials" onclick="goSub('materials',this,'analytics')">🪵 วัตถุดิบ</button>
+  <button class="sub-tab" id="stab-wht" onclick="goSub('wht',this,'analytics')">🧾 หัก ณ ที่จ่าย</button>
 </div>
 <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:#4f8ef7;color:#fff;text-align:center;padding:8px;font-size:13px;font-family:Sarabun,sans-serif;">&#8987; กำลังโหลดข้อมูลจาก Google Sheets...</div>
 <div id="tst"></div>
@@ -588,6 +589,20 @@ textarea{resize:vertical;min-height:64px;}
     <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f2f5;">&#128161; Insights</div>
     <div id="an-insights" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;"></div>
   </div>
+</div>
+</div>
+
+<div id="sec-wht" class="sec">
+<div class="card">
+  <div class="ctitle" style="justify-content:space-between;">
+    <span>&#129534; หัก ณ ที่จ่าย 3% (รายเดือน · แยกลูกค้า)</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <select id="wht-year" onchange="rdWHT()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1.5px solid #e0e3eb;width:auto;"></select>
+      <button onclick="exportWHT()" style="padding:7px 14px;font-size:13px;border-radius:8px;border:none;background:#059669;color:#fff;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;">&#11015; Export Excel</button>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#888;margin-bottom:14px;">คิดจากใบส่งของ (รวมลูกค้าเงินสด) ของลูกค้าที่ตั้งค่าหัก ณ ที่จ่าย 3% · ไม่รวมบิลที่ยกเลิก</div>
+  <div id="wht-body"></div>
 </div>
 </div>
 
@@ -1307,6 +1322,7 @@ function _trigLoad(id) {
   if(id==='quotation') { /* quotation tab */ }
   if(id==='cashflow') rdCashFlow();
   if(id==='materials') rdMaterials();
+  if(id==='wht') rdWHT();
   if(id==='qt-create'){document.getElementById('qt-date').value=td();document.getElementById('qt-expire').value=qtExpireDate();genQtNo();}
   if(id==='qt-list') rdQtList();
   if(id==='worklist') { wlInitMonthSel(); loadWorklist(); }
@@ -4467,6 +4483,99 @@ function matInfoCard(label, value) {
   '</div>';
 }
 // ===== END MATERIALS ANALYTICS =====
+
+// ===== รายงานหัก ณ ที่จ่าย 3% =====
+function whtCustSet() {
+  var s = {};
+  custs.forEach(function(c){ if(c.tax3===true||c.tax3==='true'||c.tax3===1) s[String(c.n)]=true; });
+  return s;
+}
+function whtCompute(year) {
+  var t3 = whtCustSet();
+  var g = {}; // ym -> cn -> {sales,cnt,cash,credit}
+  bills.forEach(function(b){
+    if (b.status==='cancelled') return;
+    if (!t3[String(b.cn)]) return;
+    var ym = String(b.date||'').slice(0,7);
+    if (!ym) return;
+    if (year && ym.slice(0,4)!==String(year)) return;
+    g[ym] = g[ym] || {};
+    var o = g[ym][b.cn] = g[ym][b.cn] || {sales:0,cnt:0,cash:0,credit:0};
+    var base = (+b.grand||0) - (+b.vat||0); // ฐานก่อน VAT (= grand ถ้าไม่มี VAT)
+    o.sales += base; o.cnt++;
+    if (b.type==='cash') o.cash++; else o.credit++;
+  });
+  return g;
+}
+var WHT_MONTHS = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function rdWHT() {
+  if (!isAdmin()) return;
+  var sel = document.getElementById('wht-year');
+  if (sel && !sel.options.length) {
+    var years = {};
+    bills.forEach(function(b){ var y=String(b.date||'').slice(0,4); if(y) years[y]=true; });
+    var ys = Object.keys(years).sort().reverse();
+    var cy = String(new Date().getFullYear());
+    if (!ys.length) ys=[cy];
+    sel.innerHTML = ys.map(function(y){ return '<option value="'+y+'"'+(y===cy?' selected':'')+'>'+(parseInt(y)+543)+'</option>'; }).join('');
+  }
+  var year = sel ? sel.value : '';
+  var g = whtCompute(year);
+  var months = Object.keys(g).sort();
+  var body = document.getElementById('wht-body');
+  if (!months.length) { body.innerHTML = '<div style="color:#888;padding:24px;text-align:center;">ไม่มีข้อมูลในปีนี้</div>'; return; }
+  var html = '', gSales=0, gTax=0;
+  months.forEach(function(ym){
+    var custRows = Object.keys(g[ym]).sort(function(a,b){ return g[ym][b].sales-g[ym][a].sales; });
+    var mSales=0, mTax=0, rows='';
+    custRows.forEach(function(cn){
+      var o=g[ym][cn], tax=o.sales*0.03; mSales+=o.sales; mTax+=tax;
+      rows += '<tr><td style="padding:7px 12px;border-bottom:1px solid #f0f2f5;">'+h(cn)+'</td>'
+        + '<td style="padding:7px 12px;text-align:center;border-bottom:1px solid #f0f2f5;">'+o.cnt+(o.cash?' <span style="color:#e65100;font-size:11px;">(เงินสด '+o.cash+')</span>':'')+'</td>'
+        + '<td style="padding:7px 12px;text-align:right;border-bottom:1px solid #f0f2f5;">'+fmt(o.sales)+'</td>'
+        + '<td style="padding:7px 12px;text-align:right;color:#e65100;border-bottom:1px solid #f0f2f5;">'+fmt(tax)+'</td></tr>';
+    });
+    gSales+=mSales; gTax+=mTax;
+    var mNum = parseInt(ym.slice(5,7));
+    html += '<div style="margin-bottom:22px;">'
+      + '<div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #f0f2f5;">'+WHT_MONTHS[mNum]+' '+(parseInt(ym.slice(0,4))+543)+'</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+      + '<thead><tr style="background:#f0f2f5;"><th style="padding:8px 12px;text-align:left;">ลูกค้า</th><th style="padding:8px 12px;text-align:center;">จำนวนบิล</th><th style="padding:8px 12px;text-align:right;">ยอดขาย</th><th style="padding:8px 12px;text-align:right;">หัก 3%</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody>'
+      + '<tfoot><tr style="background:#fafbfc;font-weight:700;"><td style="padding:8px 12px;">รวมเดือน</td><td></td><td style="padding:8px 12px;text-align:right;">'+fmt(mSales)+'</td><td style="padding:8px 12px;text-align:right;color:#e65100;">'+fmt(mTax)+'</td></tr></tfoot>'
+      + '</table></div>';
+  });
+  html += '<div style="margin-top:16px;padding:14px 18px;background:#f0fdf4;border:1.5px solid #059669;border-radius:10px;font-weight:700;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
+    + '<span>รวมทั้งปี '+(parseInt(year)+543)+'</span><span>ยอดขาย '+fmt(gSales)+' บาท · หัก 3% <span style="color:#e65100;">'+fmt(gTax)+'</span> บาท</span></div>';
+  body.innerHTML = html;
+}
+function exportWHT() {
+  var sel = document.getElementById('wht-year');
+  var year = sel ? sel.value : '';
+  var g = whtCompute(year);
+  var months = Object.keys(g).sort();
+  if (!months.length) { toast('ไม่มีข้อมูลให้ export'); return; }
+  var rows = '<tr><th>เดือน</th><th>ลูกค้า</th><th>จำนวนบิล</th><th>บิลเงินสด</th><th>ยอดขาย</th><th>หัก 3%</th></tr>';
+  var gSales=0, gTax=0;
+  months.forEach(function(ym){
+    var mNum = parseInt(ym.slice(5,7));
+    var label = WHT_MONTHS[mNum]+' '+(parseInt(ym.slice(0,4))+543);
+    var mSales=0, mTax=0;
+    Object.keys(g[ym]).sort(function(a,b){ return g[ym][b].sales-g[ym][a].sales; }).forEach(function(cn){
+      var o=g[ym][cn], tax=o.sales*0.03; mSales+=o.sales; mTax+=tax;
+      rows += '<tr><td>'+h(label)+'</td><td>'+h(cn)+'</td><td>'+o.cnt+'</td><td>'+o.cash+'</td><td>'+o.sales.toFixed(2)+'</td><td>'+tax.toFixed(2)+'</td></tr>';
+    });
+    rows += '<tr style="font-weight:bold;background:#eeeeee;"><td>'+h(label)+'</td><td>รวมเดือน</td><td></td><td></td><td>'+mSales.toFixed(2)+'</td><td>'+mTax.toFixed(2)+'</td></tr>';
+    gSales+=mSales; gTax+=mTax;
+  });
+  rows += '<tr style="font-weight:bold;background:#dddddd;"><td>รวมทั้งปี</td><td></td><td></td><td></td><td>'+gSales.toFixed(2)+'</td><td>'+gTax.toFixed(2)+'</td></tr>';
+  var html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><style>table{border-collapse:collapse;}td,th{border:1px solid #999999;padding:4px 8px;font-family:Sarabun,sans-serif;}</style></head><body><h3>รายงานหัก ณ ที่จ่าย 3% ปี '+(parseInt(year)+543)+'</h3><table>'+rows+'</table></body></html>';
+  var blob = new Blob(['﻿'+html], {type:'application/vnd.ms-excel;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wht3_'+(year||'all')+'.xls';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
 
 function rdAnalytics() {
   if (!isAdmin()) return;
