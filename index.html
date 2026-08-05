@@ -1083,12 +1083,13 @@ function apiGet(table,cb,months,_try){
       cb(Array.isArray(d)?d:[]);
     })
     .catch(function(e){
-      if (_try < 3) {
-        // Apps Script cold-start คืน HTML บางครั้ง → ลองใหม่ (backoff 0.8s, 1.6s, 2.4s)
-        setTimeout(function(){ apiGet(table,cb,months,_try+1); }, 800*(_try+1));
+      if (_try < 5) {
+        // Apps Script ล่ม/cold-start ชั่วคราว (คืน HTML หรือ 404) → ลองใหม่
+        // backoff: 1s, 2s, 3s, 4s, 5s (รวม ~15 วิ)
+        setTimeout(function(){ apiGet(table,cb,months,_try+1); }, 1000*(_try+1));
       } else {
         console.error('apiGet failed after retries:', table, e);
-        cb([]);
+        cb([], true); // arg ที่ 2 = true แปลว่าโหลดไม่สำเร็จ (ไม่ใช่ข้อมูลว่างจริง)
       }
     });
 }
@@ -1614,9 +1615,17 @@ function wlInitMonthSel() {
 
 function loadWorklist() {
   var month = document.getElementById('wl-month-sel')?.value || '';
-  document.getElementById('wl-loading').style.display = 'block';
+  var ld = document.getElementById('wl-loading');
+  ld.innerHTML = '&#8987; กำลังโหลด...';
+  ld.style.display = 'block';
   document.getElementById('wl-table-wrap').style.display = 'none';
-  apiGet('worklist', function(rows) {
+  apiGet('worklist', function(rows, failed) {
+    if (failed) {
+      // โหลดไม่สำเร็จจริง (backend ล่มชั่วคราว) — ไม่ใช่ไม่มีงาน → ให้กดโหลดใหม่
+      ld.innerHTML = '<div style="color:#dc2626;padding:10px 0;">&#9888; โหลดข้อมูลไม่สำเร็จ (เซิร์ฟเวอร์ไม่ตอบชั่วคราว)</div>'
+        + '<button onclick="loadWorklist()" style="padding:8px 18px;font-size:14px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-family:Sarabun,sans-serif;font-weight:600;cursor:pointer;">&#8635; ลองโหลดใหม่</button>';
+      return;
+    }
     wlData = rows.filter(function(r) {
       if(!month) return true;
       return String(r.ts||r.date||'').slice(0,7) === month;
