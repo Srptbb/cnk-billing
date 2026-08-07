@@ -1534,20 +1534,21 @@ function qpCalc(){
   var costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   var costWood=woodW*woodL*qpWoodCost;
   var totalBladeMM=cutMM+creaseMM;
-  var laserAdd=isLaser?Math.round(totalBladeMM/1000*90):0;
+  var woodArea=woodW*woodL;
+  var laserAdd=isLaser?Math.round(totalBladeMM/1000*60 + woodArea*0.0008):0;
   var raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
-    bladeChangeAdd=isBladeChange&&pCut?Math.round(costCut*2.5*var1):0;
+    var bladeLenAdd_mode2=totalBladeMM/5000*660;
+    bladeChangeAdd=isBladeChange&&pCut?Math.round((bladeLenAdd_mode2*0.5+costCut+costCr)*var1*var2):0;
     if(isWoodChange){
-      var bladeRate=isLaser?65:40;
-      woodChangeAdd=Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
+      woodChangeAdd=Math.round((bladeLenAdd_mode2*0.4+costWood+totalBladeMM/1000*20)*var1*var2);
     }
     raw=bladeChangeAdd+woodChangeAdd;
     price=_roundPriceQp(raw);
     var laserExtra=isLaser&&!isWoodChange?laserAdd:0;
     finalPrice=laserExtra>0?_roundPriceQp(price+laserExtra):price;
   }else{
-    var bladeLenAdd=(totalBladeMM/5000)*350;
+    var bladeLenAdd=(totalBladeMM/5000)*660;
     raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price=_roundPriceQp(raw);
     finalPrice=laserAdd>0?_roundPriceQp(price+laserAdd):price;
@@ -1936,20 +1937,21 @@ function wlEstimatePrice() {
   var costCr = creaseMM*(pCr ? parseFloat(pCr.cost_per_mm) : 0);
   var costWood = woodW*woodH*qpWoodCost;
   var totalBladeMM = cutMM+creaseMM;
-  var laserAdd = isLaser ? Math.round(totalBladeMM/1000*90) : 0;
+  var woodArea = woodW*woodH;
+  var laserAdd = isLaser ? Math.round(totalBladeMM/1000*60 + woodArea*0.0008) : 0;
   var raw, price, bladeChangeAdd=0, woodChangeAdd=0, finalPrice;
   if(isBladeChange || isWoodChange) {
-    bladeChangeAdd = (isBladeChange && pCut) ? Math.round(costCut*2.5*var1) : 0;
+    var bladeLenAdd_mode2 = totalBladeMM/5000*660;
+    bladeChangeAdd = (isBladeChange && pCut) ? Math.round((bladeLenAdd_mode2*0.5+costCut+costCr)*var1*var2) : 0;
     if(isWoodChange) {
-      var bladeRate = isLaser ? 65 : 40;
-      woodChangeAdd = Math.round((costWood+totalBladeMM/1000*bladeRate)*2);
+      woodChangeAdd = Math.round((bladeLenAdd_mode2*0.4+costWood+totalBladeMM/1000*20)*var1*var2);
     }
     raw = bladeChangeAdd+woodChangeAdd;
     price = _roundPriceQp(raw);
     var laserExtra = (isLaser && !isWoodChange) ? laserAdd : 0;
     finalPrice = laserExtra>0 ? _roundPriceQp(price+laserExtra) : price;
   } else {
-    var bladeLenAdd = (totalBladeMM/5000)*350;
+    var bladeLenAdd = (totalBladeMM/5000)*660;
     raw = (bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price = _roundPriceQp(raw);
     finalPrice = laserAdd>0 ? _roundPriceQp(price+laserAdd) : price;
