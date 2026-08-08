@@ -196,6 +196,12 @@ textarea{resize:vertical;min-height:64px;}
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">ความยาวเส้นพับ (mm)</label>
           <input type="number" id="qp-crease-len" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
       </div>
+      <div style="margin-bottom:8px;">
+        <label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">รูกลึง (เจาะรู)</label>
+        <div id="qp-hole-list"></div>
+        <button type="button" onclick="addHoleRow('qp-hole-list',qpCalc)" style="margin-top:5px;padding:5px 10px;background:#fff;border:1px solid #dde0e8;border-radius:6px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;color:#666;">➕ เพิ่มขนาดรู</button>
+        <div style="font-size:10px;color:#999;margin-top:4px;">1–5มม=25฿ · 5.5–9=30฿ · 10–12=35฿ · 13–14=40฿ /รู</div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">กว้างไม้ (mm)</label>
           <input type="number" id="qp-wood-w" value="" placeholder="0" min="0" step="1" oninput="qpCalc()" style="width:100%;padding:7px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:13px;text-align:right;font-family:Sarabun,sans-serif;"></div>
@@ -1510,6 +1516,50 @@ function toggleQp(){
 
 function _roundPriceQp(v){var rem=v%100,base=Math.floor(v/100)*100;if(rem<=25)return base;if(rem<=74)return base+50;return base+100;}
 
+// ── รูกลึง (เจาะรู) — ใช้ร่วมทั้งฟอร์มเพิ่มงาน (qp-) และเปิดบิล/เพิ่มลิสงาน (wla-) ──
+function holeUnit(d){
+  if(d>=1&&d<=5)return 25;
+  if(d>=5.5&&d<=9)return 30;
+  if(d>=10&&d<=12)return 35;
+  if(d>=13&&d<=14)return 40;
+  return null; // นอกช่วงที่กำหนด
+}
+function addHoleRow(listId,cb){
+  var list=document.getElementById(listId);
+  if(!list)return;
+  var row=document.createElement('div');
+  row.className='hole-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px;';
+  row.innerHTML='<input type="number" step="0.5" min="0" placeholder="ขนาด มม." class="hole-size" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:12px;font-family:Sarabun,sans-serif;text-align:right;">'
+    +'<span style="font-size:12px;color:#999;">×</span>'
+    +'<input type="number" min="0" placeholder="จำนวน" class="hole-qty" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #dde0e8;border-radius:6px;font-size:12px;font-family:Sarabun,sans-serif;text-align:right;">'
+    +'<span class="hole-rowprice" style="font-size:12px;font-weight:600;min-width:44px;text-align:right;color:#e65100;">฿0</span>'
+    +'<button type="button" class="hole-del" style="border:none;background:rgba(220,38,38,.1);color:#dc2626;border-radius:6px;width:26px;height:26px;cursor:pointer;flex-shrink:0;">✕</button>';
+  list.appendChild(row);
+  var handler=function(){ computeHoles(listId); if(typeof cb==='function')cb(); };
+  row.querySelector('.hole-size').addEventListener('input',handler);
+  row.querySelector('.hole-qty').addEventListener('input',handler);
+  row.querySelector('.hole-del').addEventListener('click',function(){ row.remove(); handler(); });
+}
+function computeHoles(listId){
+  var holeAdd=0,holeCount=0,oob=false,holes=[];
+  var rows=document.querySelectorAll('#'+listId+' .hole-row');
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var d=parseFloat(r.querySelector('.hole-size').value)||0;
+    var q=parseInt(r.querySelector('.hole-qty').value)||0;
+    var u=holeUnit(d);
+    var bad=(d>0&&u===null);
+    var rp=(u===null)?0:u*q;
+    var lbl=r.querySelector('.hole-rowprice');
+    if(lbl){lbl.textContent=bad?'⚠️':'฿'+rp;lbl.style.color=bad?'#dc2626':'#e65100';}
+    if(bad&&q>0)oob=true;
+    if(d>0&&q>0&&u!==null)holes.push({size:d,qty:q,unit:u,sum:rp});
+    holeAdd+=rp;holeCount+=(u===null?0:q);
+  }
+  return {holeAdd:holeAdd,holeCount:holeCount,holes:holes,oob:oob};
+}
+
 function qpCalc(){
   var isLaser=document.getElementById('qp-laser').checked;
   var isBladeChange=document.getElementById('qp-blade-change').checked;
@@ -1536,6 +1586,7 @@ function qpCalc(){
   var totalBladeMM=cutMM+creaseMM;
   var woodArea=woodW*woodL;
   var laserAdd=isLaser?Math.round(totalBladeMM/1000*60 + woodArea*0.0008):0;
+  var _hole=computeHoles('qp-hole-list'); var holeAdd=_hole.holeAdd, holeCount=_hole.holeCount;
   var raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
     var bladeLenAdd_mode2=totalBladeMM/5000*660;
@@ -1546,14 +1597,16 @@ function qpCalc(){
     raw=bladeChangeAdd+woodChangeAdd;
     price=_roundPriceQp(raw);
     var laserExtra=isLaser&&!isWoodChange?laserAdd:0;
-    finalPrice=laserExtra>0?_roundPriceQp(price+laserExtra):price;
+    var addOn=laserExtra+holeAdd;
+    finalPrice=addOn>0?_roundPriceQp(price+addOn):price;
   }else{
     var bladeLenAdd=(totalBladeMM/5000)*660;
     raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price=_roundPriceQp(raw);
-    finalPrice=laserAdd>0?_roundPriceQp(price+laserAdd):price;
+    var addOn=laserAdd+holeAdd;
+    finalPrice=addOn>0?_roundPriceQp(price+addOn):price;
   }
-  qpLastResult={bladeCut:pCut?pCut.blade:'',bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),raw:raw,finalPrice:finalPrice};
+  qpLastResult={bladeCut:pCut?pCut.blade:'',bladeCrease:pCr?pCr.blade:'',woodW:Math.round(woodW),woodL:Math.round(woodL),cutMM:Math.round(cutMM),creaseMM:Math.round(creaseMM),holeAdd:holeAdd,holeCount:holeCount,holes:_hole.holes,raw:raw,finalPrice:finalPrice};
   document.getElementById('qp-raw').textContent='฿'+raw.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.getElementById('qp-rounded').textContent='฿'+finalPrice.toLocaleString();
   _qpShowResult(true);
@@ -1569,7 +1622,7 @@ function _qpShowResult(on){
 function qpAdd(){
   if(!qpLastResult) return;
   var name=(document.getElementById('qp-name').value||'').trim()||'บล็อกไดคัท';
-  var _extras=[document.getElementById('qp-laser').checked?'ยิงเลเซอร์':'',document.getElementById('qp-blade-change').checked?'เปลี่ยนมีด':'',document.getElementById('qp-wood-change').checked?'เปลี่ยนไม้':''].filter(Boolean).join('+');
+  var _extras=[document.getElementById('qp-laser').checked?'ยิงเลเซอร์':'',document.getElementById('qp-blade-change').checked?'เปลี่ยนมีด':'',document.getElementById('qp-wood-change').checked?'เปลี่ยนไม้':'',(qpLastResult&&qpLastResult.holeCount>0)?('รูกลึง'+qpLastResult.holeCount+'รู'):''].filter(Boolean).join('+');
   if(_extras)name=name+'('+_extras+')';
   var tb=document.getElementById('ib');
   var emptyRow=null;
@@ -1835,6 +1888,7 @@ function wlOpenAddModal() {
   document.getElementById('wla-src-line').checked = false;
   document.getElementById('wla-src-email').checked = false;
   document.getElementById('wla-src-onsite').checked = false;
+  var _hl0 = document.getElementById('wla-hole-list'); if(_hl0) _hl0.innerHTML = '';
   var dl = document.getElementById('wla-cust-list');
   if(dl && typeof custs !== 'undefined' && custs) {
     dl.innerHTML = custs.map(function(c){ return '<option value="'+h(c.n||'')+'">'; }).join('');
@@ -1855,7 +1909,22 @@ function wlSrcExclusive(id) {
 // ตัดวงเล็บส่วนขยาย (ยิงเลเซอร์/เปลี่ยนมีด/เปลี่ยนไม้) ท้ายชื่องานออก ก่อนเอาไปโชว์ในช่องแก้ไข
 // (ตอนบันทึกจะต่อกลับให้ใหม่ตามสถานะติ๊กปัจจุบัน กันซ้ำซ้อน)
 function _wlStripExtrasSuffix(note) {
-  return String(note||'').replace(/\s*\((?:ยิงเลเซอร์|เปลี่ยนมีด|เปลี่ยนไม้|\+)+\)\s*$/,'').trim();
+  return String(note||'').replace(/\s*\((?:ยิงเลเซอร์|เปลี่ยนมีด|เปลี่ยนไม้|รูกลึง\d+รู|\+)+\)\s*$/,'').trim();
+}
+// เติมแถวรูกลึงจากข้อมูลงานเดิม (holes อาจมาเป็น JSON string จากชีท)
+function _wlSetHoles(holes) {
+  var hl = document.getElementById('wla-hole-list');
+  if(!hl) return;
+  hl.innerHTML = '';
+  if(typeof holes === 'string') { try { holes = JSON.parse(holes); } catch(e) { holes = []; } }
+  (holes||[]).forEach(function(hh){
+    addHoleRow('wla-hole-list', null);
+    var rows = hl.querySelectorAll('.hole-row');
+    var r = rows[rows.length-1];
+    r.querySelector('.hole-size').value = hh.size;
+    r.querySelector('.hole-qty').value = hh.qty;
+  });
+  computeHoles('wla-hole-list');
 }
 
 // เปิด modal เดียวกันในโหมดแก้ไข — เติมค่าจากงานเดิม แก้ราคา/รายละเอียดแล้วบันทึกทับ
@@ -1880,6 +1949,7 @@ function wlEditRow(btn) {
   document.getElementById('wla-laser').checked = !!row.laser;
   document.getElementById('wla-bladechange').checked = !!row.bladeChange;
   document.getElementById('wla-woodchange').checked = !!row.woodChange;
+  _wlSetHoles(row.holes);
   document.getElementById('wla-src-line').checked = row.jobSource === 'Line';
   document.getElementById('wla-src-email').checked = row.jobSource === 'Email';
   document.getElementById('wla-src-onsite').checked = row.jobSource === 'On site';
@@ -1939,6 +2009,8 @@ function wlEstimatePrice() {
   var totalBladeMM = cutMM+creaseMM;
   var woodArea = woodW*woodH;
   var laserAdd = isLaser ? Math.round(totalBladeMM/1000*60 + woodArea*0.0008) : 0;
+  var _hole = computeHoles('wla-hole-list'); var holeAdd = _hole.holeAdd;
+  if(_hole.oob) toast('มีรูกลึงขนาดนอกช่วง (ไม่ถูกคิดราคา)');
   var raw, price, bladeChangeAdd=0, woodChangeAdd=0, finalPrice;
   if(isBladeChange || isWoodChange) {
     var bladeLenAdd_mode2 = totalBladeMM/5000*660;
@@ -1949,12 +2021,14 @@ function wlEstimatePrice() {
     raw = bladeChangeAdd+woodChangeAdd;
     price = _roundPriceQp(raw);
     var laserExtra = (isLaser && !isWoodChange) ? laserAdd : 0;
-    finalPrice = laserExtra>0 ? _roundPriceQp(price+laserExtra) : price;
+    var addOn = laserExtra+holeAdd;
+    finalPrice = addOn>0 ? _roundPriceQp(price+addOn) : price;
   } else {
     var bladeLenAdd = (totalBladeMM/5000)*660;
     raw = (bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price = _roundPriceQp(raw);
-    finalPrice = laserAdd>0 ? _roundPriceQp(price+laserAdd) : price;
+    var addOn = laserAdd+holeAdd;
+    finalPrice = addOn>0 ? _roundPriceQp(price+addOn) : price;
   }
   document.getElementById('wla-price').value = finalPrice;
   toast('ประเมินราคา ฿'+finalPrice.toLocaleString()+' ✓');
@@ -1983,7 +2057,8 @@ function wlSaveNewJob() {
   var now = new Date();
   var timeStr = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
   var ts = new Date(dateVal+'T'+timeStr).toISOString();
-  var extras = [isLaser?'ยิงเลเซอร์':'', isBladeChange?'เปลี่ยนมีด':'', isWoodChange?'เปลี่ยนไม้':''].filter(Boolean).join('+');
+  var _holeSave = computeHoles('wla-hole-list');
+  var extras = [isLaser?'ยิงเลเซอร์':'', isBladeChange?'เปลี่ยนมีด':'', isWoodChange?'เปลี่ยนไม้':'', _holeSave.holeCount>0?('รูกลึง'+_holeSave.holeCount+'รู'):''].filter(Boolean).join('+');
   var isEdit = !!_wlEditId;
   var id = isEdit ? _wlEditId : 'q_'+Date.now();
   var data = {
@@ -2000,6 +2075,9 @@ function wlSaveNewJob() {
     laser: isLaser,
     bladeChange: isBladeChange,
     woodChange: isWoodChange,
+    holeAdd: _holeSave.holeAdd,
+    holeCount: _holeSave.holeCount,
+    holes: _holeSave.holes,
     jobSource: jobSource,
     ts: ts
   };
@@ -5769,6 +5847,12 @@ function doPrintQt(qt) {
           <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">จำนวนเส้นพับ (mm)</label>
           <input id="wla-crease-mm" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
         </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">รูกลึง (เจาะรู)</label>
+        <div id="wla-hole-list"></div>
+        <button type="button" onclick="addHoleRow('wla-hole-list',null)" style="margin-top:5px;padding:6px 11px;background:#fff;border:1.5px solid #e0e3eb;border-radius:8px;font-size:13px;font-family:Sarabun,sans-serif;cursor:pointer;color:#555;">➕ เพิ่มขนาดรู</button>
+        <div style="font-size:11px;color:#999;margin-top:4px;">1–5มม=25฿ · 5.5–9=30฿ · 10–12=35฿ · 13–14=40฿ /รู · กด “ประเมินราคา” เพื่อรวม</div>
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ขนาดไม้ (mm)</label>

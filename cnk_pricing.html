@@ -342,6 +342,34 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
         ⚠️ ยังไม่มีข้อมูลเส้นพับ — เพิ่มแถวใน sheet pricing โดยใส่ column type = crease
       </div>
     </div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">05 รูกลึง (เจาะรู)</div>
+    <div id="hole-list"></div>
+    <button class="clr-btn" type="button" onclick="addHoleRow()" style="margin-top:7px;">➕ เพิ่มขนาดรู</button>
+    <div class="fnote" style="margin-top:5px;color:var(--text2);">1–5มม = 25฿ · 5.5–9 = 30฿ · 10–12 = 35฿ · 13–14 = 40฿ / รู</div>
+  </div>
+
+  <div class="section">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="laser-chk" onchange="if(lastResult)calculate()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⚡ เลเซอร์</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="blade-change-chk" onchange="document.getElementById('wood-change-chk').checked=false;if(lastResult)calculate();" style="width:14px;height:14px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔪 เปลี่ยนมีด</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
+        <input type="checkbox" id="wood-change-chk" onchange="document.getElementById('blade-change-chk').checked=false;if(lastResult)calculate();" style="width:14px;height:14px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">
+        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🪵 เปลี่ยนไม้</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">06 ลูกค้า / งาน</div>
     <div class="fg">
       <label>ลูกค้า</label>
       <div class="cust-wrap">
@@ -372,30 +400,6 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
         </label>
       </div>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="stitle">05 รูกลึง (เจาะรู)</div>
-    <div id="hole-list"></div>
-    <button class="clr-btn" type="button" onclick="addHoleRow()" style="margin-top:7px;">➕ เพิ่มขนาดรู</button>
-    <div class="fnote" style="margin-top:5px;color:var(--text2);">1–5มม = 25฿ · 5.5–9 = 30฿ · 10–12 = 35฿ · 13–14 = 40฿ / รู</div>
-  </div>
-
-  <div class="section">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(230,81,0,.06);border:1px solid rgba(230,81,0,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
-        <input type="checkbox" id="laser-chk" onchange="if(lastResult)calculate()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
-        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⚡ เลเซอร์</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
-        <input type="checkbox" id="blade-change-chk" onchange="document.getElementById('wood-change-chk').checked=false;if(lastResult)calculate();" style="width:14px;height:14px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
-        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔪 เปลี่ยนมีด</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 8px;background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:7px;flex:1;min-width:0;overflow:hidden;">
-        <input type="checkbox" id="wood-change-chk" onchange="document.getElementById('blade-change-chk').checked=false;if(lastResult)calculate();" style="width:14px;height:14px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">
-        <span style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🪵 เปลี่ยนไม้</span>
-      </label>
-    </div>
     <button class="calc-btn" id="calc-btn" onclick="calculate()" disabled>💰 คำนวณราคา</button>
   </div>
 
@@ -415,6 +419,7 @@ let history = []; // undo stack
 let currentAddL = null; // ใช้ใน svgPath/bezier/quad/svgArc เพื่อรองรับ transform
 let svgApplyTransform = false; // true เฉพาะ CloudConvert SVG (.ai/.pdf)
 let currentLineColor = null; // stroke color ของ element ปัจจุบัน (สำหรับ auto-detect lineType)
+let _curveActive = false, _curveRadiusMM = 1e6; // ตัวคูณความโค้ง: ตั้งค่าโดย bezier/quad/svgArc ก่อนสร้างท่อนย่อย ให้ addL อ่าน
 let mode = 'cut', panMode = false;
 let viewScale = 1, viewOffX = 0, viewOffY = 0;
 let svgUnitToMM = 0.352778;
@@ -1053,11 +1058,15 @@ function svgArc(x1,y1,rx,ry,laf,sf,x2,y2){
   if(sf===1&&da<0)da+=2*Math.PI;
   const segs=Math.max(8,Math.ceil(Math.abs(da)*Math.max(rx,ry)/4));
   let px=x1,py=y1;
-  for(let k=1;k<=segs;k++){
-    const a=a1+da*k/segs;
-    const nx=ccx+rx*Math.cos(a),ny=ccy+ry*Math.sin(a);
-    currentAddL(px,py,nx,ny);px=nx;py=ny;
-  }
+  _curveActive=true;
+  try{ const _rr=((rx+ry)/2)*svgUnitToMM; _curveRadiusMM=(isFinite(_rr)&&_rr>0)?_rr:1e6; }catch(e){ _curveRadiusMM=1e6; }
+  try{
+    for(let k=1;k<=segs;k++){
+      const a=a1+da*k/segs;
+      const nx=ccx+rx*Math.cos(a),ny=ccy+ry*Math.sin(a);
+      currentAddL(px,py,nx,ny);px=nx;py=ny;
+    }
+  } finally { _curveActive=false; }
 }
 function isPiecewiseBezierKnots(knots,degree){
   let i=degree+1;
@@ -1093,8 +1102,22 @@ function deBoor(degree,xs,ys,knots,t){
     }
   return d[degree];
 }
-function bezier(x0,y0,x1,y1,x2,y2,x3,y3,s=16){let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*u*x0+3*u*u*t*x1+3*u*t*t*x2+t*t*t*x3,ny=u*u*u*y0+3*u*u*t*y1+3*u*t*t*y2+t*t*t*y3;currentAddL(px,py,nx,ny);px=nx;py=ny;}}
-function quad(x0,y0,qx,qy,ex,ey,s=12){let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*x0+2*u*t*qx+t*t*ex,ny=u*u*y0+2*u*t*qy+t*t*ey;currentAddL(px,py,nx,ny);px=nx;py=ny;}}
+function bezier(x0,y0,x1,y1,x2,y2,x3,y3,s=16){
+  _curveActive=true;
+  try{ const mx=0.125*x0+0.375*x1+0.375*x2+0.125*x3,my=0.125*y0+0.375*y1+0.375*y2+0.125*y3;
+    const rr=circumRadius({x:x0,y:y0},{x:mx,y:my},{x:x3,y:y3})*svgUnitToMM;
+    _curveRadiusMM=(isFinite(rr)&&rr>0)?rr:1e6; }catch(e){ _curveRadiusMM=1e6; }
+  try{ let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*u*x0+3*u*u*t*x1+3*u*t*t*x2+t*t*t*x3,ny=u*u*u*y0+3*u*u*t*y1+3*u*t*t*y2+t*t*t*y3;currentAddL(px,py,nx,ny);px=nx;py=ny;} }
+  finally { _curveActive=false; }
+}
+function quad(x0,y0,qx,qy,ex,ey,s=12){
+  _curveActive=true;
+  try{ const mx=0.25*x0+0.5*qx+0.25*ex,my=0.25*y0+0.5*qy+0.25*ey;
+    const rr=circumRadius({x:x0,y:y0},{x:mx,y:my},{x:ex,y:ey})*svgUnitToMM;
+    _curveRadiusMM=(isFinite(rr)&&rr>0)?rr:1e6; }catch(e){ _curveRadiusMM=1e6; }
+  try{ let px=x0,py=y0;for(let i=1;i<=s;i++){const t=i/s,u=1-t,nx=u*u*x0+2*u*t*qx+t*t*ex,ny=u*u*y0+2*u*t*qy+t*t*ey;currentAddL(px,py,nx,ny);px=nx;py=ny;} }
+  finally { _curveActive=false; }
+}
 function detectLineType(color){
   if(!color||color==='none'||color==='')return null;
   const c=color.trim().toLowerCase();
@@ -1111,7 +1134,24 @@ function detectLineType(color){
 function addL(x1,y1,x2,y2){
   const len=Math.hypot(x2-x1,y2-y1);
   if(len<0.001)return;
-  lines.push({x1,y1,x2,y2,len,lineType:detectLineType(currentLineColor)});
+  lines.push({x1,y1,x2,y2,len,lineType:detectLineType(currentLineColor),
+    isCurve:_curveActive, radiusMM:_curveActive?_curveRadiusMM:1e6});
+}
+
+// ── ตัวคูณความโค้ง (curve/circle multiplier) ────────────────────────────────────
+function circumRadius(p1,p2,p3){
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const a=dist(p2,p3),b=dist(p1,p3),c=dist(p1,p2);
+  const s=(a+b+c)/2;
+  const area=Math.sqrt(Math.max(0,s*(s-a)*(s-b)*(s-c)));
+  if(area<1e-6)return 1e6; // เกือบเส้นตรง -> รัศมีใหญ่มาก -> ถือว่าไม่ยาก
+  return (a*b*c)/(4*area);
+}
+function curveMultiplier(radiusMM){
+  const lo=3,hi=20; // <=3mm โค้งแคบสุด (x3) / >=20mm โค้งกว้าง (x1)
+  const r=Math.max(lo,Math.min(hi,radiusMM));
+  const frac=(hi-r)/(hi-lo);
+  return 1+2*frac; // 1.0 - 3.0
 }
 
 // ── DEDUPLICATION (เส้นซ้อน) ─────────────────────────────────────────────────
@@ -1534,6 +1574,16 @@ function calculate(){
   const costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
   const totalBladeMM=cutMM+creaseMM;
+  // effectiveMM = ความยาวถ่วงน้ำหนักความโค้ง ใช้เฉพาะฐานค่าบริหารจัดการ (bladeLenAdd) ทุกโหมด
+  let straightMM=0,curveWeightedMM=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut'||l.lineType==='crease'){
+      const lenMM=l.len*svgUnitToMM;
+      if(l.isCurve)curveWeightedMM+=lenMM*curveMultiplier(l.radiusMM);
+      else straightMM+=lenMM;
+    }
+  });
+  const effectiveMM=straightMM+curveWeightedMM;
   const woodArea=woodBox?woodBox.wMM*woodBox.hMM:0;
   const laserAdd=isLaser?Math.round(totalBladeMM/1000*60 + woodArea*0.0008):0;
   const holeInfo=computeHoles();
@@ -1541,7 +1591,7 @@ function calculate(){
   if(holeInfo.oob)showToast('มีรูกลึงขนาดนอกช่วง (จะไม่ถูกคิดราคา)','warn');
   let raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
-    const bladeLenAdd_mode2=totalBladeMM/5000*660;
+    const bladeLenAdd_mode2=effectiveMM/5000*660;
     bladeChangeAdd=isBladeChange&&pCut?Math.round((bladeLenAdd_mode2*0.5+costCut+costCr)*var1*var2):0;
     if(isWoodChange&&woodBox){
       woodChangeAdd=Math.round((bladeLenAdd_mode2*0.4+costWood+totalBladeMM/1000*20)*var1*var2);
@@ -1552,7 +1602,7 @@ function calculate(){
     const addOn=laserExtra+holeAdd;
     finalPrice=addOn>0?roundPrice(price+addOn):price;
   }else{
-    const bladeLenAdd=(totalBladeMM/5000)*660;
+    const bladeLenAdd=(effectiveMM/5000)*660;
     raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
     price=roundPrice(raw);
     const addOn=laserAdd+holeAdd;
