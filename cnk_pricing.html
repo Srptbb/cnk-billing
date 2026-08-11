@@ -8,8 +8,8 @@
 <style>
 :root{
   --bg:#f4f5f7;--surf:#fff;--surf2:#f0f1f4;--bdr:#dde1ea;
-  --accent:#e65100;--cut:#dc2626;--crease:#2563eb;--wood:#16a34a;
-  --cut-bg:#fef2f2;--crease-bg:#eff6ff;--wood-bg:#f0fdf4;
+  --accent:#e65100;--cut:#dc2626;--crease:#2563eb;--wood:#16a34a;--perf:#7c3aed;
+  --cut-bg:#fef2f2;--crease-bg:#eff6ff;--wood-bg:#f0fdf4;--perf-bg:#f5f3ff;
   --text:#1a1d2e;--text2:#6b7280;--green:#16a34a;--yellow:#d97706;
   --sh:0 1px 3px rgba(0,0,0,.08);--sh2:0 4px 16px rgba(0,0,0,.12);
   --mono:'IBM Plex Mono',monospace;--sans:'Sarabun',sans-serif;
@@ -76,6 +76,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 .mbtn.a-cut{border-color:var(--cut);background:var(--cut-bg);color:var(--cut);}
 .mbtn.a-crease{border-color:var(--crease);background:var(--crease-bg);color:var(--crease);}
 .mbtn.a-wood{border-color:var(--wood);background:var(--wood-bg);color:var(--wood);}
+.mbtn.a-perf{border-color:var(--perf);background:var(--perf-bg);color:var(--perf);}
 .mbtn.a-delete{border-color:#dc2626;background:#fef2f2;color:#dc2626;}
 .mode-hint{font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;}
 
@@ -84,10 +85,11 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 .scard{background:var(--surf2);border-radius:7px;padding:9px 11px;border:1px solid var(--bdr);}
 .scard.cc{border-left:3px solid var(--cut);}
 .scard.cr{border-left:3px solid var(--crease);}
+.scard.cp{border-left:3px solid var(--perf);}
 .scard.cw{border-left:3px solid var(--wood);grid-column:1/-1;}
 .slabel{font-size:10px;color:var(--text2);margin-bottom:1px;}
 .sval{font-size:18px;font-weight:700;font-family:var(--mono);}
-.sv-cut{color:var(--cut);}.sv-crease{color:var(--crease);}.sv-wood{color:var(--wood);}
+.sv-cut{color:var(--cut);}.sv-crease{color:var(--crease);}.sv-wood{color:var(--wood);}.sv-perf{color:var(--perf);}
 .sunit{font-size:10px;color:var(--text2);}
 .wood-sub{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:2px;}
 
@@ -254,6 +256,10 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
           <span class="price-label" style="color:#16a34a;">🪵 ค่าเปลี่ยนไม้</span>
           <span class="price-real" id="wood-change-amt" style="color:#16a34a;">—</span>
         </div>
+        <div class="price-row" id="perf-row" style="display:none;">
+          <span class="price-label" style="color:var(--perf);">🧵 เส้นปรุ (รวมในราคาแล้ว)</span>
+          <span class="price-real" id="perf-amt" style="color:var(--perf);">—</span>
+        </div>
         <div class="price-row" id="hole-row" style="display:none;">
           <span class="price-label" style="color:#0891b2;">🕳️ ค่ารูกลึง</span>
           <span class="price-real" id="hole-amt" style="color:#0891b2;">—</span>
@@ -295,6 +301,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
     <div class="mode-row">
       <button class="mbtn a-cut" id="btn-cut" onclick="setMode('cut')">✂️ เส้นคม</button>
       <button class="mbtn" id="btn-crease" onclick="setMode('crease')">📐 เส้นพับ</button>
+      <button class="mbtn" id="btn-perf" onclick="setMode('perf')">🧵 เส้นปรุ</button>
       <button class="mbtn" id="btn-wood" onclick="setMode('wood')">🪵 กรอบไม้</button>
       <button class="mbtn" id="btn-delete" onclick="setMode('delete')" style="color:#dc2626;">🗑️ ลบเส้น</button>
     </div>
@@ -302,6 +309,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
     <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;">
       <button class="clr-btn" onclick="clearLines('cut')">ล้างเส้นคม</button>
       <button class="clr-btn" onclick="clearLines('crease')">ล้างเส้นพับ</button>
+      <button class="clr-btn" onclick="clearLines('perf')">ล้างเส้นปรุ</button>
       <button class="clr-btn" onclick="clearLines('all')">ล้างทั้งหมด</button>
       <button class="clr-btn" id="btn-undo" onclick="undo()" style="margin-left:auto;opacity:0.4;" disabled>↩ ยกเลิก</button>
     </div>
@@ -319,6 +327,11 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <div class="scard cr">
         <div class="slabel">📐 เส้นพับ</div>
         <div class="sval sv-crease" id="crease-len">0</div>
+        <div class="sunit">mm</div>
+      </div>
+      <div class="scard cp">
+        <div class="slabel">🧵 เส้นปรุ</div>
+        <div class="sval sv-perf" id="perf-len">0</div>
         <div class="sunit">mm</div>
       </div>
       <div class="scard cw">
@@ -341,6 +354,15 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <div class="fnote" id="crease-note" style="display:none;color:var(--yellow);">
         ⚠️ ยังไม่มีข้อมูลเส้นพับ — เพิ่มแถวใน sheet pricing โดยใส่ column type = crease
       </div>
+    </div>
+    <div class="fg">
+      <label>ชนิดเส้นปรุ <span style="color:var(--text2);font-size:10px;">(ใช้กับเส้นที่เลือกในโหมด 🧵 หลังจากนี้)</span></label>
+      <select id="blade-perf">
+        <option value="2x1">2x1 — 55฿/ม.</option>
+        <option value="2x2">2x2 — 55฿/ม.</option>
+        <option value="3x3">3x3 — 60฿/ม.</option>
+        <option value="5x5">5x5 — 55฿/ม.</option>
+      </select>
     </div>
   </div>
 
@@ -1217,6 +1239,7 @@ function render(){
     if(isHov){ctx.strokeStyle='rgba(220,38,38,0.85)';ctx.lineWidth=4;ctx.setLineDash([4,3]);}
     else if(l.lineType==='cut'){ctx.strokeStyle='#dc2626';ctx.lineWidth=2.5;ctx.setLineDash([]);}
     else if(l.lineType==='crease'){ctx.strokeStyle='#2563eb';ctx.lineWidth=2.5;ctx.setLineDash([6,3]);}
+    else if(l.lineType==='perf'){ctx.strokeStyle='#7c3aed';ctx.lineWidth=2.5;ctx.setLineDash([2,3]);}
     else{ctx.strokeStyle='rgba(80,90,120,0.45)';ctx.lineWidth=1;ctx.setLineDash([]);}
     ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke();
   });
@@ -1273,9 +1296,9 @@ function render(){
   // Box select preview
   if(isBoxing&&boxStart&&boxCur){
     const[bx1,by1]=scr(boxStart.wx,boxStart.wy),[bx2,by2]=scr(boxCur.wx,boxCur.wy);
-    ctx.fillStyle=mode==='cut'?'rgba(220,38,38,0.07)':'rgba(37,99,235,0.07)';
+    ctx.fillStyle=mode==='cut'?'rgba(220,38,38,0.07)':mode==='perf'?'rgba(124,58,237,0.07)':'rgba(37,99,235,0.07)';
     ctx.fillRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
-    ctx.strokeStyle=mode==='cut'?'#dc2626':'#2563eb';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+    ctx.strokeStyle=mode==='cut'?'#dc2626':mode==='perf'?'#7c3aed':'#2563eb';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
     ctx.strokeRect(Math.min(bx1,bx2),Math.min(by1,by2),Math.abs(bx2-bx1),Math.abs(by2-by1));
     ctx.setLineDash([]);
   }
@@ -1287,7 +1310,7 @@ function getXY(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left
 canvas.addEventListener('mousedown',e=>{
   const[mx,my]=getXY(e);
   if(panMode||e.altKey||e.button===1){isPanning=true;panStart={x:mx,y:my};panOff={x:viewOffX,y:viewOffY};canvas.style.cursor='grabbing';return;}
-  if(mode==='cut'||mode==='crease'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;}
+  if(mode==='cut'||mode==='crease'||mode==='perf'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;}
 });
 canvas.addEventListener('mousemove',e=>{
   const[mx,my]=getXY(e);
@@ -1319,7 +1342,7 @@ canvas.addEventListener('touchstart',e=>{
     const t=e.touches[0];const r=canvas.getBoundingClientRect();
     const mx=t.clientX-r.left,my=t.clientY-r.top;
     if(panMode){isPanning=true;panStart={x:mx,y:my};panOff={x:viewOffX,y:viewOffY};return;}
-    if(mode==='cut'||mode==='crease'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;return;}
+    if(mode==='cut'||mode==='crease'||mode==='perf'||mode==='delete'){const[wx,wy]=wld(mx,my);boxStart={wx,wy};boxCur={wx,wy};isBoxing=true;return;}
     if(mode==='wood'){lastTouch={mx,my};}
   } else if(e.touches.length===2){
     isPanning=false;isBoxing=false;
@@ -1398,7 +1421,7 @@ function handleSelect(mx,my){
     } else if(isClick){
       const THRESH=10/viewScale;let best=null,bestD=Infinity;
       lines.forEach((l,idx)=>{const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);if(d<THRESH&&d<bestD){bestD=d;best=idx;}});
-      if(best!==null)lines[best].lineType=lines[best].lineType===mode?null:mode;
+      if(best!==null){lines[best].lineType=lines[best].lineType===mode?null:mode;if(lines[best].lineType==='perf')lines[best].perfType=document.getElementById('blade-perf').value;}
     } else {
       const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
       const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
@@ -1410,7 +1433,7 @@ function handleSelect(mx,my){
         inBox.forEach(l=>{if(l.lineType===mode){l.lineType=null;count++;}});
         if(count>0)showToast(`ยกเลิก ${count} เส้น`,'ok');else history.pop();
       } else {
-        inBox.forEach(l=>{if(l.lineType===null){l.lineType=mode;count++;}});
+        inBox.forEach(l=>{if(l.lineType===null){l.lineType=mode;if(mode==='perf')l.perfType=document.getElementById('blade-perf').value;count++;}});
         if(count>0)showToast(`เลือก ${count} เส้น`,'ok');else history.pop();
       }
     }
@@ -1452,12 +1475,13 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){
 const HINTS={
   cut:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นคม (แดง) · แตะซ้ำยกเลิก',
   crease:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นพับ (น้ำเงิน) · แตะซ้ำยกเลิก',
+  perf:'เลือกชนิดเส้นปรุก่อน แล้วลากครอบ/แตะเส้น → เส้นปรุ (ม่วง) · แตะซ้ำยกเลิก',
   wood:'แตะจุดที่ 1 → จุดที่ 2 เพื่อกำหนดกรอบไม้ (+30mm ทุกด้าน)',
   delete:'แตะเดี่ยว หรือลากครอบ → ลบเส้นออกจากไฟล์ (กด Ctrl+Z เพื่อยกเลิก)',
 };
 function setMode(m){
   mode=m;panMode=false;
-  ['cut','crease','wood','delete'].forEach(id=>document.getElementById('btn-'+id)&&(document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:'')));
+  ['cut','crease','perf','wood','delete'].forEach(id=>document.getElementById('btn-'+id)&&(document.getElementById('btn-'+id).className='mbtn'+(m===id?' a-'+id:'')));
   document.getElementById('btn-pan').classList.remove('active');
   document.getElementById('mode-hint').textContent=HINTS[m]||'';
   updateCursor();
@@ -1489,10 +1513,11 @@ function finishLoad(label){
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
 function updateStats(){
-  let cut=0,crease=0;
-  lines.forEach(l=>{if(l.lineType==='cut')cut+=l.len*svgUnitToMM;else if(l.lineType==='crease')crease+=l.len*svgUnitToMM;});
+  let cut=0,crease=0,perf=0;
+  lines.forEach(l=>{if(l.lineType==='cut')cut+=l.len*svgUnitToMM;else if(l.lineType==='crease')crease+=l.len*svgUnitToMM;else if(l.lineType==='perf')perf+=l.len*svgUnitToMM;});
   document.getElementById('cut-len').textContent=cut.toFixed(0);
   document.getElementById('crease-len').textContent=crease.toFixed(0);
+  const _pl=document.getElementById('perf-len');if(_pl)_pl.textContent=perf.toFixed(0);
   if(woodBox){
     document.getElementById('wood-size').textContent=`${woodBox.wMM.toFixed(0)} × ${woodBox.hMM.toFixed(0)} mm`;
     document.getElementById('wood-sub').textContent=`งานจริง ${woodBox.workW.toFixed(0)}×${woodBox.workH.toFixed(0)} mm`;
@@ -1514,6 +1539,18 @@ function srcExclusive(id){
 }
 
 function roundPrice(v){const rem=v%100,base=Math.floor(v/100)*100;if(rem<=25)return base;if(rem<=74)return base+50;return base+100;}
+
+// ── เส้นปรุ (perforation) — ต้นทุน/เมตร คิดแบบเดียวกับเส้นคม/เส้นพับ ────────────
+const PERF_TYPES=[
+  {name:'2x1', pricePerM:55},
+  {name:'2x2', pricePerM:55},
+  {name:'3x3', pricePerM:60},
+  {name:'5x5', pricePerM:55}
+];
+function perfPricePerM(name){
+  for(let i=0;i<PERF_TYPES.length;i++){ if(PERF_TYPES[i].name===name) return PERF_TYPES[i].pricePerM; }
+  return 0;
+}
 
 // ── รูกลึง (เจาะรู) ────────────────────────────────────────────────────────────
 function holeUnit(d){
@@ -1559,13 +1596,17 @@ function calculate(){
   const isLaser=document.getElementById('laser-chk').checked;
   const isBladeChange=document.getElementById('blade-change-chk').checked;
   const isWoodChange=document.getElementById('wood-change-chk').checked;
-  let cutMM=0,creaseMM=0;
-  lines.forEach(l=>{if(l.lineType==='cut')cutMM+=l.len*svgUnitToMM;else if(l.lineType==='crease')creaseMM+=l.len*svgUnitToMM;});
-  if(cutMM===0&&creaseMM===0&&!isWoodChange){showToast('ยังไม่ได้เลือกเส้น','warn');return;}
+  let cutMM=0,creaseMM=0,perfMM=0,costPerf=0;
+  lines.forEach(l=>{
+    if(l.lineType==='cut')cutMM+=l.len*svgUnitToMM;
+    else if(l.lineType==='crease')creaseMM+=l.len*svgUnitToMM;
+    else if(l.lineType==='perf'){const _lp=l.len*svgUnitToMM;perfMM+=_lp;costPerf+=_lp*(perfPricePerM(l.perfType)/1000);}
+  });
+  if(cutMM===0&&creaseMM===0&&perfMM===0&&!isWoodChange){showToast('ยังไม่ได้เลือกเส้น','warn');return;}
   if(!woodBox&&!isBladeChange){showToast('ยังไม่กำหนดกรอบไม้ — โหมด 🪵 แล้วคลิก 2 จุด','warn');return;}
   const ci=parseInt(document.getElementById('blade-cut').value);
   const pCut=pricingCut[ci];
-  if(!pCut&&(cutMM>0||creaseMM>0||isBladeChange)){showToast('เลือกชนิดมีดก่อน','warn');return;}
+  if(!pCut&&(cutMM>0||creaseMM>0||perfMM>0||isBladeChange)){showToast('เลือกชนิดมีดก่อน','warn');return;}
   const ciCr=parseInt(document.getElementById('blade-crease').value);
   const pCr=pricingCrease[ciCr];
   const var2=selectedCust?selectedCust.multiplier:1.0;
@@ -1573,11 +1614,11 @@ function calculate(){
   const costCut=pCut?cutMM*parseFloat(pCut.cost_per_mm):0;
   const costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
   const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
-  const totalBladeMM=cutMM+creaseMM;
+  const totalBladeMM=cutMM+creaseMM+perfMM;
   // effectiveMM = ความยาวถ่วงน้ำหนักความโค้ง ใช้เฉพาะฐานค่าบริหารจัดการ (bladeLenAdd) ทุกโหมด
   let straightMM=0,curveWeightedMM=0;
   lines.forEach(l=>{
-    if(l.lineType==='cut'||l.lineType==='crease'){
+    if(l.lineType==='cut'||l.lineType==='crease'||l.lineType==='perf'){
       const lenMM=l.len*svgUnitToMM;
       if(l.isCurve)curveWeightedMM+=lenMM*curveMultiplier(l.radiusMM);
       else straightMM+=lenMM;
@@ -1592,7 +1633,7 @@ function calculate(){
   let raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
     const bladeLenAdd_mode2=effectiveMM/5000*660;
-    bladeChangeAdd=isBladeChange&&pCut?Math.round((bladeLenAdd_mode2*0.5+costCut+costCr)*var1*var2):0;
+    bladeChangeAdd=isBladeChange&&pCut?Math.round((bladeLenAdd_mode2*0.5+costCut+costCr+costPerf)*var1*var2):0;
     if(isWoodChange&&woodBox){
       woodChangeAdd=Math.round((bladeLenAdd_mode2*0.4+costWood+totalBladeMM/1000*20)*var1*var2);
     }
@@ -1603,7 +1644,7 @@ function calculate(){
     finalPrice=addOn>0?roundPrice(price+addOn):price;
   }else{
     const bladeLenAdd=(effectiveMM/5000)*660;
-    raw=(bladeLenAdd+costCut+costCr+costWood)*var1*var2;
+    raw=(bladeLenAdd+costCut+costCr+costPerf+costWood)*var1*var2;
     price=roundPrice(raw);
     const addOn=laserAdd+holeAdd;
     finalPrice=addOn>0?roundPrice(price+addOn):price;
@@ -1622,6 +1663,8 @@ function calculate(){
     woodH: woodBox?Math.round(woodBox.hMM):0,
     cutMM: Math.round(cutMM),
     creaseMM: Math.round(creaseMM),
+    perfMM: Math.round(perfMM),
+    costPerf: Math.round(costPerf*100)/100,
     rawPrice: Math.round(raw*100)/100,
     price,
     laser: isLaser, laserAdd,
@@ -1646,10 +1689,15 @@ function calculate(){
   const woodChangeRow=document.getElementById('wood-change-row');
   if(isWoodChange&&woodChangeAdd>0){woodChangeRow.style.display='flex';document.getElementById('wood-change-amt').textContent='+฿'+woodChangeAdd.toLocaleString();}
   else woodChangeRow.style.display='none';
+  const perfRow=document.getElementById('perf-row');
+  if(perfRow){
+    if(perfMM>0){perfRow.style.display='flex';document.getElementById('perf-amt').textContent=perfMM.toFixed(0)+' mm (~฿'+costPerf.toFixed(0)+')';}
+    else perfRow.style.display='none';
+  }
   const holeRow=document.getElementById('hole-row');
   if(holeAdd>0){holeRow.style.display='flex';document.getElementById('hole-amt').textContent='+฿'+holeAdd.toLocaleString()+' ('+holeCount+' รู)';}
   else holeRow.style.display='none';
-  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',holeCount>0?'🕳️รูกลึง'+holeCount:''].filter(Boolean).join(' · ');
+  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',perfMM>0?'🧵เส้นปรุ':'',holeCount>0?'🕳️รูกลึง'+holeCount:''].filter(Boolean).join(' · ');
   const bladeLabel=pCut?pCut.blade:'—';
   document.getElementById('price-sub').textContent=`${bladeLabel} · ${custName}${note?' · '+note:''}${extrasLabel?' · '+extrasLabel:''}`;
   showToast(`฿${finalPrice.toLocaleString()} / ชิ้น`,'ok');
@@ -1661,7 +1709,7 @@ function calculate(){
 function saveToWorklist(){
   if(!lastResult){showToast('คำนวณราคาก่อน','warn');return;}
   const id = 'q_'+Date.now();
-  const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':''].filter(Boolean).join('+');
+  const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':'',(lastResult.perfMM>0)?'เส้นปรุ':''].filter(Boolean).join('+');
   const data = {
     id, ...lastResult,
     note: lastResult.note+(_extras?'('+_extras+')':''),
