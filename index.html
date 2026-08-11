@@ -2309,8 +2309,13 @@ function wlNoteEdit(el) {
 }
 
 function updateWlBadge() {
-  // นับเฉพาะงานที่ลูกค้ายืนยันแล้ว ไม่รวมงานที่แค่เสนอราคา (ยังไม่ manual/ยืนยัน)
-  var pending = wlData.filter(function(r){ return (r.status||'pending')==='pending' && wlIsConfirmed(r); }).length;
+  // นับเฉพาะงานที่ "ยังค้างอยู่จริง" = ติ๊กเขียนแบบ หรือ กำลังทำ แต่ยังไม่ถึงงานเสร็จ
+  // ไม่รวมงานเสร็จ/ส่งแล้ว/จ่ายแล้ว (เสร็จแล้วไม่ใช่งานค้าง) และไม่รวมงานที่แค่เสนอราคา (ยังไม่ยืนยัน)
+  var pending = wlData.filter(function(r){
+    if((r.status||'pending')!=='pending') return false;
+    return (wlIsOn(r.statusDesigned) || wlIsOn(r.statusWorking))
+        && !wlIsOn(r.statusComplete) && !wlIsOn(r.statusShipped) && !wlIsOn(r.statusPaid);
+  }).length;
   var badge = document.getElementById('wl-badge');
   if(badge) {
     badge.textContent = pending;
