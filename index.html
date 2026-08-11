@@ -1757,13 +1757,21 @@ function renderWorklist() {
   });
   var tbody = document.getElementById('wl-tbody');
   var emptyMsg = document.getElementById('wl-empty-msg');
+  var cards = document.getElementById('wl-cards');
+  var table = document.getElementById('wl-table');
+  var mobile = window.innerWidth < 640;
+  // มือถือ = การ์ด (ดูอย่างเดียว + ติ๊กสถานะ) · จอใหญ่ = ตารางเต็ม
+  if(table) table.style.display = mobile ? 'none' : 'table';
+  if(cards) cards.style.display = mobile ? 'block' : 'none';
   if(!filtered.length) {
     tbody.innerHTML = '';
+    if(cards) cards.innerHTML = '';
     emptyMsg.style.display = 'block';
     updateWlSelCount();
     return;
   }
   emptyMsg.style.display = 'none';
+  if(mobile) { wlRenderCards(filtered); updateWlSelCount(); return; }
   tbody.innerHTML = filtered.map(function(r) {
     var status = r.status || 'pending';
     var confirmed = wlIsConfirmed(r);
@@ -1822,6 +1830,60 @@ function renderWorklist() {
   }).join('');
   updateWlSelCount();
 }
+
+// การ์ดสำหรับมือถือ — ดูอย่างเดียว + ติ๊กสถานะได้ (ไม่มีปุ่มแก้ไข/ลบ/เปิดบิล)
+function wlRenderCards(filtered){
+  var cards = document.getElementById('wl-cards');
+  if(!cards) return;
+  cards.innerHTML = filtered.map(function(r){
+    var status = r.status || 'pending';
+    var confirmed = wlIsConfirmed(r);
+    var statusBadge = wlStatusBadge(r);
+    var dateStr = r.ts ? new Date(r.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+    var priceFmt = r.price ? '฿'+parseFloat(r.price).toLocaleString() : '-';
+    var woodStr = (r.woodCount!==undefined && r.woodCount!=='' && r.woodCount!==null)
+      ? h(String(r.woodCount))+' อัน'
+      : ((r.woodW && r.woodH) ? r.woodW+'×'+r.woodH+' mm' : '');
+    var bladeStr = (r.bladeCount!==undefined && r.bladeCount!=='' && r.bladeCount!==null)
+      ? h(String(r.bladeCount))+' อัน'
+      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?' · '+Number(r.cutMM).toLocaleString()+'mm':'') : '');
+    var accent = wlRowAccent(r);
+    var rcust = h(r.custName||'');
+    var rnote = h(r.note||'');
+    var rmemo = h(r.memo||'');
+    var sourceTag = wlSourceTag(r.jobSource);
+    var cardStyle = 'border:1px solid #eceef2;border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#fff;'
+      + (accent ? ('border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';') : '')
+      + ((status!=='billed' && !confirmed) ? 'opacity:0.7;' : '');
+    var meta = [];
+    if(bladeStr) meta.push('🔪 '+bladeStr);
+    if(woodStr) meta.push('🪵 '+woodStr);
+    return '<div style="'+cardStyle+'">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
+        + '<span style="font-weight:700;font-size:15px;color:#1a1a2e;">'+(rcust||'-')+'</span>'
+        + '<span style="font-family:monospace;font-weight:700;color:#e65100;font-size:15px;white-space:nowrap;">'+priceFmt+'</span>'
+      + '</div>'
+      + '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+statusBadge+'<span style="font-size:11px;color:#999;">'+dateStr+'</span></div>'
+      + (rnote ? '<div style="margin-top:6px;font-size:13px;color:#555;">'+rnote+sourceTag+'</div>' : (sourceTag?'<div style="margin-top:6px;">'+sourceTag+'</div>':''))
+      + (meta.length ? '<div style="margin-top:5px;font-size:11px;color:#888;display:flex;gap:12px;flex-wrap:wrap;">'+meta.map(function(m){return '<span>'+m+'</span>';}).join('')+'</div>' : '')
+      + (rmemo ? '<div style="margin-top:5px;font-size:12px;color:#777;background:#f8f9fb;border-radius:6px;padding:5px 8px;">📝 '+rmemo+'</div>' : '')
+      + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f0f2f5;overflow-x:auto;">'+wlProgressCell(r)+'</div>'
+      + '</div>';
+  }).join('');
+}
+
+// สลับ ตาราง↔การ์ด อัตโนมัติเมื่อหมุนจอ/เปลี่ยนขนาด (debounce)
+var _wlResizeTO = null, _wlWasMobile = (typeof window!=='undefined' && window.innerWidth < 640);
+window.addEventListener('resize', function(){
+  clearTimeout(_wlResizeTO);
+  _wlResizeTO = setTimeout(function(){
+    var nowMobile = window.innerWidth < 640;
+    if(nowMobile === _wlWasMobile) return; // ข้ามผ่านเกณฑ์เท่านั้นค่อย re-render
+    _wlWasMobile = nowMobile;
+    var wrap = document.getElementById('wl-table-wrap');
+    if(wrap && wrap.style.display !== 'none' && typeof wlData !== 'undefined' && wlData && wlData.length) renderWorklist();
+  }, 200);
+});
 
 var WL_STATUS_DEFS = [
   ['statusDesigned','เขียนแบบ'],
@@ -5863,7 +5925,7 @@ function doPrintQt(qt) {
 <div style="padding:20px 28px;">
   <div id="wl-loading" style="text-align:center;color:#aaa;padding:40px 0;">กำลังโหลด...</div>
   <div id="wl-table-wrap" style="display:none;">
-    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <table id="wl-table" style="width:100%;border-collapse:collapse;font-size:14px;">
       <thead>
         <tr style="background:#f0f2f5;">
           <th style="padding:10px 12px;text-align:center;width:36px;"><input type="checkbox" id="wl-check-all" onchange="wlToggleAll(this.checked)"></th>
@@ -5881,6 +5943,7 @@ function doPrintQt(qt) {
       </thead>
       <tbody id="wl-tbody"></tbody>
     </table>
+    <div id="wl-cards" style="display:none;"></div>
     <div id="wl-empty-msg" style="display:none;text-align:center;color:#aaa;padding:40px 0;">ไม่มีรายการ</div>
   </div>
 </div>
