@@ -621,8 +621,8 @@ function parseDXF(text){
   // 2) วาดเฉพาะ entity ใน ENTITIES section
   let section='',curBlock=null;
   const readEntity=(val)=>{
-    const ent={type:val,codes:{}};
-    while(i<rows.length){if(peek()==='0')break;const ec=nxt(),ev=nxt();if(!ent.codes[ec])ent.codes[ec]=[];ent.codes[ec].push(ev);}
+    const ent={type:val,codes:{},pairs:[]}; // pairs = ลำดับ code/value เดิม (ใช้จับคู่ bulge 42 กับ vertex ให้ถูกจุด)
+    while(i<rows.length){if(peek()==='0')break;const ec=nxt(),ev=nxt();if(!ent.codes[ec])ent.codes[ec]=[];ent.codes[ec].push(ev);ent.pairs.push([ec,ev]);}
     return ent;
   };
   const ENT_TYPES=['LINE','LWPOLYLINE','POLYLINE','ARC','CIRCLE','SPLINE','ELLIPSE','POINT','SOLID'];
@@ -720,11 +720,15 @@ function dxfEnt(e,ox=0,oy=0,scaleX=1,scaleY=1,rot=0){
     const cx=g('10'),cy=g('20'),r=g('40');
     let a1=g('50')*Math.PI/180,a2=g('51')*Math.PI/180,d=a2-a1;if(d<0)d+=2*Math.PI;
     const s=Math.max(12,Math.ceil(d*r/2));
-    for(let i=0;i<s;i++)L(cx+r*Math.cos(a1+d*i/s),cy+r*Math.sin(a1+d*i/s),cx+r*Math.cos(a1+d*(i+1)/s),cy+r*Math.sin(a1+d*(i+1)/s));
+    _curveActive=true; _curveRadiusMM=(isFinite(r)&&r>0)?r*svgUnitToMM:1e6; // ถ่วงน้ำหนักความโค้งเหมือน SVG arc
+    try{ for(let i=0;i<s;i++)L(cx+r*Math.cos(a1+d*i/s),cy+r*Math.sin(a1+d*i/s),cx+r*Math.cos(a1+d*(i+1)/s),cy+r*Math.sin(a1+d*(i+1)/s)); }
+    finally{ _curveActive=false; }
   } else if(e.type==='CIRCLE'){
     const cx=g('10'),cy=g('20'),r=g('40');
     const s=Math.max(48,Math.ceil(2*Math.PI*r/2));
-    for(let i=0;i<s;i++)L(cx+r*Math.cos(2*Math.PI*i/s),cy+r*Math.sin(2*Math.PI*i/s),cx+r*Math.cos(2*Math.PI*(i+1)/s),cy+r*Math.sin(2*Math.PI*(i+1)/s));
+    _curveActive=true; _curveRadiusMM=(isFinite(r)&&r>0)?r*svgUnitToMM:1e6;
+    try{ for(let i=0;i<s;i++)L(cx+r*Math.cos(2*Math.PI*i/s),cy+r*Math.sin(2*Math.PI*i/s),cx+r*Math.cos(2*Math.PI*(i+1)/s),cy+r*Math.sin(2*Math.PI*(i+1)/s)); }
+    finally{ _curveActive=false; }
   } else if(e.type==='ELLIPSE'){
     // code 10/20 = center, 11/21 = endpoint ของแกนหลัก (relative to center)
     // code 40 = ratio (minor/major), 41 = start param, 42 = end param (radians)
@@ -743,12 +747,33 @@ function dxfEnt(e,ox=0,oy=0,scaleX=1,scaleY=1,rot=0){
       const ex=major*Math.cos(ang),ey=minor*Math.sin(ang);
       return [cx+ex*cosE-ey*sinE, cy+ex*sinE+ey*cosE];
     };
-    let prev=pt(start);
-    for(let i=1;i<=s;i++){const cur=pt(start+sweep*i/s);L(prev[0],prev[1],cur[0],cur[1]);prev=cur;}
+    const rEll=(major+minor)/2; // รัศมีประมาณของวงรี (ใช้ถ่วงน้ำหนักความโค้ง)
+    _curveActive=true; _curveRadiusMM=(isFinite(rEll)&&rEll>0)?rEll*svgUnitToMM:1e6;
+    try{
+      let prev=pt(start);
+      for(let i=1;i<=s;i++){const cur=pt(start+sweep*i/s);L(prev[0],prev[1],cur[0],cur[1]);prev=cur;}
+    } finally{ _curveActive=false; }
   } else if(e.type==='LWPOLYLINE'||e.type==='POLYLINE'){
-    const xs=ga('10'),ys=ga('20');
-    for(let i=0;i<xs.length-1;i++)L(xs[i],ys[i],xs[i+1],ys[i+1]);
-    if(parseInt(e.codes['70']?.[0]||'0')&1&&xs.length>1)L(xs[xs.length-1],ys[ys.length-1],xs[0],ys[0]);
+    // สร้าง vertex ตามลำดับจริง เพื่อผูกค่า bulge (code 42) เข้ากับ vertex ต้นทางของแต่ละช่วงให้ถูกต้อง
+    // (parser flatten codes + DXF มัก "ละ" code 42 ที่ vertex เส้นตรง → ใช้ ga('42')[i] จะเพี้ยนทุก polyline)
+    const verts=[]; let cur=null;
+    for(const pr of (e.pairs||[])){
+      const ec=pr[0], ev=pr[1];
+      if(ec==='10'){ if(cur)verts.push(cur); cur={x:parseFloat(ev),y:0,b:0}; }
+      else if(ec==='20'&&cur){ cur.y=parseFloat(ev); }
+      else if(ec==='42'&&cur){ cur.b=parseFloat(ev); }
+    }
+    if(cur)verts.push(cur);
+    const n=verts.length;
+    if(n>=2){
+      const closed=(parseInt(e.codes['70']?.[0]||'0')&1)===1;
+      const segCount=closed?n:n-1;
+      for(let k=0;k<segCount;k++){
+        const v1=verts[k], v2=verts[(k+1)%n];
+        if(Math.abs(v1.b)<1e-9){ L(v1.x,v1.y,v2.x,v2.y); }           // เส้นตรง
+        else dxfBulgeArc(L,v1.x,v1.y,v2.x,v2.y,v1.b);                 // ส่วนโค้ง (bulge != 0)
+      }
+    }
   } else if(e.type==='SPLINE'){
     const degree=parseInt(e.codes['71']?.[0])||3;
     const xs=(e.codes['10']||[]).map(Number);
@@ -767,6 +792,31 @@ function dxfEnt(e,ox=0,oy=0,scaleX=1,scaleY=1,rot=0){
   } else if(e.type==='POINT'){
     // ข้าม point เดี่ยว
   }
+}
+
+// LWPOLYLINE bulge → ส่วนโค้ง แตกเป็นท่อนย่อยแล้ววาดผ่าน emitter L (รองรับ INSERT transform)
+// ตั้ง _curveActive/_curveRadiusMM ให้ addL แท็กเป็นเส้นโค้ง (ถ่วงน้ำหนักความโค้งเหมือน ARC/SVG)
+function dxfBulgeArc(L,x1,y1,x2,y2,b){
+  const chord=Math.hypot(x2-x1,y2-y1);
+  const theta=4*Math.atan(Math.abs(b));            // มุมรวมของส่วนโค้ง (เรเดียน)
+  const sinHalf=Math.sin(theta/2);
+  if(chord<1e-9||sinHalf<1e-9){L(x1,y1,x2,y2);return;} // กันหาร 0 → fallback เส้นตรง
+  const r=chord/(2*sinHalf);                        // รัศมี
+  const midx=(x1+x2)/2,midy=(y1+y2)/2;
+  const d=Math.sqrt(Math.max(0,r*r-(chord/2)*(chord/2)));
+  const dx=(x2-x1)/chord,dy=(y2-y1)/chord;
+  const sign=b>0?1:-1;                              // bulge บวก = โค้งทวนเข็ม
+  const cx=midx-sign*d*dy, cy=midy+sign*d*dx;
+  const a1=Math.atan2(y1-cy,x1-cx);
+  const sweep=b>0?theta:-theta;
+  const s=Math.max(8,Math.ceil(Math.abs(theta)*r/2)); // ยิ่งโค้ง/รัศมีใหญ่ ยิ่งแตกละเอียด
+  _curveActive=true; _curveRadiusMM=(isFinite(r)&&r>0)?r*svgUnitToMM:1e6;
+  try{
+    for(let k=0;k<s;k++){
+      const t1=a1+sweep*k/s, t2=a1+sweep*(k+1)/s;
+      L(cx+r*Math.cos(t1), cy+r*Math.sin(t1), cx+r*Math.cos(t2), cy+r*Math.sin(t2));
+    }
+  } finally{ _curveActive=false; }
 }
 
 // B-spline → เขียนลง buffer (แทนที่จะ addL ตรง ๆ เพื่อให้ INSERT transform ได้)
