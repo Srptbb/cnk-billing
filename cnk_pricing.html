@@ -68,10 +68,10 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* Mode btns */
-.mode-row{display:flex;gap:5px;}
-.mbtn{flex:1;padding:9px 4px;border-radius:7px;border:1.5px solid var(--bdr);
-  background:var(--surf2);color:var(--text2);font-family:var(--sans);font-size:13px;
-  cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center;gap:3px;font-weight:500;}
+.mode-row{display:flex;gap:4px;}
+.mbtn{flex:1;min-width:0;padding:8px 2px;border-radius:7px;border:1.5px solid var(--bdr);
+  background:var(--surf2);color:var(--text2);font-family:var(--sans);font-size:11.5px;
+  cursor:pointer;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:500;white-space:nowrap;line-height:1.15;}
 .mbtn:hover,.mbtn:active{border-color:var(--text);color:var(--text);background:white;}
 .mbtn.a-cut{border-color:var(--cut);background:var(--cut-bg);color:var(--cut);}
 .mbtn.a-crease{border-color:var(--crease);background:var(--crease-bg);color:var(--crease);}
@@ -86,7 +86,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 .scard.cc{border-left:3px solid var(--cut);}
 .scard.cr{border-left:3px solid var(--crease);}
 .scard.cp{border-left:3px solid var(--perf);}
-.scard.cw{border-left:3px solid var(--wood);grid-column:1/-1;}
+.scard.cw{border-left:3px solid var(--wood);}
 .slabel{font-size:10px;color:var(--text2);margin-bottom:1px;}
 .sval{font-size:18px;font-weight:700;font-family:var(--mono);}
 .sv-cut{color:var(--cut);}.sv-crease{color:var(--crease);}.sv-wood{color:var(--wood);}.sv-perf{color:var(--perf);}
@@ -311,7 +311,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <button class="clr-btn" onclick="clearLines('crease')">ล้างเส้นพับ</button>
       <button class="clr-btn" onclick="clearLines('perf')">ล้างเส้นปรุ</button>
       <button class="clr-btn" onclick="clearLines('all')">ล้างทั้งหมด</button>
-      <button class="clr-btn" id="btn-undo" onclick="undo()" style="margin-left:auto;opacity:0.4;" disabled>↩ ยกเลิก</button>
+      <button class="clr-btn" id="btn-undo" onclick="undo()" style="opacity:0.4;" disabled>↩ ยกเลิก</button>
     </div>
     <div class="obadge" id="obadge">⚠️ พบ+ตัดเส้นซ้อน <span id="ocount">0</span> เส้น อัตโนมัติ</div>
   </div>
@@ -333,6 +333,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
         <div class="slabel">🧵 เส้นปรุ</div>
         <div class="sval sv-perf" id="perf-len">0</div>
         <div class="sunit">mm</div>
+        <div class="wood-sub" id="perf-sub"></div>
       </div>
       <div class="scard cw">
         <div class="slabel">🪵 กรอบไม้ (+30mm ทุกด้าน)</div>
@@ -356,7 +357,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       </div>
     </div>
     <div class="fg">
-      <label>ชนิดเส้นปรุ <span style="color:var(--text2);font-size:10px;">(ใช้กับเส้นที่เลือกในโหมด 🧵 หลังจากนี้)</span></label>
+      <label>ชนิดเส้นปรุ <span style="color:var(--text2);font-size:10px;">(1 แบบมีได้หลายชนิด — เลือกชนิดนี้แล้วแตะ/ลากเส้นในโหมด 🧵)</span></label>
       <select id="blade-perf">
         <option value="2x1">2x1 — 55฿/ม.</option>
         <option value="2x2">2x2 — 55฿/ม.</option>
@@ -1421,20 +1422,40 @@ function handleSelect(mx,my){
     } else if(isClick){
       const THRESH=10/viewScale;let best=null,bestD=Infinity;
       lines.forEach((l,idx)=>{const d=distSeg(wx,wy,l.x1,l.y1,l.x2,l.y2);if(d<THRESH&&d<bestD){bestD=d;best=idx;}});
-      if(best!==null){lines[best].lineType=lines[best].lineType===mode?null:mode;if(lines[best].lineType==='perf')lines[best].perfType=document.getElementById('blade-perf').value;}
+      if(best!==null){
+        if(mode==='perf'){
+          const _cur=document.getElementById('blade-perf').value;
+          if(lines[best].lineType==='perf'){ if(lines[best].perfType===_cur){lines[best].lineType=null;} else {lines[best].perfType=_cur;} }
+          else { lines[best].lineType='perf'; lines[best].perfType=_cur; }
+        } else {
+          lines[best].lineType=lines[best].lineType===mode?null:mode;
+        }
+      }
     } else {
       const x1=Math.min(boxStart.wx,wx),x2=Math.max(boxStart.wx,wx);
       const y1=Math.min(boxStart.wy,wy),y2=Math.max(boxStart.wy,wy);
       const inBox=lines.filter(l=>{const mx2=(l.x1+l.x2)/2,my2=(l.y1+l.y2)/2;return mx2>=x1&&mx2<=x2&&my2>=y1&&my2<=y2;});
-      const hasSelected=inBox.some(l=>l.lineType===mode);
       saveHistory();
       let count=0;
-      if(hasSelected){
-        inBox.forEach(l=>{if(l.lineType===mode){l.lineType=null;count++;}});
-        if(count>0)showToast(`ยกเลิก ${count} เส้น`,'ok');else history.pop();
+      if(mode==='perf'){
+        const _cur=document.getElementById('blade-perf').value;
+        const allSame=inBox.length>0&&inBox.every(l=>l.lineType==='perf'&&l.perfType===_cur);
+        if(allSame){
+          inBox.forEach(l=>{l.lineType=null;count++;});
+          if(count>0)showToast(`ยกเลิก ${count} เส้น`,'ok');else history.pop();
+        } else {
+          inBox.forEach(l=>{if(l.lineType===null||l.lineType==='perf'){l.lineType='perf';l.perfType=_cur;count++;}});
+          if(count>0)showToast(`เลือก ${count} เส้น (${_cur})`,'ok');else history.pop();
+        }
       } else {
-        inBox.forEach(l=>{if(l.lineType===null){l.lineType=mode;if(mode==='perf')l.perfType=document.getElementById('blade-perf').value;count++;}});
-        if(count>0)showToast(`เลือก ${count} เส้น`,'ok');else history.pop();
+        const hasSelected=inBox.some(l=>l.lineType===mode);
+        if(hasSelected){
+          inBox.forEach(l=>{if(l.lineType===mode){l.lineType=null;count++;}});
+          if(count>0)showToast(`ยกเลิก ${count} เส้น`,'ok');else history.pop();
+        } else {
+          inBox.forEach(l=>{if(l.lineType===null){l.lineType=mode;count++;}});
+          if(count>0)showToast(`เลือก ${count} เส้น`,'ok');else history.pop();
+        }
       }
     }
     boxStart=null;boxCur=null;
@@ -1475,7 +1496,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){
 const HINTS={
   cut:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นคม (แดง) · แตะซ้ำยกเลิก',
   crease:'ลากครอบเส้น null เท่านั้น หรือแตะเดี่ยว → เส้นพับ (น้ำเงิน) · แตะซ้ำยกเลิก',
-  perf:'เลือกชนิดเส้นปรุก่อน แล้วลากครอบ/แตะเส้น → เส้นปรุ (ม่วง) · แตะซ้ำยกเลิก',
+  perf:'เลือกชนิด (04) ก่อน แล้วลากครอบ/แตะเส้น → เส้นปรุ (ม่วง) · เปลี่ยนชนิดแล้วแตะซ้ำ = เปลี่ยนชนิด · แตะซ้ำชนิดเดิม = ยกเลิก',
   wood:'แตะจุดที่ 1 → จุดที่ 2 เพื่อกำหนดกรอบไม้ (+30mm ทุกด้าน)',
   delete:'แตะเดี่ยว หรือลากครอบ → ลบเส้นออกจากไฟล์ (กด Ctrl+Z เพื่อยกเลิก)',
 };
@@ -1514,10 +1535,12 @@ function finishLoad(label){
 // ── STATS ─────────────────────────────────────────────────────────────────────
 function updateStats(){
   let cut=0,crease=0,perf=0;
-  lines.forEach(l=>{if(l.lineType==='cut')cut+=l.len*svgUnitToMM;else if(l.lineType==='crease')crease+=l.len*svgUnitToMM;else if(l.lineType==='perf')perf+=l.len*svgUnitToMM;});
+  const perfByType={};
+  lines.forEach(l=>{if(l.lineType==='cut')cut+=l.len*svgUnitToMM;else if(l.lineType==='crease')crease+=l.len*svgUnitToMM;else if(l.lineType==='perf'){const _m=l.len*svgUnitToMM;perf+=_m;const _t=l.perfType||'?';perfByType[_t]=(perfByType[_t]||0)+_m;}});
   document.getElementById('cut-len').textContent=cut.toFixed(0);
   document.getElementById('crease-len').textContent=crease.toFixed(0);
   const _pl=document.getElementById('perf-len');if(_pl)_pl.textContent=perf.toFixed(0);
+  const _ps=document.getElementById('perf-sub');if(_ps){const _keys=Object.keys(perfByType);_ps.textContent=_keys.length?_keys.map(k=>k+': '+perfByType[k].toFixed(0)).join(' · '):'';}
   if(woodBox){
     document.getElementById('wood-size').textContent=`${woodBox.wMM.toFixed(0)} × ${woodBox.hMM.toFixed(0)} mm`;
     document.getElementById('wood-sub').textContent=`งานจริง ${woodBox.workW.toFixed(0)}×${woodBox.workH.toFixed(0)} mm`;
