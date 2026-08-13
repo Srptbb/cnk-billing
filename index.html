@@ -4350,7 +4350,38 @@ function _stRender(hist, liveBills) {
     return (d.sales/wdMonth) / (r10/r10wd);
   }).filter(function(x){return x!==null;});
   var avgRatio = ratios.length ? ratios.reduce(function(a,b){return a+b;},0)/ratios.length : 1;
-  var projected = cur.sales + ratePerDay * avgRatio * remWorkDays;
+
+  // === Forecast แม่นยำขึ้น: blend "pace เดือนนี้" กับ "ค่าเฉลี่ยประวัติ" ถ่วงตามความคืบหน้าเดือน ===
+  // ปัญหาเดิม: ต้นเดือน ratePerDay คำนวณจากตัวอย่างน้อย แล้วคูณวันที่เหลือเยอะ → ตัวเลขเหวี่ยงหลายหมื่น
+  // 1) ฐานประวัติ: ยอด/วันทำงาน "เต็มเดือน" ของแต่ละเดือนย้อนหลัง
+  var histRates = prevMonths.map(function(ym){
+    var d = dataMap[ym]; if(!d || !d.sales) return null;
+    var wdMonth = _stWorkDays(ym, 1, _stGetMonthDays(ym));
+    return wdMonth > 0 ? d.sales / wdMonth : null;
+  }).filter(function(x){ return x!==null; });
+  var hasHist = histRates.length >= 1;
+  var histAvgRate = hasHist ? histRates.reduce(function(a,b){return a+b;},0)/histRates.length : ratePerDay;
+
+  // 2) สองตัวประเมินยอดจบเดือน
+  var runRateEst = cur.sales + ratePerDay * avgRatio * remWorkDays; // อิง pace จริงเดือนนี้ (แม่นปลายเดือน แต่เหวี่ยงต้นเดือน)
+  var historyEst = histAvgRate * totalWorkDays;                     // อิงค่าเฉลี่ยประวัติ (นิ่ง ใช้ยึดต้นเดือน)
+
+  // 3) ถ่วงน้ำหนักตามสัดส่วนวันทำงานที่เดินผ่าน: ต้นเดือนเชื่อประวัติ, ปลายเดือนเชื่อของจริง
+  var wProg = totalWorkDays > 0 ? workedWorkDays / totalWorkDays : 1;
+  var projected = hasHist ? (wProg * runRateEst + (1 - wProg) * historyEst) : runRateEst;
+
+  // 4) ความผันผวนจริงของธุรกิจ (CV = SD/mean ของยอด/วันทำงานย้อนหลัง) → กำหนดความกว้าง band
+  var histCV;
+  if (histRates.length >= 2) {
+    var _m = histAvgRate;
+    var _v = histRates.reduce(function(a,r){ return a + (r-_m)*(r-_m); }, 0) / histRates.length;
+    histCV = _m > 0 ? Math.sqrt(_v) / _m : 0.20;
+  } else {
+    histCV = 0.20; // ข้อมูลย้อนหลังน้อยเกินวัดความผันผวน → สมมติ ±20%
+  }
+  // ยิ่งเดินผ่านเดือนมาก ความไม่แน่นอนของยอดจบเดือนยิ่งลด (คูณ sqrt ของสัดส่วนวันที่เหลือ) → band แคบลงเรื่อย ๆ
+  var uncertaintyFrac = histCV * Math.sqrt(totalWorkDays > 0 ? remWorkDays / totalWorkDays : 1);
+  uncertaintyFrac = Math.max(0.02, Math.min(0.5, uncertaintyFrac)); // กันแคบ/กว้างเกินจริง
 
   document.getElementById('st-cards').innerHTML = [
     {label:'งานเดือนนี้',      val: Math.round(cur.qty)+' ชิ้น', color:'#2A9D8F'},
@@ -4504,9 +4535,9 @@ function _stRender(hist, liveBills) {
     projEl.innerHTML = '<p style="color:#aaa;font-size:13px;">ยังไม่มีข้อมูลเดือนปัจจุบัน</p>';
   } else {
     var scenarios = [
-      {label:'Conservative', val:cur.sales+ratePerDay*0.75*remWorkDays, desc:'ปลายเดือนอ่อนลง',        color:'#e74c3c'},
-      {label:'Base',         val:cur.sales+ratePerDay*avgRatio*remWorkDays, desc:'pattern เหมือนเดือนก่อน', color:'#f39c12'},
-      {label:'Upside',       val:cur.sales+ratePerDay*1.35*remWorkDays, desc:'ปลายเดือนพุ่งขึ้น',       color:'#27ae60'},
+      {label:'Conservative', val: projected*(1-uncertaintyFrac), desc:'ปลายเดือนอ่อนกว่าคาด', color:'#e74c3c'},
+      {label:'Base',         val: projected,                     desc:'แนวโน้มถ่วงประวัติ',   color:'#f39c12'},
+      {label:'Upside',       val: projected*(1+uncertaintyFrac), desc:'ปลายเดือนแรงกว่าคาด',  color:'#27ae60'},
     ];
     projEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">' +
       scenarios.map(function(s){
@@ -4515,7 +4546,7 @@ function _stRender(hist, liveBills) {
           '<div style="font-size:20px;font-weight:700;color:'+s.color+';">'+fmtK(s.val)+'</div>'+
           '<div style="font-size:11px;color:#aaa;margin-top:4px;">'+s.desc+'</div></div>';
       }).join('')+'</div>'+
-      '<p style="font-size:12px;color:#aaa;margin-top:8px;">* rate '+fmtK(ratePerDay)+' บาท/วันทำงาน | ผ่าน '+workedWorkDays+' วันทำงาน เหลือ '+remWorkDays+' วัน (จาก '+totalWorkDays+' วันทำงาน/เดือน) | base ratio '+avgRatio.toFixed(2)+'x</p>';
+      '<p style="font-size:12px;color:#aaa;margin-top:8px;">* เชื่อ pace เดือนนี้ '+Math.round(wProg*100)+'% + ประวัติ '+Math.round((1-wProg)*100)+'% | ผ่าน '+workedWorkDays+'/'+totalWorkDays+' วันทำงาน (เหลือ '+remWorkDays+') | band ±'+(uncertaintyFrac*100).toFixed(0)+'% (ความผันผวนจริง '+(histCV*100).toFixed(0)+'%'+(histRates.length<2?' • ประเมิน':'')+')</p>';
   }
 }
 
