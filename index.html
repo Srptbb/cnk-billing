@@ -4450,11 +4450,22 @@ function _stRender(hist, liveBills) {
         borderWidth: isCurrentMonth ? 4 : 2, pointRadius: 0, tension: 0.1, spanGaps: false
       }];
 
-      // projection สำหรับเดือนปัจจุบัน
+      // projection สำหรับเดือนปัจจุบัน — ใช้สูตร blend เดียวกับการ์ด (pace เดือนนี้ + ประวัติ ถ่วงตามความคืบหน้าเดือน)
+      // คำนวณตาม field ของกราฟ (sales/qty) ให้ถูกหน่วย → ปลายเส้นกราฟยอดขายตรงกับการ์ด Base
       if (isCurrentMonth && maxDay < daysInMonth) {
         var _wd0 = _stWorkDays(ym, 1, maxDay);
         var _wdRem = Math.max(0, totalWorkDays - _wd0);
-        var projEnd = _wd0 > 0 ? cum + (cum / _wd0) * avgRatio * _wdRem : 0;
+        var _runEnd = _wd0 > 0 ? cum + (cum / _wd0) * avgRatio * _wdRem : 0; // pace เดือนนี้ (linear)
+        // ฐานประวัติของ field นี้: ค่าเฉลี่ยต่อวันทำงานเต็มเดือนย้อนหลัง × วันทำงานทั้งเดือน
+        var _hr = prevMonths.map(function(m2){
+          var dd = dataMap[m2]; if(!dd || !dd.sales) return null;
+          var wdm = _stWorkDays(m2, 1, _stGetMonthDays(m2));
+          var val = (field==='qty') ? dd.qty : dd.sales;
+          return wdm > 0 ? val/wdm : null;
+        }).filter(function(x){ return x!==null; });
+        var _histEnd = _hr.length ? (_hr.reduce(function(a,b){return a+b;},0)/_hr.length)*totalWorkDays : _runEnd;
+        var _wp = totalWorkDays > 0 ? _wd0/totalWorkDays : 1;
+        var projEnd = _hr.length ? (_wp*_runEnd + (1-_wp)*_histEnd) : _runEnd;
         var projPts = [{x:maxDay, y:cum}, {x:daysInMonth, y:projEnd}];
         ds.push({
           label: thaiMonthShort(ym)+' (ประมาณ '+fmtFn(projEnd)+')',
