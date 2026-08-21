@@ -3567,17 +3567,15 @@ function doPrintInvoice(iv) {
   doc.write('<th style="width:35%;text-align:center;">วันที่</th>');
   doc.write('<th style="width:25%;text-align:right;">จำนวนเงิน</th>');
   doc.write('</tr></thead><tbody>'+rows+'</tbody>');
+  // ใบวางบิลไม่แสดง "หัก ณ ที่จ่าย 3%" — โชว์ยอดเต็ม (หลังส่วนลด แต่ก่อนหัก) ให้ลูกค้าไปหักเอง
+  // ส่วน 3% ยังดูได้ในหน้ารับเงิน/แก้ไขบิล และรายงานหัก ณ ที่จ่ายที่เราดูเอง
+  var ivGrand = iv.total + (iv.tax3amt||0);  // = rawTotal - discAmt
   doc.write('<tfoot>');
-  if((iv.discAmt&&iv.discAmt>0)||iv.tax3amt>0){
-    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;">ยอดรวมก่อนหัก</td><td style="text-align:right;padding:8px 12px;">'+fmt(iv.rawTotal)+' บาท</td></tr>');
-  }
   if(iv.discAmt&&iv.discAmt>0){
+    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;">ยอดรวม</td><td style="text-align:right;padding:8px 12px;">'+fmt(iv.rawTotal)+' บาท</td></tr>');
     doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e74c3c;">ส่วนลด</td><td style="text-align:right;padding:8px 12px;color:#e74c3c;">-'+fmt(iv.discAmt)+' บาท</td></tr>');
   }
-  if(iv.tax3amt>0){
-    doc.write('<tr><td colspan="2" style="text-align:right;padding:8px 12px;font-size:13px;color:#e65100;">หัก ณ ที่จ่าย 3%</td><td style="text-align:right;padding:8px 12px;color:#e65100;">-'+fmt(iv.tax3amt)+' บาท</td></tr>');
-  }
-  doc.write('<tr class="tfoot-row"><td colspan="2" style="text-align:right;">ยอดสุทธิที่รับจริง</td><td style="text-align:right;">'+fmt(iv.total)+' บาท</td></tr>');
+  doc.write('<tr class="tfoot-row"><td colspan="2" style="text-align:right;">ยอดรวมสุทธิ</td><td style="text-align:right;">'+fmt(ivGrand)+' บาท</td></tr>');
   doc.write('</tfoot></table>');
 
   if (iv.remark) doc.write('<div style="font-size:12px;color:#888;margin-top:8px;">หมายเหตุ: '+h(iv.remark)+'</div>');
