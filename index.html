@@ -1808,9 +1808,10 @@ function renderWorklist() {
     var woodStr = (r.woodCount!==undefined && r.woodCount!=='' && r.woodCount!==null)
       ? h(String(r.woodCount))+' อัน'
       : ((r.woodW && r.woodH) ? r.woodW+'×'+r.woodH : '-');
+    var totalBladeMM = (Number(r.cutMM)||0) + (Number(r.creaseMM)||0); // รวมเส้นคม + เส้นพับ (บางงานเส้นพับเยอะกว่าเส้นคม)
     var bladeStr = (r.bladeCount!==undefined && r.bladeCount!=='' && r.bladeCount!==null)
       ? h(String(r.bladeCount))+' อัน'
-      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?'<br><span style="color:#888;font-size:11px;">'+Number(r.cutMM).toLocaleString()+' mm</span>':'') : '-');
+      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(totalBladeMM?'<br><span style="color:#888;font-size:11px;">'+totalBladeMM.toLocaleString()+' mm</span>':'') : '-');
     var accent = wlRowAccent(r);
     var trStyle = (accent ? ('border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';') : '')
       + (status==='billed' ? 'background:#f6fffe;opacity:0.7;' : (!confirmed ? 'background:#f3f4f6;opacity:0.65;' : 'background:#f6f7f9;'));
@@ -1870,9 +1871,10 @@ function wlRenderCards(filtered){
     var woodStr = (r.woodCount!==undefined && r.woodCount!=='' && r.woodCount!==null)
       ? h(String(r.woodCount))+' อัน'
       : ((r.woodW && r.woodH) ? r.woodW+'×'+r.woodH+' mm' : '');
+    var totalBladeMM = (Number(r.cutMM)||0) + (Number(r.creaseMM)||0); // รวมเส้นคม + เส้นพับ
     var bladeStr = (r.bladeCount!==undefined && r.bladeCount!=='' && r.bladeCount!==null)
       ? h(String(r.bladeCount))+' อัน'
-      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(r.cutMM?' · '+Number(r.cutMM).toLocaleString()+'mm':'') : '');
+      : (r.bladeCut && r.bladeCut!=='-' ? h(r.bladeCut)+(totalBladeMM?' · '+totalBladeMM.toLocaleString()+'mm':'') : '');
     var accent = wlRowAccent(r);
     var rcust = h(r.custName||'');
     var rnote = h(r.note||'');
