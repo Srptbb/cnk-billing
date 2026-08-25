@@ -143,6 +143,7 @@ textarea{resize:vertical;min-height:64px;}
 <div class="sub-bar" id="sub-songof">
   <button class="sub-tab act" id="stab-create" onclick="goSub('create',this,'songof')">+ เปิดบิลใหม่</button>
   <button class="sub-tab" id="stab-list" onclick="goSub('list',this,'songof')">รายการบิล</button>
+  <button class="sub-tab" id="stab-cashbills" onclick="goSub('cashbills',this,'songof')">💵 บิลเงินสด <span id="cashbills-badge" style="display:none;background:#e67e22;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
 </div>
 <!-- Sub-tab: วางบิล -->
 <div class="sub-bar" id="sub-wangbil">
@@ -294,6 +295,26 @@ textarea{resize:vertical;min-height:64px;}
     <div class="fg"><label>สถานะ</label><select id="fst" onchange="rdL()"><option value="">ทั้งหมด</option><option value="active">ปกติ</option><option value="cancelled">ยกเลิก</option></select></div>
   </div>
   <div id="bl" class="bl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีบิล</p></div>
+</div>
+</div>
+
+<div id="sec-cashbills" class="sec">
+<div class="card">
+  <div class="ctitle">💵 บิลเงินสด — ติดตามการรับเงิน</div>
+  <p style="color:#888;font-size:13px;margin:-6px 0 14px;">เฉพาะบิลเงินสด ติ๊ก "จ่ายแล้ว" เมื่อได้รับเงิน (เลือกวันที่รับเงินได้)</p>
+  <div class="r3" style="margin-bottom:18px;">
+    <div class="fg"><label>ค้นหาลูกค้า/เลขบิล</label>
+      <input id="cb-f-search" type="text" placeholder="พิมพ์ชื่อลูกค้า หรือเลขบิล..." autocomplete="off" oninput="rdCashBills()">
+    </div>
+    <div class="fg"><label>สถานะการจ่าย</label>
+      <select id="cb-f-status" onchange="rdCashBills()">
+        <option value="unpaid">ยังไม่จ่าย</option>
+        <option value="paid">จ่ายแล้ว</option>
+        <option value="">ทั้งหมด</option>
+      </select>
+    </div>
+  </div>
+  <div id="cb-list" class="bl"><p style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีบิลเงินสด</p></div>
 </div>
 </div>
 
@@ -847,6 +868,26 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 </div>
 
+<div id="m-cbpaid" class="ov">
+<div class="md" style="max-width:400px;">
+  <div class="mt">✅ รับเงินบิลเงินสด</div>
+  <input type="hidden" id="cbp-id">
+  <div style="margin-bottom:14px;padding:12px;background:#f7f8fa;border-radius:8px;font-size:14px;">
+    <div id="cbp-no" style="font-weight:700;"></div>
+    <div id="cbp-cust" style="color:#888;font-size:13px;margin-top:2px;"></div>
+    <div id="cbp-amt" style="color:#27ae60;font-size:14px;margin-top:4px;font-weight:700;"></div>
+  </div>
+  <div class="fg" style="margin-bottom:4px;">
+    <label>วันที่รับเงินจริง *</label>
+    <input id="cbp-date" type="date">
+  </div>
+  <div class="mf">
+    <button class="btn bo" onclick="closeCashPaid()">ยกเลิก</button>
+    <button class="btn bg" onclick="confirmCashPaid()">บันทึกรับเงิน</button>
+  </div>
+</div>
+</div>
+
 
 <!-- Modal: วันที่วางบิลจริง -->
 <div id="m-actual-date" class="ov">
@@ -1251,6 +1292,7 @@ function loadAll(){
           var badge = document.getElementById('unbilled-badge');
           if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
         })();
+        updateCashBadge();
         // Fetch today's bills from Sheets to ensure genNo has accurate max seq
         fetchTodayBills(function(){
           genNo();
@@ -1341,6 +1383,7 @@ function _showSec(id) {
 
 function _trigLoad(id) {
   if(id==='list') rdL();
+  if(id==='cashbills') rdCashBills();
   if(id==='customers') rdC();
   if(id==='invoice'){document.getElementById('inv-date').value=td();genInvNo();}
   if(id==='invlist') rdInvList();
@@ -1934,8 +1977,7 @@ var WL_STATUS_DEFS = [
   ['statusDesigned','เขียนแบบ'],
   ['statusWorking','ลงมือทำ'],
   ['statusComplete','งานเสร็จ'],
-  ['statusShipped','ส่งแล้ว'],
-  ['statusPaid','จ่ายแล้ว']
+  ['statusShipped','ส่งแล้ว']
 ];
 
 function wlIsOn(v){ return (v===true || v==='true' || v===1 || v==='1'); }
@@ -2802,6 +2844,83 @@ function billToCredit(id){
   b.type='credit'; b.status='active';
   apiPost('update','bills',{type:'credit',status:'active'},id)
     .then(function(){ rdL(); toast('เปลี่ยนเป็นบิลเครดิตแล้ว'); })
+    .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
+}
+
+// ===== หน้าบิลเงินสด: ติดตามการรับเงิน =====
+// บิลเงินสด status='active' = ยังไม่จ่าย, status='paid' = จ่ายแล้ว (มี paidDate)
+function updateCashBadge(){
+  var n = bills.filter(function(b){ return b.type==='cash' && b.status==='active'; }).length;
+  var el = document.getElementById('cashbills-badge');
+  if(!el) return;
+  if(n>0){ el.textContent=n; el.style.display='inline-block'; } else { el.style.display='none'; }
+}
+function rdCashBills(){
+  var sv=(document.getElementById('cb-f-search').value||'').toLowerCase().trim();
+  var fst=document.getElementById('cb-f-status').value;
+  var list=bills.filter(function(b){
+    if(b.type!=='cash') return false;
+    if(b.status==='cancelled') return false;
+    if(fst==='unpaid' && b.status!=='active') return false;
+    if(fst==='paid' && b.status!=='paid') return false;
+    if(sv && !((b.cn||'').toLowerCase().includes(sv) || (b.no||'').toLowerCase().includes(sv))) return false;
+    return true;
+  }).sort(function(a,b){
+    // ยังไม่จ่ายไว้บนสุด แล้วเรียงตามวันที่บิลใหม่→เก่า
+    var au=a.status==='active'?0:1, bu=b.status==='active'?0:1;
+    if(au!==bu) return au-bu;
+    return (b.date||'').localeCompare(a.date||'');
+  });
+  var c=document.getElementById('cb-list');
+  updateCashBadge();
+  if(!list.length){ c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบบิลเงินสด</p>'; return; }
+  c.innerHTML=list.map(function(b){
+    var paid = b.status==='paid';
+    var badge = paid
+      ? '<span class="bdg" style="background:#e8f8ef;color:#27ae60;">✔ จ่ายแล้ว'+(b.paidDate?' '+fmtD(b.paidDate):'')+'</span>'
+      : '<span class="bdg" style="background:#fff3e0;color:#e67e22;">⏳ ยังไม่จ่าย</span>';
+    var actBtn = paid
+      ? '<button class="btn bo bsm" style="color:#888;" onclick="markCashUnpaid('+b.id+')">ยกเลิกจ่าย</button>'
+      : '<button class="btn bo bsm" style="color:#27ae60;border-color:#27ae60;" onclick="markCashPaid('+b.id+')">&#9989; จ่ายแล้ว</button>';
+    return '<div class="bi'+(paid?'':' ')+'" style="'+(paid?'':'background:#fffdf7;')+'">' +
+      '<div class="bin"><div class="bno">'+h(b.no)+' '+badge+'</div>' +
+      '<div class="bm">'+fmtD(b.date)+' | '+h(b.cn)+' | '+h(b.cc||'-')+'</div>' +
+      (b.remark?'<div class="bm">'+h(b.remark)+'</div>':'')+'</div>' +
+      '<div><div class="bamt">'+fmt(b.grand)+' &#3647;</div>' +
+      '<div class="ba"><button class="btn bo bsm" onclick="prtB('+b.id+')">พิมพ์</button> '+actBtn+'</div></div></div>';
+  }).join('');
+}
+function markCashPaid(id){
+  var b=bills.find(function(b){return b.id===id;});
+  if(!b)return;
+  document.getElementById('cbp-id').value=id;
+  document.getElementById('cbp-no').textContent=b.no||'';
+  document.getElementById('cbp-cust').textContent=(b.cn||'-')+(b.cc?' | '+b.cc:'');
+  document.getElementById('cbp-amt').textContent=fmt(b.grand)+' บาท';
+  document.getElementById('cbp-date').value=td();
+  document.getElementById('m-cbpaid').classList.add('on');
+}
+function closeCashPaid(){ document.getElementById('m-cbpaid').classList.remove('on'); }
+function confirmCashPaid(){
+  var id=Number(document.getElementById('cbp-id').value);
+  var b=bills.find(function(b){return b.id===id;});
+  if(!b){ closeCashPaid(); return; }
+  var d=document.getElementById('cbp-date').value;
+  if(!d){ toast('กรุณาเลือกวันที่รับเงิน'); return; }
+  b.status='paid'; b.paidDate=d;
+  localStorage.setItem('b',JSON.stringify(bills));
+  apiPost('update','bills',{status:'paid',paidDate:d},id)
+    .then(function(){ closeCashPaid(); rdCashBills(); toast('บันทึกรับเงินแล้ว ✅'); })
+    .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
+}
+function markCashUnpaid(id){
+  var b=bills.find(function(b){return b.id===id;});
+  if(!b)return;
+  if(!confirm('ยกเลิกสถานะจ่ายแล้วของบิล '+b.no+'?'))return;
+  b.status='active'; b.paidDate='';
+  localStorage.setItem('b',JSON.stringify(bills));
+  apiPost('update','bills',{status:'active',paidDate:''},id)
+    .then(function(){ rdCashBills(); toast('เปลี่ยนเป็นยังไม่จ่าย'); })
     .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
 }
 var _eHasVat=false;
