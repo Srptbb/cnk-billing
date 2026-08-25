@@ -28,6 +28,22 @@ body{font-family:'Sarabun',sans-serif;background:#f0f2f5;color:#1a1a2e;}
 .nav-avatar-initial{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4f8ef7,#1a6ed8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
 .nav-uname{color:#fff;font-size:13px;font-weight:500;}
 
+/* ===== มือถือ: เมนูกระชับ เลื่อนแนวนอนได้ ===== */
+@media (max-width:640px){
+  .nav{padding:0 10px;height:52px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
+  .nav::-webkit-scrollbar{display:none;}
+  .nav{scrollbar-width:none;}
+  .nav-logo{height:26px;margin-right:8px;flex-shrink:0;}
+  .nav-title{display:none;}
+  .nav-tab{padding:0 11px;height:52px;font-size:13px;flex-shrink:0;white-space:nowrap;}
+  .nav-user-area{flex-shrink:0;}
+  .sub-bar{padding:0 10px;top:52px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
+  .sub-bar::-webkit-scrollbar{display:none;}
+  .sub-tab{flex-shrink:0;}
+  .main{padding:14px;}
+  .card{padding:16px;}
+}
+
 .main{padding:28px;max-width:980px;margin:0 auto;}
 .sec{display:none;} .sec.on{display:block;}
 .card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:24px;margin-bottom:20px;}
@@ -1880,7 +1896,8 @@ function wlRenderCards(filtered){
     var rnote = h(r.note||'');
     var rmemo = h(r.memo||'');
     var sourceTag = wlSourceTag(r.jobSource);
-    var cardStyle = 'border:1px solid #eceef2;border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#fff;'
+    var cardBg = (status==='billed') ? '#f0fdf4' : '#fff'; // เปิดบิลแล้ว = พื้นหลังเขียวอ่อน (ให้ตรงกับ desktop)
+    var cardStyle = 'border:1px solid #eceef2;border-radius:12px;padding:12px 14px;margin-bottom:10px;background:'+cardBg+';'
       + (accent ? ('border-left:4px '+(accent.dash?'dashed':'solid')+' '+accent.color+';') : '')
       + ((status!=='billed' && !confirmed) ? 'opacity:0.7;' : '');
     var meta = [];
