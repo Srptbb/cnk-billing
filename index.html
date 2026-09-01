@@ -2066,9 +2066,10 @@ var _wlEditId = null; // ถ้าไม่ null = กำลังแก้ไ�
 
 // ===== ระบบคิวเขียนแบบ (draft queue) =====
 var DRAFT_TECHS = [
-  {name:'ช่างเดี่ยว', pin:'3268'},
-  {name:'ช่างโพด', pin:'4169'}
+  {name:'ช่างเดี่ยว', pin:'3268', color:'#7c3aed', soft:'#f3ecff'},
+  {name:'ช่างโพด', pin:'4169', color:'#0891b2', soft:'#e0f5fb'}
 ];
+var _draftTechTab = null; // ช่างที่กำลังดูในหน้าคิว (admin)
 var _draftWlRow = null, _draftFileUrl = '', _draftFileName = '', _draftInstrImg = '';
 var _draftedWlIds = {}; // wlId -> true ถ้าส่งเข้าคิวเขียนแบบแล้ว (ยังไม่เสร็จ)
 function loadDraftedIds(){
@@ -2697,52 +2698,71 @@ function rdDraftOverview(){
   el.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 0;">กำลังโหลดคิวเขียนแบบ...</div>';
   apiGet('draft_queue', function(rows, failed){
     if(failed){ el.innerHTML = '<div style="text-align:center;color:#e74c3c;padding:40px 0;">โหลดคิวไม่สำเร็จ ลองรีเฟรช</div>'; return; }
-    var queued = (rows||[]).filter(function(r){ return (r.status||'queued')!=='done'; });
-    // per-tech count cards
-    var counts = {};
-    DRAFT_TECHS.forEach(function(t){ counts[t.name]=0; });
-    queued.forEach(function(r){ if(counts[r.tech]===undefined) counts[r.tech]=0; counts[r.tech]++; });
-    var cards = Object.keys(counts).map(function(name){
-      return '<div style="flex:1;min-width:160px;background:#faf5ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:16px 18px;">'
-        + '<div style="font-size:14px;font-weight:700;color:#6d28d9;">'+h(name)+'</div>'
-        + '<div style="font-size:30px;font-weight:800;color:#7c3aed;margin-top:4px;">'+counts[name]+'</div>'
-        + '<div style="font-size:12px;color:#999;">งานในคิว</div></div>';
-    }).join('');
-    var rowsHtml = queued.slice().sort(function(a,b){ return (a.createdAt||'')<(b.createdAt||'')?1:-1; }).map(function(r){
-      var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-      var _dl = r.fileUrl && r.fileUrl.indexOf('/upload/')>-1 ? r.fileUrl.replace('/upload/','/upload/fl_attachment/') : r.fileUrl;
-      var fileCell = r.fileUrl ? '<a href="'+h(_dl)+'" style="color:#7c3aed;font-weight:600;">📎 '+h(r.fileName||'ไฟล์')+'</a>' : '<span style="color:#ccc;">—</span>';
-      var instr = [];
-      if(r.instrText) instr.push(h(r.instrText));
-      if(r.instrImgUrl) instr.push('<a href="'+h(r.instrImgUrl)+'" target="_blank" style="color:#7c3aed;">🖼️ รูปคำสั่ง</a>');
-      return '<tr style="border-bottom:1px solid #f0f2f5;">'
-        + '<td style="padding:9px 12px;">'+d+'</td>'
-        + '<td style="padding:9px 12px;"><span style="background:#ede9fe;color:#6d28d9;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;">'+h(r.tech||'-')+'</span></td>'
-        + '<td style="padding:9px 12px;font-weight:600;">'+h(r.custName||'-')+'</td>'
-        + '<td style="padding:9px 12px;">'+h(r.jobName||'-')+'</td>'
-        + '<td style="padding:9px 12px;">'+fileCell+'</td>'
-        + '<td style="padding:9px 12px;font-size:13px;color:#555;">'+(instr.join(' · ')||'<span style="color:#ccc;">—</span>')+'</td>'
-        + '<td style="padding:9px 12px;text-align:center;">'+((r.status||'queued')==='done'?'<span style="color:#16a34a;font-weight:700;">✅ เสร็จ</span>':'<span style="color:#e67e22;font-weight:700;">⏳ รอเขียน</span>')+'</td>'
-        + '<td style="padding:9px 12px;text-align:center;"><button onclick="draftAdminDelete(\''+h(r.id)+'\')" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button></td>'
-        + '</tr>';
-    }).join('');
-    el.innerHTML =
-      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;">'+cards+'</div>'
-      + '<div style="background:#fff;border:1px solid #eceef2;border-radius:12px;overflow:hidden;">'
-      + '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
-      + '<thead><tr style="background:#f0f2f5;">'
-      + '<th style="padding:10px 12px;text-align:left;">วันที่</th>'
-      + '<th style="padding:10px 12px;text-align:left;">ช่าง</th>'
-      + '<th style="padding:10px 12px;text-align:left;">ลูกค้า</th>'
-      + '<th style="padding:10px 12px;text-align:left;">งาน</th>'
-      + '<th style="padding:10px 12px;text-align:left;">ไฟล์</th>'
-      + '<th style="padding:10px 12px;text-align:left;">คำสั่งพิเศษ</th>'
-      + '<th style="padding:10px 12px;text-align:center;">สถานะ</th>'
-      + '<th style="padding:10px 12px;text-align:center;">จัดการ</th>'
-      + '</tr></thead><tbody>'
-      + (rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีงานในคิวเขียนแบบ</td></tr>')
-      + '</tbody></table></div>';
+    _draftQueued = (rows||[]).filter(function(r){ return (r.status||'queued')!=='done'; });
+    if(!_draftTechTab || !DRAFT_TECHS.some(function(t){return t.name===_draftTechTab;})){
+      _draftTechTab = DRAFT_TECHS[0] ? DRAFT_TECHS[0].name : null;
+    }
+    renderDraftTechView();
   });
+}
+
+var _draftQueued = [];
+function draftTechDef(name){
+  return DRAFT_TECHS.find(function(t){ return t.name===name; }) || {name:name,color:'#7c3aed',soft:'#f3ecff'};
+}
+function draftSwitchTech(name){ _draftTechTab = name; renderDraftTechView(); }
+
+function renderDraftTechView(){
+  var el = document.getElementById('draft-overview');
+  if(!el) return;
+  var counts = {};
+  DRAFT_TECHS.forEach(function(t){ counts[t.name]=0; });
+  _draftQueued.forEach(function(r){ if(counts[r.tech]===undefined) counts[r.tech]=0; counts[r.tech]++; });
+  // full-width colored tabs (one per tech)
+  var tabs = DRAFT_TECHS.map(function(t){
+    var active = t.name===_draftTechTab;
+    return '<button onclick="draftSwitchTech(\''+h(t.name)+'\')" style="flex:1;border:none;cursor:pointer;font-family:Sarabun,sans-serif;font-weight:700;font-size:15px;padding:14px 10px;'
+      + 'background:'+(active?t.color:'#fff')+';color:'+(active?'#fff':t.color)+';'
+      + 'border-bottom:3px solid '+t.color+';transition:background .15s;">'
+      + h(t.name)
+      + ' <span style="display:inline-block;min-width:22px;margin-left:4px;background:'+(active?'rgba(255,255,255,0.28)':t.soft)+';color:'+(active?'#fff':t.color)+';border-radius:11px;padding:1px 8px;font-size:13px;">'+(counts[t.name]||0)+'</span>'
+      + '</button>';
+  }).join('');
+  var def = draftTechDef(_draftTechTab);
+  var mine = _draftQueued.filter(function(r){ return r.tech===_draftTechTab; })
+    .sort(function(a,b){ return (a.createdAt||'')<(b.createdAt||'')?1:-1; });
+  var rowsHtml = mine.map(function(r){
+    var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+    var _dl = r.fileUrl && r.fileUrl.indexOf('/upload/')>-1 ? r.fileUrl.replace('/upload/','/upload/fl_attachment/') : r.fileUrl;
+    var fileCell = r.fileUrl ? '<a href="'+h(_dl)+'" style="color:'+def.color+';font-weight:600;">📎 '+h(r.fileName||'ไฟล์')+'</a>' : '<span style="color:#ccc;">—</span>';
+    var instr = [];
+    if(r.instrText) instr.push(h(r.instrText));
+    if(r.instrImgUrl) instr.push('<a href="'+h(r.instrImgUrl)+'" target="_blank" style="color:'+def.color+';">🖼️ รูปคำสั่ง</a>');
+    return '<tr style="border-bottom:1px solid #f0f2f5;">'
+      + '<td style="padding:9px 12px;">'+d+'</td>'
+      + '<td style="padding:9px 12px;font-weight:600;">'+h(r.custName||'-')+'</td>'
+      + '<td style="padding:9px 12px;">'+h(r.jobName||'-')+'</td>'
+      + '<td style="padding:9px 12px;">'+fileCell+'</td>'
+      + '<td style="padding:9px 12px;font-size:13px;color:#555;">'+(instr.join(' · ')||'<span style="color:#ccc;">—</span>')+'</td>'
+      + '<td style="padding:9px 12px;text-align:center;"><span style="color:#e67e22;font-weight:700;">⏳ รอเขียน</span></td>'
+      + '<td style="padding:9px 12px;text-align:center;"><button onclick="draftAdminDelete(\''+h(r.id)+'\')" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button></td>'
+      + '</tr>';
+  }).join('');
+  el.innerHTML =
+    '<div style="display:flex;gap:0;border:1px solid #eceef2;border-radius:12px 12px 0 0;overflow:hidden;">'+tabs+'</div>'
+    + '<div style="background:#fff;border:1px solid #eceef2;border-top:none;border-radius:0 0 12px 12px;overflow:hidden;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+    + '<thead><tr style="background:'+def.soft+';">'
+    + '<th style="padding:10px 12px;text-align:left;">วันที่</th>'
+    + '<th style="padding:10px 12px;text-align:left;">ลูกค้า</th>'
+    + '<th style="padding:10px 12px;text-align:left;">งาน</th>'
+    + '<th style="padding:10px 12px;text-align:left;">ไฟล์</th>'
+    + '<th style="padding:10px 12px;text-align:left;">คำสั่งพิเศษ</th>'
+    + '<th style="padding:10px 12px;text-align:center;">สถานะ</th>'
+    + '<th style="padding:10px 12px;text-align:center;">จัดการ</th>'
+    + '</tr></thead><tbody>'
+    + (rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:40px 0;">'+h(_draftTechTab||'')+' ยังไม่มีงานในคิว</td></tr>')
+    + '</tbody></table></div>';
 }
 
 function draftAdminDelete(id){

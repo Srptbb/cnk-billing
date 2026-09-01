@@ -121,12 +121,18 @@
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
 const DRAFT_TECHS = [
-  {name:'ช่างเดี่ยว', pin:'3268'},
-  {name:'ช่างโพด', pin:'4169'}
+  {name:'ช่างเดี่ยว', pin:'3268', color:'#7c3aed', soft:'#f3ecff', dark:'#6d28d9'},
+  {name:'ช่างโพด', pin:'4169', color:'#0891b2', soft:'#e0f5fb', dark:'#0e7490'}
 ];
 let currentTech = null;
+let currentDef = null;
 let _pin = '';
 let _jobs = [];
+function techDef(name){ return DRAFT_TECHS.find(function(t){return t.name===name;}) || DRAFT_TECHS[0]; }
+function applyTheme(def){
+  document.querySelector('.topbar').style.background = def.color;
+  document.querySelector('.topbar').style.boxShadow = '0 2px 10px '+def.soft;
+}
 
 function h(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // เพิ่ม fl_attachment เพื่อบังคับให้ browser ดาวน์โหลดไฟล์ (ไม่งั้น PDF/DXF บางทีเปิดไม่ได้)
@@ -166,6 +172,8 @@ function tryLogin(){
   showApp();
 }
 function showApp(){
+  currentDef = techDef(currentTech);
+  applyTheme(currentDef);
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('who').textContent = currentTech;
@@ -207,9 +215,9 @@ function renderCards(list){
   var html = '<div class="count">มีงานในคิว '+list.length+' งาน · แตะการ์ดเพื่อดูรายละเอียด</div>';
   html += list.map(function(r){
     var badges = '';
-    if(r.fileUrl) badges += '<span class="mini file">📎 มีไฟล์</span>';
+    if(r.fileUrl) badges += '<span class="mini file" style="background:'+currentDef.soft+';color:'+currentDef.dark+';">📎 มีไฟล์</span>';
     if(r.instrText || r.instrImgUrl) badges += '<span class="mini instr">📝 มีคำสั่ง</span>';
-    return '<div class="card" onclick="openJob(\''+h(r.id)+'\')">'
+    return '<div class="card" onclick="openJob(\''+h(r.id)+'\')" style="border-left-color:'+currentDef.color+';">'
       + '<div class="body">'
         + '<div class="cust">'+h(r.custName||'-')+'</div>'
         + '<div class="job">'+h(r.jobName||'(ไม่มีชื่องาน)')+'</div>'
@@ -229,8 +237,8 @@ function openJob(id){
   // file
   var fileEl = document.getElementById('d-file');
   if(r.fileUrl){
-    fileEl.innerHTML = '<a class="filebtn" href="'+h(dlUrl(r.fileUrl))+'">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>'
-      + '<a href="'+h(r.fileUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:8px;color:#7c3aed;font-size:13px;text-decoration:none;">👁️ เปิดดูในแท็บใหม่</a>';
+    fileEl.innerHTML = '<a class="filebtn" style="background:'+currentDef.color+';" href="'+h(dlUrl(r.fileUrl))+'">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>'
+      + '<a href="'+h(r.fileUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:8px;color:'+currentDef.color+';font-size:13px;text-decoration:none;">👁️ เปิดดูในแท็บใหม่</a>';
   } else {
     fileEl.innerHTML = '<div class="nofile">— ไม่มีไฟล์แนบ (รับไฟล์ทางไลน์) —</div>';
   }
