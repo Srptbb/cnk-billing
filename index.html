@@ -1904,6 +1904,7 @@ function renderWorklist() {
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
         : '')
+      +'<button onclick="wlOpenDraftModal(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">📐 เขียนแบบ</button>'
       +'<button onclick="wlEditRow(this)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✏️ แก้ไข</button>'
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
       +'</td>'
@@ -2059,6 +2060,13 @@ function wlToggleStatus(id, field, checked) {
 
 // ===== เพิ่มงานเอง (manual add) / แก้ไขงาน =====
 var _wlEditId = null; // ถ้าไม่ null = กำลังแก้ไขงานนี้อยู่ (แทนการเพิ่มใหม่)
+
+// ===== ระบบคิวเขียนแบบ (draft queue) =====
+var DRAFT_TECHS = [
+  {name:'ช่างเดี่ยว', pin:'3268'},
+  {name:'ช่างโพด', pin:'4169'}
+];
+var _draftWlRow = null, _draftFileUrl = '', _draftFileName = '', _draftInstrImg = '';
 
 function wlOpenAddModal() {
   var m = document.getElementById('wl-add-modal');
@@ -2554,6 +2562,177 @@ function updateWlBadge() {
 function apiSet(method, table, id, data, cb) {
   var url = API + '?_method='+method+'&table='+encodeURIComponent(table)+'&id='+encodeURIComponent(id)+'&data='+encodeURIComponent(JSON.stringify(data));
   fetch(url).then(function(r){ return r.json(); }).then(function(){ if(cb) cb(); }).catch(function(){ if(cb) cb(); });
+}
+
+// ===== คิวเขียนแบบ (draft queue) — ฝั่งแอดมิน =====
+function wlSwitchView(view){
+  var isDraft = view==='draft';
+  var sec = document.getElementById('sec-worklist');
+  if(sec){ if(isDraft) sec.classList.add('draft-mode'); else sec.classList.remove('draft-mode'); }
+  var mv = document.getElementById('wl-main-view');
+  var dov = document.getElementById('draft-overview');
+  if(mv) mv.style.display = isDraft ? 'none' : '';
+  if(dov) dov.style.display = isDraft ? 'block' : 'none';
+  var tL = document.getElementById('wl-vtab-list'), tD = document.getElementById('wl-vtab-draft');
+  if(tL){ tL.style.background = isDraft?'#fff':'#1a1a2e'; tL.style.color = isDraft?'#555':'#fff'; }
+  if(tD){ tD.style.background = isDraft?'#7c3aed':'#fff'; tD.style.color = isDraft?'#fff':'#555'; }
+  if(isDraft) rdDraftOverview(); else { if(typeof updateWlSelCount==='function') updateWlSelCount(); }
+}
+
+function wlOpenDraftModal(btn){
+  var tr = btn.closest('tr');
+  var id = tr ? tr.dataset.id : null;
+  var row = wlData.find(function(r){ return String(r.id)===String(id); });
+  if(!row){ toast('ไม่พบข้อมูลงานนี้'); return; }
+  _draftWlRow = row;
+  _draftFileUrl = ''; _draftFileName = ''; _draftInstrImg = '';
+  var sel = document.getElementById('dft-tech');
+  sel.innerHTML = DRAFT_TECHS.map(function(t){ return '<option value="'+h(t.name)+'">'+h(t.name)+'</option>'; }).join('');
+  document.getElementById('dft-cust').textContent = row.custName || '-';
+  document.getElementById('dft-job').textContent = _wlStripExtrasSuffix(row.note) || '(ไม่มีชื่องาน)';
+  document.getElementById('dft-file-input').value = '';
+  document.getElementById('dft-instr-input').value = '';
+  document.getElementById('dft-instr').value = '';
+  document.getElementById('dft-file-status').textContent = '';
+  document.getElementById('dft-instr-status').textContent = '';
+  var sb = document.getElementById('dft-save-btn'); sb.disabled = false; sb.textContent = '📐 ส่งเข้าคิว';
+  document.getElementById('wl-draft-modal').style.display = 'flex';
+}
+
+function wlCloseDraftModal(){
+  var m = document.getElementById('wl-draft-modal');
+  if(m) m.style.display = 'none';
+  _draftWlRow = null;
+}
+
+function draftUpload(input, kind){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  var statusEl = document.getElementById(kind==='file' ? 'dft-file-status' : 'dft-instr-status');
+  if(file.size > 10*1024*1024){
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = '⚠️ ไฟล์ใหญ่เกิน 10MB — ส่งไฟล์นี้ทางไลน์แทนนะครับ';
+    input.value = '';
+    return;
+  }
+  statusEl.style.color = '#888';
+  statusEl.textContent = '⏳ กำลังอัปโหลด...';
+  var fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', 'cnk_bills');
+  fd.append('folder', 'cnk_draft');
+  var endpoint = kind==='file' ? 'auto/upload' : 'image/upload';
+  fetch('https://api.cloudinary.com/v1_1/daxjl6uik/'+endpoint, {method:'POST', body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.secure_url){
+        if(kind==='file'){ _draftFileUrl = d.secure_url; _draftFileName = file.name; }
+        else { _draftInstrImg = d.secure_url; }
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = '✅ อัปโหลดแล้ว: '+file.name;
+      } else {
+        statusEl.style.color = '#e74c3c';
+        statusEl.textContent = '❌ อัปโหลดไม่สำเร็จ'+(d.error&&d.error.message?(' — '+d.error.message):'');
+      }
+    })
+    .catch(function(e){
+      statusEl.style.color = '#e74c3c';
+      statusEl.textContent = '❌ อัปโหลดไม่สำเร็จ: '+e.message;
+    });
+}
+
+function wlSaveDraft(){
+  if(!_draftWlRow){ toast('ไม่พบข้อมูลงาน'); return; }
+  var tech = document.getElementById('dft-tech').value;
+  if(!tech){ toast('เลือกช่างก่อน'); return; }
+  var instrText = (document.getElementById('dft-instr').value||'').trim();
+  if(!_draftFileUrl && !instrText && !_draftInstrImg){
+    if(!confirm('ยังไม่ได้แนบไฟล์หรือคำสั่งเลย ต้องการส่งเข้าคิวเลยไหม?')) return;
+  }
+  var sb = document.getElementById('dft-save-btn');
+  sb.disabled = true; sb.textContent = '⏳ กำลังส่ง...';
+  var rec = {
+    id: 'd_'+Date.now(),
+    wlId: String(_draftWlRow.id||''),
+    custName: _draftWlRow.custName || '',
+    jobName: _wlStripExtrasSuffix(_draftWlRow.note) || '',
+    tech: tech,
+    fileUrl: _draftFileUrl || '',
+    fileName: _draftFileName || '',
+    instrText: instrText,
+    instrImgUrl: _draftInstrImg || '',
+    status: 'queued',
+    createdBy: getCreatedBy(),
+    createdAt: new Date().toISOString(),
+    doneAt: ''
+  };
+  apiSet('save', 'draft_queue', rec.id, rec, function(){
+    toast('✅ ส่งเข้าคิวเขียนแบบของ '+tech+' แล้ว');
+    wlCloseDraftModal();
+    var dov = document.getElementById('draft-overview');
+    if(dov && dov.style.display!=='none') rdDraftOverview();
+  });
+}
+
+function rdDraftOverview(){
+  var el = document.getElementById('draft-overview');
+  if(!el) return;
+  el.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 0;">กำลังโหลดคิวเขียนแบบ...</div>';
+  apiGet('draft_queue', function(rows, failed){
+    if(failed){ el.innerHTML = '<div style="text-align:center;color:#e74c3c;padding:40px 0;">โหลดคิวไม่สำเร็จ ลองรีเฟรช</div>'; return; }
+    var queued = (rows||[]).filter(function(r){ return (r.status||'queued')!=='done'; });
+    // per-tech count cards
+    var counts = {};
+    DRAFT_TECHS.forEach(function(t){ counts[t.name]=0; });
+    queued.forEach(function(r){ if(counts[r.tech]===undefined) counts[r.tech]=0; counts[r.tech]++; });
+    var cards = Object.keys(counts).map(function(name){
+      return '<div style="flex:1;min-width:160px;background:#faf5ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:16px 18px;">'
+        + '<div style="font-size:14px;font-weight:700;color:#6d28d9;">'+h(name)+'</div>'
+        + '<div style="font-size:30px;font-weight:800;color:#7c3aed;margin-top:4px;">'+counts[name]+'</div>'
+        + '<div style="font-size:12px;color:#999;">งานในคิว</div></div>';
+    }).join('');
+    var rowsHtml = queued.slice().sort(function(a,b){ return (a.createdAt||'')<(b.createdAt||'')?1:-1; }).map(function(r){
+      var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+      var fileCell = r.fileUrl ? '<a href="'+h(r.fileUrl)+'" target="_blank" style="color:#7c3aed;font-weight:600;">📎 '+h(r.fileName||'ไฟล์')+'</a>' : '<span style="color:#ccc;">—</span>';
+      var instr = [];
+      if(r.instrText) instr.push(h(r.instrText));
+      if(r.instrImgUrl) instr.push('<a href="'+h(r.instrImgUrl)+'" target="_blank" style="color:#7c3aed;">🖼️ รูปคำสั่ง</a>');
+      return '<tr style="border-bottom:1px solid #f0f2f5;">'
+        + '<td style="padding:9px 12px;">'+d+'</td>'
+        + '<td style="padding:9px 12px;"><span style="background:#ede9fe;color:#6d28d9;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;">'+h(r.tech||'-')+'</span></td>'
+        + '<td style="padding:9px 12px;font-weight:600;">'+h(r.custName||'-')+'</td>'
+        + '<td style="padding:9px 12px;">'+h(r.jobName||'-')+'</td>'
+        + '<td style="padding:9px 12px;">'+fileCell+'</td>'
+        + '<td style="padding:9px 12px;font-size:13px;color:#555;">'+(instr.join(' · ')||'<span style="color:#ccc;">—</span>')+'</td>'
+        + '<td style="padding:9px 12px;text-align:center;">'+((r.status||'queued')==='done'?'<span style="color:#16a34a;font-weight:700;">✅ เสร็จ</span>':'<span style="color:#e67e22;font-weight:700;">⏳ รอเขียน</span>')+'</td>'
+        + '<td style="padding:9px 12px;text-align:center;"><button onclick="draftAdminDelete(\''+h(r.id)+'\')" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button></td>'
+        + '</tr>';
+    }).join('');
+    el.innerHTML =
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;">'+cards+'</div>'
+      + '<div style="background:#fff;border:1px solid #eceef2;border-radius:12px;overflow:hidden;">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+      + '<thead><tr style="background:#f0f2f5;">'
+      + '<th style="padding:10px 12px;text-align:left;">วันที่</th>'
+      + '<th style="padding:10px 12px;text-align:left;">ช่าง</th>'
+      + '<th style="padding:10px 12px;text-align:left;">ลูกค้า</th>'
+      + '<th style="padding:10px 12px;text-align:left;">งาน</th>'
+      + '<th style="padding:10px 12px;text-align:left;">ไฟล์</th>'
+      + '<th style="padding:10px 12px;text-align:left;">คำสั่งพิเศษ</th>'
+      + '<th style="padding:10px 12px;text-align:center;">สถานะ</th>'
+      + '<th style="padding:10px 12px;text-align:center;">จัดการ</th>'
+      + '</tr></thead><tbody>'
+      + (rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:40px 0;">ยังไม่มีงานในคิวเขียนแบบ</td></tr>')
+      + '</tbody></table></div>';
+  });
+}
+
+function draftAdminDelete(id){
+  if(!confirm('ลบงานนี้ออกจากคิวเขียนแบบ?')) return;
+  apiSet('delete', 'draft_queue', id, {}, function(){
+    toast('ลบแล้ว');
+    rdDraftOverview();
+  });
 }
 
 // ===== END WORKLIST =====
@@ -6144,14 +6323,18 @@ function doPrintQt(qt) {
 <div id="sec-crm" class="sec" style="padding:0;height:calc(100vh - 60px);"><iframe id="crm-frame" src="" style="width:100%;height:100%;border:none;display:block;"></iframe></div>
 
 <!-- ===== WORKLIST SECTION ===== -->
+<style>.draft-mode .wl-list-ctrl{display:none!important;}</style>
 <div id="sec-worklist" class="sec on" style="padding:0;">
 <div style="background:#fff;border-bottom:1.5px solid #e0e3eb;padding:16px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <span style="font-size:15px;font-weight:700;color:#1a1a2e;margin-right:8px;">📋 ลิสงาน</span>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div style="display:flex;gap:0;border:1.5px solid #e0e3eb;border-radius:8px;overflow:hidden;margin-right:8px;">
+    <button id="wl-vtab-list" onclick="wlSwitchView('list')" style="background:#1a1a2e;color:#fff;border:none;padding:7px 14px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 ลิสงาน</button>
+    <button id="wl-vtab-draft" onclick="wlSwitchView('draft')" style="background:#fff;color:#555;border:none;border-left:1.5px solid #e0e3eb;padding:7px 14px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📐 คิวเขียนแบบ</button>
+  </div>
+  <div class="wl-list-ctrl" style="display:flex;align-items:center;gap:8px;">
     <label style="font-size:12px;font-weight:700;color:#555;">เดือน</label>
     <select id="wl-month-sel" onchange="wlApplyMonthFilter()" style="padding:6px 10px;border:1.5px solid #e0e3eb;border-radius:7px;font-family:Sarabun,sans-serif;font-size:13px;"></select>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div class="wl-list-ctrl" style="display:flex;align-items:center;gap:8px;">
     <label style="font-size:12px;font-weight:700;color:#555;">สถานะ</label>
     <select id="wl-status-sel" onchange="renderWorklist()" style="padding:6px 10px;border:1.5px solid #e0e3eb;border-radius:7px;font-family:Sarabun,sans-serif;font-size:13px;">
       <option value="all">ทั้งหมด</option>
@@ -6160,16 +6343,16 @@ function doPrintQt(qt) {
       <option value="billed">เปิดบิลแล้ว</option>
     </select>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div class="wl-list-ctrl" style="display:flex;align-items:center;gap:8px;">
     <label style="font-size:12px;font-weight:700;color:#555;">ค้นหาลูกค้า</label>
     <input type="text" id="wl-cust-search" oninput="renderWorklist()" placeholder="พิมพ์ชื่อลูกค้า..." style="padding:6px 10px;border:1.5px solid #e0e3eb;border-radius:7px;font-family:Sarabun,sans-serif;font-size:13px;width:170px;">
   </div>
   <div style="flex:1;"></div>
-  <button id="wl-open-bill-btn" onclick="wlOpenBillSelected()" style="display:none;background:#e65100;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ เปิดบิลรวม (<span id="wl-sel-count">0</span> งาน)</button>
-  <button onclick="wlOpenAddModal()" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➕ เพิ่มงาน</button>
-  <button onclick="window.open('cnk_pricing.html','_blank')" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">💰 ตีราคาใหม่</button>
+  <button id="wl-open-bill-btn" class="wl-list-ctrl" onclick="wlOpenBillSelected()" style="display:none;background:#e65100;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ เปิดบิลรวม (<span id="wl-sel-count">0</span> งาน)</button>
+  <button class="wl-list-ctrl" onclick="wlOpenAddModal()" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➕ เพิ่มงาน</button>
+  <button class="wl-list-ctrl" onclick="window.open('cnk_pricing.html','_blank')" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">💰 ตีราคาใหม่</button>
 </div>
-<div style="padding:20px 28px;">
+<div id="wl-main-view" style="padding:20px 28px;">
   <div id="wl-loading" style="text-align:center;color:#aaa;padding:40px 0;">กำลังโหลด...</div>
   <div id="wl-table-wrap" style="display:none;">
     <table id="wl-table" style="width:100%;border-collapse:collapse;font-size:14px;">
@@ -6192,6 +6375,38 @@ function doPrintQt(qt) {
     </table>
     <div id="wl-cards" style="display:none;"></div>
     <div id="wl-empty-msg" style="display:none;text-align:center;color:#aaa;padding:40px 0;">ไม่มีรายการ</div>
+  </div>
+</div>
+<div id="draft-overview" style="display:none;padding:20px 28px;"></div>
+<!-- ===== MODAL: ส่งเข้าคิวเขียนแบบ ===== -->
+<div id="wl-draft-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:24px 26px;width:460px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35);font-family:Sarabun,sans-serif;">
+    <div style="font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">📐 ส่งงานเข้าคิวเขียนแบบ</div>
+    <div style="font-size:13px;color:#666;margin-bottom:16px;"><b id="dft-cust" style="color:#1a1a2e;"></b> · <span id="dft-job"></span></div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">เลือกช่าง *</label>
+        <select id="dft-tech" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ไฟล์งาน (PDF / AI / DXF)</label>
+        <input id="dft-file-input" type="file" accept=".pdf,.ai,.dxf,.svg,image/*" onchange="draftUpload(this,'file')" style="width:100%;box-sizing:border-box;font-family:Sarabun,sans-serif;font-size:13px;">
+        <div id="dft-file-status" style="font-size:12px;color:#888;margin-top:4px;"></div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">คำสั่งพิเศษ (พิมพ์)</label>
+        <textarea id="dft-instr" rows="3" placeholder="เช่น เพิ่มเส้นปรุตรงฝา, กลับด้านลาย..." style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;resize:vertical;"></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">คำสั่งเป็นรูป (ถ้าลูกค้าส่งมาเป็นภาพ)</label>
+        <input id="dft-instr-input" type="file" accept="image/*" onchange="draftUpload(this,'instr')" style="width:100%;box-sizing:border-box;font-family:Sarabun,sans-serif;font-size:13px;">
+        <div id="dft-instr-status" style="font-size:12px;color:#888;margin-top:4px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="wlCloseDraftModal()" style="flex:1;background:#f0f2f5;color:#555;border:none;border-radius:8px;padding:10px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">ยกเลิก</button>
+      <button id="dft-save-btn" onclick="wlSaveDraft()" style="flex:2;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📐 ส่งเข้าคิว</button>
+    </div>
   </div>
 </div>
 <!-- ===== MODAL: เพิ่มงานเอง ===== -->
