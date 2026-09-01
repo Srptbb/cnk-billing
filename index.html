@@ -277,7 +277,7 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div class="fg" style="margin-top:14px;"><label>หมายเหตุ</label><input id="br" type="text" placeholder="หมายเหตุ (ถ้ามี)"></div>
   <div class="brow">
-    <button class="btn bp" onclick="saveB()">บันทึกบิล</button>
+    <button id="save-btn" class="btn bp" onclick="saveB()">บันทึกบิล</button>
     <button class="btn bg" onclick="prvB()">Preview / พิมพ์</button>
     <button class="btn bo" onclick="clrF()">ล้างฟอร์ม</button>
   </div>
@@ -2947,9 +2947,11 @@ function svB2(b){
   saveImgForBill(b.id, b.items||[]);
   bills.push(b);
   localStorage.setItem('b',JSON.stringify(bills));
-  apiPost('save','bills',b).catch(function(e){console.error(e);});
+  return apiPost('save','bills',b).catch(function(e){console.error(e);});
 }
+var _savingBill=false;
 function saveB(){
+  if(_savingBill) return; // กันกดซ้ำระหว่างบันทึก
   var cn=document.getElementById('cn').value.trim();if(!cn){toast('กรุณากรอกชื่อลูกค้า');return;}
   var items=getIt();if(!items.length){toast('กรุณาเพิ่มรายการสินค้า');return;}
   var sub=items.reduce(function(s,i){return s+i.t;},0);
@@ -2966,7 +2968,12 @@ function saveB(){
     tax:_cust?(_cust.tax||''):'',
     items:items,sub:sub,discVal:discVal,discType:discType,discAmt:discAmt,hasVat:hasVat,vat:vat,grand:afterDisc+vat,remark:document.getElementById('br').value.trim(),
     status:'active',ts:new Date().toISOString()};
-  svB2(b);
+  _savingBill=true;
+  var _svBtn=document.getElementById('save-btn');
+  if(_svBtn){_svBtn.disabled=true;_svBtn.style.opacity='0.55';_svBtn.textContent='กำลังบันทึก...';}
+  function _endSave(){_savingBill=false;if(_svBtn){_svBtn.disabled=false;_svBtn.style.opacity='';_svBtn.textContent='บันทึกบิล';}}
+  var _svP=svB2(b);
+  if(_svP&&_svP.then){_svP.then(_endSave,_endSave);}else{setTimeout(_endSave,1200);}
   // มาร์ค worklist ที่ผูกไว้เป็น "เปิดบิลแล้ว" อัตโนมัติ (เฉพาะลูกค้าที่ตรงกัน)
   // อัปเดตทีละรายการตามลำดับ (ไม่ยิงพร้อมกันทั้งหมด) กัน backend ชนกันแล้วอัปเดตได้แค่รายการเดียว
   if(_wlBillingIds.length && cn===_wlBillingCust){
