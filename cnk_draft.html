@@ -129,6 +129,11 @@ let _pin = '';
 let _jobs = [];
 
 function h(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// เพิ่ม fl_attachment เพื่อบังคับให้ browser ดาวน์โหลดไฟล์ (ไม่งั้น PDF/DXF บางทีเปิดไม่ได้)
+function dlUrl(url){
+  if(!url) return '';
+  return url.indexOf('/upload/') > -1 ? url.replace('/upload/','/upload/fl_attachment/') : url;
+}
 function toast(msg){
   var t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -224,7 +229,8 @@ function openJob(id){
   // file
   var fileEl = document.getElementById('d-file');
   if(r.fileUrl){
-    fileEl.innerHTML = '<a class="filebtn" href="'+h(r.fileUrl)+'" target="_blank">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>';
+    fileEl.innerHTML = '<a class="filebtn" href="'+h(dlUrl(r.fileUrl))+'">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>'
+      + '<a href="'+h(r.fileUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:8px;color:#7c3aed;font-size:13px;text-decoration:none;">👁️ เปิดดูในแท็บใหม่</a>';
   } else {
     fileEl.innerHTML = '<div class="nofile">— ไม่มีไฟล์แนบ (รับไฟล์ทางไลน์) —</div>';
   }

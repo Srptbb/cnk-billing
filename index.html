@@ -1822,6 +1822,7 @@ function loadWorklist(opts) {
     }
     _wlRaw = rows;
     wlApplyMonthFilter();
+    loadDraftedIds();
   }, 6);
 }
 
@@ -1904,7 +1905,9 @@ function renderWorklist() {
       +(canCheck
         ? '<button onclick="wlOpenSingle(this)" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">เปิดบิล</button>'
         : '')
-      +'<button onclick="wlOpenDraftModal(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">📐 เขียนแบบ</button>'
+      +(_draftedWlIds[rid]
+        ? '<button onclick="wlOpenDraftModal(this)" title="ส่งเข้าคิวแล้ว — กดเพื่อส่งซ้ำ/แก้ไฟล์" style="background:#ede9fe;color:#a78bda;border:1px solid #ddd6fe;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✓ ส่งคิวแล้ว</button>'
+        : '<button onclick="wlOpenDraftModal(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">📐 เขียนแบบ</button>')
       +'<button onclick="wlEditRow(this)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;margin-right:3px;">✏️ แก้ไข</button>'
       +'<button onclick="wlDelete(this)" style="background:none;border:1px solid #e0e3eb;color:#e74c3c;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">ลบ</button>'
       +'</td>'
@@ -2067,6 +2070,18 @@ var DRAFT_TECHS = [
   {name:'ช่างโพด', pin:'4169'}
 ];
 var _draftWlRow = null, _draftFileUrl = '', _draftFileName = '', _draftInstrImg = '';
+var _draftedWlIds = {}; // wlId -> true ถ้าส่งเข้าคิวเขียนแบบแล้ว (ยังไม่เสร็จ)
+function loadDraftedIds(){
+  apiGet('draft_queue', function(rows, failed){
+    if(failed) return;
+    var map = {};
+    (rows||[]).forEach(function(r){
+      if((r.status||'queued')!=='done' && r.wlId) map[String(r.wlId)] = true;
+    });
+    _draftedWlIds = map;
+    if(typeof renderWorklist==='function') renderWorklist();
+  });
+}
 
 function wlOpenAddModal() {
   var m = document.getElementById('wl-add-modal');
@@ -2668,7 +2683,9 @@ function wlSaveDraft(){
   };
   apiSet('save', 'draft_queue', rec.id, rec, function(){
     toast('✅ ส่งเข้าคิวเขียนแบบของ '+tech+' แล้ว');
+    if(rec.wlId){ _draftedWlIds[rec.wlId] = true; }
     wlCloseDraftModal();
+    if(typeof renderWorklist==='function') renderWorklist();
     var dov = document.getElementById('draft-overview');
     if(dov && dov.style.display!=='none') rdDraftOverview();
   });
@@ -2693,7 +2710,8 @@ function rdDraftOverview(){
     }).join('');
     var rowsHtml = queued.slice().sort(function(a,b){ return (a.createdAt||'')<(b.createdAt||'')?1:-1; }).map(function(r){
       var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-      var fileCell = r.fileUrl ? '<a href="'+h(r.fileUrl)+'" target="_blank" style="color:#7c3aed;font-weight:600;">📎 '+h(r.fileName||'ไฟล์')+'</a>' : '<span style="color:#ccc;">—</span>';
+      var _dl = r.fileUrl && r.fileUrl.indexOf('/upload/')>-1 ? r.fileUrl.replace('/upload/','/upload/fl_attachment/') : r.fileUrl;
+      var fileCell = r.fileUrl ? '<a href="'+h(_dl)+'" style="color:#7c3aed;font-weight:600;">📎 '+h(r.fileName||'ไฟล์')+'</a>' : '<span style="color:#ccc;">—</span>';
       var instr = [];
       if(r.instrText) instr.push(h(r.instrText));
       if(r.instrImgUrl) instr.push('<a href="'+h(r.instrImgUrl)+'" target="_blank" style="color:#7c3aed;">🖼️ รูปคำสั่ง</a>');
@@ -6323,7 +6341,11 @@ function doPrintQt(qt) {
 <div id="sec-crm" class="sec" style="padding:0;height:calc(100vh - 60px);"><iframe id="crm-frame" src="" style="width:100%;height:100%;border:none;display:block;"></iframe></div>
 
 <!-- ===== WORKLIST SECTION ===== -->
-<style>.draft-mode .wl-list-ctrl{display:none!important;}</style>
+<style>.draft-mode .wl-list-ctrl{display:none!important;}
+.dft-filebtn{display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;background:#faf5ff;border:1.5px dashed #c4b5fd;border-radius:10px;padding:12px 14px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:600;color:#6d28d9;cursor:pointer;transition:background .15s,border-color .15s;}
+.dft-filebtn:hover{background:#f3ecff;border-color:#a78bfa;}
+.dft-filebtn .ic{font-size:18px;}
+.dft-filebtn .sub{margin-left:auto;font-size:12px;font-weight:500;color:#a78bda;}
 <div id="sec-worklist" class="sec on" style="padding:0;">
 <div style="background:#fff;border-bottom:1.5px solid #e0e3eb;padding:16px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
   <div style="display:flex;gap:0;border:1.5px solid #e0e3eb;border-radius:8px;overflow:hidden;margin-right:8px;">
@@ -6390,8 +6412,9 @@ function doPrintQt(qt) {
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ไฟล์งาน (PDF / AI / DXF)</label>
-        <input id="dft-file-input" type="file" accept=".pdf,.ai,.dxf,.svg,image/*" onchange="draftUpload(this,'file')" style="width:100%;box-sizing:border-box;font-family:Sarabun,sans-serif;font-size:13px;">
-        <div id="dft-file-status" style="font-size:12px;color:#888;margin-top:4px;"></div>
+        <label for="dft-file-input" class="dft-filebtn"><span class="ic">📎</span><span>เลือกไฟล์งาน</span><span class="sub">แตะเพื่อเลือก</span></label>
+        <input id="dft-file-input" type="file" accept=".pdf,.ai,.dxf,.svg,image/*" onchange="draftUpload(this,'file')" style="display:none;">
+        <div id="dft-file-status" style="font-size:12px;color:#888;margin-top:6px;"></div>
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">คำสั่งพิเศษ (พิมพ์)</label>
@@ -6399,8 +6422,9 @@ function doPrintQt(qt) {
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">คำสั่งเป็นรูป (ถ้าลูกค้าส่งมาเป็นภาพ)</label>
-        <input id="dft-instr-input" type="file" accept="image/*" onchange="draftUpload(this,'instr')" style="width:100%;box-sizing:border-box;font-family:Sarabun,sans-serif;font-size:13px;">
-        <div id="dft-instr-status" style="font-size:12px;color:#888;margin-top:4px;"></div>
+        <label for="dft-instr-input" class="dft-filebtn"><span class="ic">🖼️</span><span>เลือกรูปคำสั่ง</span><span class="sub">แตะเพื่อเลือก</span></label>
+        <input id="dft-instr-input" type="file" accept="image/*" onchange="draftUpload(this,'instr')" style="display:none;">
+        <div id="dft-instr-status" style="font-size:12px;color:#888;margin-top:6px;"></div>
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:20px;">
