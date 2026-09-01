@@ -53,7 +53,8 @@
   .nofile{color:#aaa;font-size:14px;background:#f7f6fb;border-radius:10px;padding:12px;text-align:center;}
   .instr-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;font-size:15px;color:#7c2d12;white-space:pre-wrap;line-height:1.5;}
   .instr-img{margin-top:10px;}
-  .instr-img img{width:100%;border-radius:10px;border:1px solid #eee;}
+  .instr-img img{display:block;max-width:100%;max-height:42vh;width:auto;margin:0 auto;object-fit:contain;border-radius:10px;border:1px solid #eee;background:#f7f6fb;}
+  .instr-img .hint{text-align:center;font-size:12px;color:#aaa;margin-top:6px;}
   .m-meta{font-size:12px;color:#aaa;margin-top:18px;}
   .done-btn{width:100%;margin-top:20px;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:15px;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;}
   .done-btn:active{background:#15803d;}
@@ -237,8 +238,7 @@ function openJob(id){
   // file
   var fileEl = document.getElementById('d-file');
   if(r.fileUrl){
-    fileEl.innerHTML = '<a class="filebtn" style="background:'+currentDef.color+';" href="'+h(dlUrl(r.fileUrl))+'">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>'
-      + '<a href="'+h(r.fileUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:8px;color:'+currentDef.color+';font-size:13px;text-decoration:none;">👁️ เปิดดูในแท็บใหม่</a>';
+    fileEl.innerHTML = '<a class="filebtn" style="background:'+currentDef.color+';" href="'+h(dlUrl(r.fileUrl))+'">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>';
   } else {
     fileEl.innerHTML = '<div class="nofile">— ไม่มีไฟล์แนบ (รับไฟล์ทางไลน์) —</div>';
   }
@@ -246,7 +246,7 @@ function openJob(id){
   var iw = document.getElementById('d-instr-wrap');
   var ihtml = '';
   if(r.instrText) ihtml += '<div class="instr-box">'+h(r.instrText)+'</div>';
-  if(r.instrImgUrl) ihtml += '<div class="instr-img"><a href="'+h(r.instrImgUrl)+'" target="_blank"><img src="'+h(r.instrImgUrl)+'" alt="คำสั่ง"></a></div>';
+  if(r.instrImgUrl) ihtml += '<div class="instr-img"><a href="'+h(r.instrImgUrl)+'" target="_blank"><img src="'+h(r.instrImgUrl)+'" alt="คำสั่ง"></a><div class="hint">แตะรูปเพื่อดูแบบเต็ม</div></div>';
   iw.innerHTML = ihtml ? ('<div class="m-sec-label">คำสั่งพิเศษ</div>'+ihtml) : '';
   // meta
   var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
