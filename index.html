@@ -1285,10 +1285,10 @@ function loadAll(){
         showLoading(false);
         // อัพเดต badge บิลค้างวางบิล
         (function(){
-          var invoicedNos = [];
-          invoices.forEach(function(iv){ if(iv.status!=='cancelled')(iv.billNos||[]).forEach(function(no){invoicedNos.push(no);}); });
+          var invoicedPairs = {};
+          invoices.forEach(function(iv){ if(iv.status!=='cancelled')(iv.billNos||[]).forEach(function(no){invoicedPairs[(iv.custName||'')+'|'+no]=true;}); });
           var thisYM = td().slice(0,7);
-          var cnt = bills.filter(function(b){ return b.type==='credit'&&b.status==='active'&&!invoicedNos.includes(b.no)&&(b.date||'').slice(0,7)<thisYM; }).length;
+          var cnt = bills.filter(function(b){ return b.type==='credit'&&b.status==='active'&&!invoicedPairs[(b.cn||'')+'|'+b.no]&&(b.date||'').slice(0,7)<thisYM; }).length;
           var badge = document.getElementById('unbilled-badge');
           if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
         })();
@@ -3520,13 +3520,14 @@ function genInvNo() {
 function loadInvBills(custId) {
   var c = custs.find(function(c){return c.id===custId;});
   // Get bills for this customer that are active and not already in an invoice
+  // เอาเฉพาะ billNos ที่วางบิลของลูกค้ารายนี้ (กันเลขบิลชนกันข้ามลูกค้า)
   var invoicedNos = [];
-  invoices.forEach(function(iv){ 
-    if (iv.status !== 'cancelled') {
+  invoices.forEach(function(iv){
+    if (iv.status !== 'cancelled' && iv.custName === c.n) {
       iv.billNos.forEach(function(no){ invoicedNos.push(no); });
     }
   });
-  
+
   var eligible = bills.filter(function(b){
     return b.cn === c.n && b.type === 'credit' && b.status === 'active' && !invoicedNos.includes(b.no);
   }).sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
@@ -3671,18 +3672,19 @@ function pickInvF(n) {
 
 // ===== บิลค้างวางบิล =====
 function rdUnbilled() {
-  // คำนวณ billNos ที่อยู่ใน invoice ที่ไม่ถูก cancel แล้ว
-  var invoicedNos = [];
+  // คำนวณคู่ (ลูกค้า|เลขบิล) ที่อยู่ใน invoice ที่ไม่ถูก cancel แล้ว
+  // ใช้คู่ลูกค้า+เลขบิล กันกรณีเลขบิลชนกันข้ามลูกค้า (เลขซ้ำแต่คนละเจ้า)
+  var invoicedPairs = {};
   invoices.forEach(function(iv) {
     if (iv.status !== 'cancelled') {
-      (iv.billNos || []).forEach(function(no) { invoicedNos.push(no); });
+      (iv.billNos || []).forEach(function(no) { invoicedPairs[(iv.custName||'')+'|'+no] = true; });
     }
   });
 
   // กรองบิลเครดิต active ที่ยังไม่ได้วางบิล ไม่รวมเดือนปัจจุบัน
   var thisYM = td().slice(0, 7); // YYYY-MM
   var unbilled = bills.filter(function(b) {
-    return b.type === 'credit' && b.status === 'active' && !invoicedNos.includes(b.no)
+    return b.type === 'credit' && b.status === 'active' && !invoicedPairs[(b.cn||'')+'|'+b.no]
       && (b.date || '').slice(0, 7) < thisYM;
   }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
 
