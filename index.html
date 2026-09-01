@@ -2089,6 +2089,7 @@ function wlOpenAddModal() {
   // เติมชนิดมีด/เส้นพับ (โหลดจากชีท pricing ครั้งแรก แล้ว cache ไว้)
   if(qpPricingCut.length === 0) loadQpPricing(wlPopulateBladeSelects);
   else wlPopulateBladeSelects();
+  var _pwb = document.getElementById('wla-price-web-btn'); if(_pwb) _pwb.style.display = 'none';
   m.style.display = 'flex';
 }
 
@@ -2180,6 +2181,7 @@ function wlEditRow(btn) {
     wlPopulateBladeSelects();
     selectBladeValues();
   }
+  var _pwb = document.getElementById('wla-price-web-btn'); if(_pwb) _pwb.style.display = 'block';
   m.style.display = 'flex';
 }
 
@@ -2187,6 +2189,17 @@ function wlCloseAddModal() {
   var m = document.getElementById('wl-add-modal');
   if(m) m.style.display = 'none';
   _wlEditId = null;
+}
+
+// ไปหน้าเว็บตีราคา พร้อมส่งเลขงานเดิม → ตีราคาเสร็จบันทึกกลับมาอัปเดตงานนี้
+function wlGotoPricing() {
+  if(!_wlEditId){ toast('บันทึกงานก่อน แล้วเปิดแก้ไขเพื่อตีราคา'); return; }
+  var cust = (document.getElementById('wla-cust').value||'').trim();
+  var note = (document.getElementById('wla-jobname').value||'').trim();
+  var url = 'cnk_pricing.html?wlEdit='+encodeURIComponent(_wlEditId)
+          + '&cust='+encodeURIComponent(cust)
+          + '&note='+encodeURIComponent(note);
+  window.location.href = url;
 }
 
 // ประเมินราคา — กดเองเท่านั้น (ไม่คำนวณอัตโนมัติ) ใช้สูตรเดียวกับ Quick Price ในหน้าเปิดบิล
@@ -6281,6 +6294,7 @@ function doPrintQt(qt) {
       <button onclick="wlCloseAddModal()" style="flex:1;background:#f0f2f5;color:#555;border:none;border-radius:9px;padding:11px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">ยกเลิก</button>
       <button id="wla-save-btn" onclick="wlSaveNewJob()" style="flex:2;background:#16a34a;color:#fff;border:none;border-radius:9px;padding:11px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">💾 บันทึก</button>
     </div>
+    <button id="wla-price-web-btn" onclick="wlGotoPricing()" style="display:none;width:100%;margin-top:10px;background:#e65100;color:#fff;border:none;border-radius:9px;padding:11px;font-family:Sarabun,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">🧮 ตีราคาด้วยเว็บตีราคา (อัปไฟล์ SVG/DXF)</button>
   </div>
 </div>
 </div>

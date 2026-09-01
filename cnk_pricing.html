@@ -392,6 +392,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
   </div>
 
   <div class="section">
+    <div id="wl-edit-banner" style="display:none;background:#fff7ed;border:1.5px solid #fdba74;color:#9a3412;border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13px;font-weight:600;line-height:1.5;"></div>
     <div class="stitle">06 ลูกค้า / งาน</div>
     <div class="fg">
       <label>ลูกค้า</label>
@@ -456,6 +457,29 @@ let lastTouch = null, touchPanStart = null;
 let pricingCut = [], pricingCrease = [];
 let WOOD_COST = 0.00038;
 let allCustomers = [], selectedCust = null;
+let _wlTargetId = null; // ถ้าไม่ null = มาจากหน้าแก้ไข worklist → บันทึกแบบ update งานเดิม
+
+// เติมข้อมูลจากงาน worklist ที่กดปุ่ม "ตีราคา" มา (เรียกหลัง loadCustomers เสร็จ)
+function initWlEditPrefill(){
+  const p = new URLSearchParams(location.search);
+  const wlEdit = p.get('wlEdit');
+  if(!wlEdit) return;
+  _wlTargetId = wlEdit;
+  const cust = (p.get('cust')||'').trim();
+  const note = p.get('note')||'';
+  document.getElementById('note').value = note;
+  if(cust){
+    document.getElementById('cust-input').value = cust;
+    const match = allCustomers.find(c => c.n.trim().toLowerCase() === cust.toLowerCase());
+    selectedCust = match || {n:cust, multiplier:1.0, isNew:true};
+    document.getElementById('cust-note').textContent = match ? '' : 'ลูกค้าใหม่ (var2 = 1.0)';
+  }
+  const banner = document.getElementById('wl-edit-banner');
+  if(banner){
+    banner.style.display = 'block';
+    banner.innerHTML = '🔗 กำลังตีราคาให้งานในลิสงาน: <b>'+(note||'-')+'</b>'+(cust?(' — '+cust):'')+'<br>อัปไฟล์ + คำนวณราคา แล้วกด "บันทึก" ระบบจะอัปเดตงานเดิมให้ (ไม่สร้างงานซ้ำ)';
+  }
+}
 
 const canvas = document.getElementById('dxf-canvas');
 const ctx = canvas.getContext('2d');
@@ -1781,22 +1805,33 @@ function calculate(){
 // ── WORKLIST ──────────────────────────────────────────────────────────────────
 function saveToWorklist(){
   if(!lastResult){showToast('คำนวณราคาก่อน','warn');return;}
-  const id = 'q_'+Date.now();
+  const isWlEdit = !!_wlTargetId;
+  const id = isWlEdit ? _wlTargetId : 'q_'+Date.now();
   const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':'',(lastResult.perfMM>0)?'เส้นปรุ':''].filter(Boolean).join('+');
   const data = {
     id, ...lastResult,
     note: lastResult.note+(_extras?'('+_extras+')':''),
     price: lastResult.finalPrice,      // ราคาที่ใช้จริง (รวมเลเซอร์ถ้าติ๊ก)
-    priceBeforeLaser: lastResult.price,// ราคาก่อนบวกเลเซอร์ (เก็บอ้างอิง)
-    status: 'pending',
-    ts: new Date().toISOString()
+    priceBeforeLaser: lastResult.price // ราคาก่อนบวกเลเซอร์ (เก็บอ้างอิง)
   };
+  // งานใหม่ → ตั้ง status/ts ใหม่ | แก้ไขงานเดิม → คงสถานะเดิม + ไม่รีเซ็ต ts (กันงานเด้งเปลี่ยนเดือน)
+  if(!isWlEdit){ data.status='pending'; data.ts=new Date().toISOString(); }
+  else { delete data.ts; delete data.status; } // คง ts/สถานะเดิมของงานในลิส
+  const method = isWlEdit ? 'update' : 'save';
+  let url = `${API}?_method=${method}&table=worklist`;
+  if(isWlEdit) url += `&id=${encodeURIComponent(id)}`;
+  url += `&data=${encodeURIComponent(JSON.stringify(data))}`;
   setStatus('loading','กำลังบันทึก...');
-  fetch(`${API}?_method=save&table=worklist&data=${encodeURIComponent(JSON.stringify(data))}`)
+  fetch(url)
     .then(r=>r.json())
     .then(()=>{
       setStatus('ok','บันทึกแล้ว');
-      showToast('บันทึกลิสงานแล้ว ✓','ok');
+      if(isWlEdit){
+        showToast('อัปเดตราคาในลิสงานแล้ว ✓ กำลังกลับไปหน้าลิสงาน...','ok');
+        setTimeout(()=>{ window.location.href='index.html?tab=worklist'; }, 900);
+      } else {
+        showToast('บันทึกลิสงานแล้ว ✓','ok');
+      }
     })
     .catch(()=>showToast('บันทึกไม่สำเร็จ','err'));
 }
@@ -1839,7 +1874,7 @@ window.addEventListener('resize',()=>{if(lines.length)resetZoom();});
 
 // ── START ─────────────────────────────────────────────────────────────────────
 loadPricing();
-loadCustomers();
+loadCustomers().then(initWlEditPrefill);
 updateWlCount();
 </script>
 </body>
