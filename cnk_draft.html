@@ -22,24 +22,43 @@
   .key{background:#fff;border:none;border-radius:16px;padding:20px 0;font-size:26px;font-weight:600;color:#1a1a2e;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.06);font-family:inherit;transition:transform .05s;}
   .key:active{transform:scale(0.94);background:#ede9fe;}
   .key.fn{font-size:16px;color:#7c3aed;font-weight:700;}
-  .list{padding:16px;}
+  .list{padding:14px;}
   .empty{text-align:center;color:#aaa;padding:60px 20px;font-size:15px;}
-  .card{background:#fff;border-radius:16px;padding:16px 18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,0.05);border-left:5px solid #7c3aed;}
-  .card .cust{font-size:17px;font-weight:700;color:#1a1a2e;}
-  .card .job{font-size:14px;color:#555;margin-top:2px;}
-  .card .meta{font-size:12px;color:#999;margin-top:8px;}
-  .card .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-  .tag{display:inline-flex;align-items:center;gap:5px;background:#f4f2fa;color:#6d28d9;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;text-decoration:none;}
-  .instr-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:14px;color:#7c2d12;white-space:pre-wrap;}
-  .instr-img{margin-top:10px;}
-  .instr-img img{width:100%;border-radius:10px;border:1px solid #eee;}
-  .done-btn{width:100%;margin-top:14px;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;}
-  .done-btn:active{background:#15803d;}
-  .done-btn:disabled{background:#bbb;}
+  .count{font-size:13px;color:#888;padding:2px 4px 12px;}
+  /* compact card */
+  .card{background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 5px rgba(0,0,0,0.06);border-left:4px solid #7c3aed;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform .05s;}
+  .card:active{transform:scale(0.985);background:#faf9fe;}
+  .card .body{flex:1;min-width:0;}
+  .card .cust{font-size:16px;font-weight:700;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card .job{font-size:13px;color:#666;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card .badges{display:flex;gap:5px;margin-top:6px;}
+  .mini{font-size:11px;font-weight:600;border-radius:6px;padding:2px 7px;}
+  .mini.file{background:#ede9fe;color:#6d28d9;}
+  .mini.instr{background:#fff7ed;color:#c2410c;}
+  .card .chev{color:#c9c3dd;font-size:22px;flex-shrink:0;}
   .loading{text-align:center;color:#aaa;padding:60px 0;}
   .refresh{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:12px 22px;border-radius:30px;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
   .toast.show{opacity:1;}
+  /* detail modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:none;align-items:flex-end;justify-content:center;}
+  .modal.show{display:flex;}
+  .sheet{background:#fff;width:100%;max-width:640px;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;padding:8px 20px 26px;animation:slideup .25s ease;}
+  @keyframes slideup{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  .grab{width:44px;height:5px;background:#e0ddec;border-radius:3px;margin:8px auto 14px;}
+  .sheet .m-cust{font-size:20px;font-weight:700;color:#1a1a2e;}
+  .sheet .m-job{font-size:15px;color:#555;margin-top:2px;margin-bottom:16px;}
+  .sheet .m-sec-label{font-size:12px;font-weight:700;color:#999;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.5px;}
+  .filebtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;}
+  .nofile{color:#aaa;font-size:14px;background:#f7f6fb;border-radius:10px;padding:12px;text-align:center;}
+  .instr-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;font-size:15px;color:#7c2d12;white-space:pre-wrap;line-height:1.5;}
+  .instr-img{margin-top:10px;}
+  .instr-img img{width:100%;border-radius:10px;border:1px solid #eee;}
+  .m-meta{font-size:12px;color:#aaa;margin-top:18px;}
+  .done-btn{width:100%;margin-top:20px;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:15px;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;}
+  .done-btn:active{background:#15803d;}
+  .done-btn:disabled{background:#bbb;}
+  .close-x{background:none;border:none;font-size:15px;color:#999;cursor:pointer;padding:6px;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -82,6 +101,21 @@
   </div>
 </div>
 
+<!-- DETAIL SHEET -->
+<div id="detail" class="modal" onclick="if(event.target===this)closeJob()">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="display:flex;justify-content:flex-end;"><button class="close-x" onclick="closeJob()">✕ ปิด</button></div>
+    <div id="d-cust" class="m-cust"></div>
+    <div id="d-job" class="m-job"></div>
+    <div class="m-sec-label">ไฟล์งาน</div>
+    <div id="d-file"></div>
+    <div id="d-instr-wrap"></div>
+    <div id="d-meta" class="m-meta"></div>
+    <button id="d-done" class="done-btn">✅ เขียนเสร็จแล้ว</button>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script>
@@ -92,6 +126,7 @@ const DRAFT_TECHS = [
 ];
 let currentTech = null;
 let _pin = '';
+let _jobs = [];
 
 function h(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function toast(msg){
@@ -148,10 +183,10 @@ function loadQueue(){
       var rows;
       try{ rows = JSON.parse(t); }catch(e){ throw new Error('bad response'); }
       if(!Array.isArray(rows)) rows = [];
-      var mine = rows.filter(function(r){
+      _jobs = rows.filter(function(r){
         return r.tech === currentTech && (r.status||'queued') !== 'done';
       }).sort(function(a,b){ return (a.createdAt||'') < (b.createdAt||'') ? 1 : -1; });
-      renderCards(mine);
+      renderCards(_jobs);
     })
     .catch(function(e){
       el.innerHTML = '<div class="empty">โหลดไม่สำเร็จ<br><button class="tag" onclick="loadQueue()" style="margin-top:14px;">ลองใหม่</button></div>';
@@ -164,22 +199,55 @@ function renderCards(list){
     el.innerHTML = '<div class="empty">🎉 ไม่มีงานในคิว<br>ตอนนี้เคลียร์หมดแล้ว</div>';
     return;
   }
-  el.innerHTML = list.map(function(r){
-    var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    var tags = '';
-    if(r.fileUrl) tags += '<a class="tag" href="'+h(r.fileUrl)+'" target="_blank">📎 '+h(r.fileName||'เปิดไฟล์งาน')+'</a>';
-    var instr = '';
-    if(r.instrText) instr += '<div class="instr-box">📝 '+h(r.instrText)+'</div>';
-    if(r.instrImgUrl) instr += '<div class="instr-img"><a href="'+h(r.instrImgUrl)+'" target="_blank"><img src="'+h(r.instrImgUrl)+'" alt="คำสั่ง"></a></div>';
-    return '<div class="card">'
-      + '<div class="cust">'+h(r.custName||'-')+'</div>'
-      + '<div class="job">'+h(r.jobName||'(ไม่มีชื่องาน)')+'</div>'
-      + (tags ? '<div class="tags">'+tags+'</div>' : '<div class="meta">— ไม่มีไฟล์แนบ (ดูทางไลน์) —</div>')
-      + instr
-      + '<div class="meta">รับงาน: '+d+(r.createdBy?(' · โดย '+h(r.createdBy)):'')+'</div>'
-      + '<button class="done-btn" onclick="markDone(\''+h(r.id)+'\',this)">✅ เขียนเสร็จแล้ว</button>'
+  var html = '<div class="count">มีงานในคิว '+list.length+' งาน · แตะการ์ดเพื่อดูรายละเอียด</div>';
+  html += list.map(function(r){
+    var badges = '';
+    if(r.fileUrl) badges += '<span class="mini file">📎 มีไฟล์</span>';
+    if(r.instrText || r.instrImgUrl) badges += '<span class="mini instr">📝 มีคำสั่ง</span>';
+    return '<div class="card" onclick="openJob(\''+h(r.id)+'\')">'
+      + '<div class="body">'
+        + '<div class="cust">'+h(r.custName||'-')+'</div>'
+        + '<div class="job">'+h(r.jobName||'(ไม่มีชื่องาน)')+'</div>'
+        + (badges ? '<div class="badges">'+badges+'</div>' : '')
+      + '</div>'
+      + '<div class="chev">›</div>'
       + '</div>';
   }).join('');
+  el.innerHTML = html;
+}
+
+function openJob(id){
+  var r = _jobs.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  document.getElementById('d-cust').textContent = r.custName || '-';
+  document.getElementById('d-job').textContent = r.jobName || '(ไม่มีชื่องาน)';
+  // file
+  var fileEl = document.getElementById('d-file');
+  if(r.fileUrl){
+    fileEl.innerHTML = '<a class="filebtn" href="'+h(r.fileUrl)+'" target="_blank">⬇️ '+h(r.fileName||'ดาวน์โหลดไฟล์งาน')+'</a>';
+  } else {
+    fileEl.innerHTML = '<div class="nofile">— ไม่มีไฟล์แนบ (รับไฟล์ทางไลน์) —</div>';
+  }
+  // instructions
+  var iw = document.getElementById('d-instr-wrap');
+  var ihtml = '';
+  if(r.instrText) ihtml += '<div class="instr-box">'+h(r.instrText)+'</div>';
+  if(r.instrImgUrl) ihtml += '<div class="instr-img"><a href="'+h(r.instrImgUrl)+'" target="_blank"><img src="'+h(r.instrImgUrl)+'" alt="คำสั่ง"></a></div>';
+  iw.innerHTML = ihtml ? ('<div class="m-sec-label">คำสั่งพิเศษ</div>'+ihtml) : '';
+  // meta
+  var d = r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  document.getElementById('d-meta').textContent = 'รับงาน: '+d+(r.createdBy?(' · โดย '+r.createdBy):'');
+  // done button
+  var btn = document.getElementById('d-done');
+  btn.disabled = false; btn.textContent = '✅ เขียนเสร็จแล้ว';
+  btn.onclick = function(){ markDone(r.id, btn); };
+  document.getElementById('detail').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeJob(){
+  document.getElementById('detail').classList.remove('show');
+  document.body.style.overflow = '';
 }
 
 function markDone(id, btn){
@@ -191,6 +259,7 @@ function markDone(id, btn){
     .then(function(r){ return r.json(); })
     .then(function(){
       toast('✅ ปิดงานเรียบร้อย');
+      closeJob();
       loadQueue();
     })
     .catch(function(){
