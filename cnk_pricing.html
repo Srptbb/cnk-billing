@@ -1257,20 +1257,70 @@ function dedupSVG(){ deduplicateLines(0.05); }
 function dedupDXF(){ deduplicateLines(0.05); }
 function deduplicateLines(T){
   T = T || 0.05; // mm — เล็กพอที่ segment โค้ง (ยาว ~0.3mm) ไม่โดนมองว่าซ้อน
-  let removed=0;
+  const before=lines.length;
+
+  // ── รอบ 1: ลบเส้นที่ "ซ้อนกันทั้งเส้น" (ปลายทั้งสองตรงกัน) — ของเดิม ──
   const keep=new Array(lines.length).fill(true);
   for(let i=0;i<lines.length;i++){
     if(!keep[i])continue;
     for(let j=i+1;j<lines.length;j++){
       if(!keep[j])continue;
       const a=lines[i],b=lines[j];
-      // ซ้อนกัน "ทั้งเส้น" เท่านั้น (ปลายทั้งสองตรงกัน) — ไม่ลบเส้นที่แค่ต่อกัน
       const same=(Math.abs(a.x1-b.x1)<T&&Math.abs(a.y1-b.y1)<T&&Math.abs(a.x2-b.x2)<T&&Math.abs(a.y2-b.y2)<T)
                ||(Math.abs(a.x1-b.x2)<T&&Math.abs(a.y1-b.y2)<T&&Math.abs(a.x2-b.x1)<T&&Math.abs(a.y2-b.y1)<T);
-      if(same){keep[j]=false;removed++;}
+      if(same){keep[j]=false;}
     }
   }
-  lines=lines.filter((_,i)=>keep[i]);
+  const segs=lines.filter((_,i)=>keep[i]);
+
+  // ── รอบ 2: ลบส่วนที่ "ซ้อนทับกันบางส่วน" ของเส้นที่อยู่บนแนวเดียวกัน ──
+  // จับกลุ่มเส้น (ตรง/โค้ง) ที่ collinear กัน แล้วรวมช่วง (union) ให้นับความยาวครั้งเดียว
+  //  - ต้องทับกันจริง > OVL_MIN ถึงจะรวม (แค่ปลายชนกันไม่รวม) → กัน chord ของเส้นโค้งเส้นเดียวกันไม่ถูกกิน
+  //  - ช่วง union ที่เป็นเส้นโค้ง จะคง isCurve ไว้ + ใช้รัศมีเล็กสุด (โค้งแคบสุด = ตัวคูณสูงสุด) → ราคาไม่หาย
+  const PERP=0.20, ANG=1.0*Math.PI/180, OVL_MIN=0.1;
+  const used=new Array(segs.length).fill(false);
+  const out=[];
+  for(let i=0;i<segs.length;i++){
+    if(used[i])continue;
+    const a=segs[i];
+    const ang=Math.atan2(a.y2-a.y1,a.x2-a.x1), ux=Math.cos(ang), uy=Math.sin(ang);
+    const grp=[i]; used[i]=true;
+    const ta2=(a.x2-a.x1)*ux+(a.y2-a.y1)*uy, aLo=Math.min(0,ta2), aHi=Math.max(0,ta2);
+    for(let j=i+1;j<segs.length;j++){
+      if(used[j])continue;
+      const b=segs[j];
+      let bang=Math.atan2(b.y2-b.y1,b.x2-b.x1);
+      let da=Math.abs(((bang-ang+Math.PI)%(2*Math.PI))-Math.PI); if(da>Math.PI/2)da=Math.PI-da;
+      if(da>ANG)continue; // แนวไม่ขนานกัน
+      const perp=(px,py)=>Math.abs((px-a.x1)*(-uy)+(py-a.y1)*ux);
+      if(perp(b.x1,b.y1)>PERP||perp(b.x2,b.y2)>PERP)continue; // ไม่ได้อยู่บนเส้นเดียวกัน
+      const tb1=(b.x1-a.x1)*ux+(b.y1-a.y1)*uy, tb2=(b.x2-a.x1)*ux+(b.y2-a.y1)*uy;
+      const ov=Math.min(aHi,Math.max(tb1,tb2))-Math.max(aLo,Math.min(tb1,tb2));
+      if(ov<=OVL_MIN)continue; // แค่ต่อกัน/ปลายชนกัน ไม่ใช่ซ้อนทับ
+      grp.push(j); used[j]=true;
+    }
+    if(grp.length===1){ out.push(a); continue; }
+    // รวมช่วงที่ทับกัน (ไม่เชื่อมช่องว่างจริง)
+    const proj=k=>{const s=segs[k];const t1=(s.x1-a.x1)*ux+(s.y1-a.y1)*uy,t2=(s.x2-a.x1)*ux+(s.y2-a.y1)*uy;return[Math.min(t1,t2),Math.max(t1,t2),s];};
+    const iv=grp.map(proj).sort((p,q)=>p[0]-q[0]);
+    let cs=iv[0][0], ce=iv[0][1], rep=iv[0][2];
+    const pieces=[];
+    for(let k=1;k<iv.length;k++){
+      if(iv[k][0]<=ce+T){ ce=Math.max(ce,iv[k][1]); if(iv[k][2].len>rep.len)rep=iv[k][2]; }
+      else { pieces.push([cs,ce,rep]); cs=iv[k][0]; ce=iv[k][1]; rep=iv[k][2]; }
+    }
+    pieces.push([cs,ce,rep]);
+    const anyCurve=grp.some(k=>segs[k].isCurve);
+    let rad=1e6; grp.forEach(k=>{if(segs[k].isCurve)rad=Math.min(rad,segs[k].radiusMM);});
+    for(const p of pieces){
+      const nx1=a.x1+ux*p[0], ny1=a.y1+uy*p[0], nx2=a.x1+ux*p[1], ny2=a.y1+uy*p[1];
+      const nl=Math.hypot(nx2-nx1,ny2-ny1);
+      out.push({x1:nx1,y1:ny1,x2:nx2,y2:ny2,len:nl,lineType:p[2].lineType,isCurve:anyCurve,radiusMM:anyCurve?rad:1e6});
+    }
+  }
+
+  lines=out;
+  const removed=before-lines.length;
   const badge=document.getElementById('obadge');
   if(removed>0){badge.classList.add('show');document.getElementById('ocount').textContent=removed;}
   else badge.classList.remove('show');
