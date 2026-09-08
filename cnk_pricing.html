@@ -456,6 +456,10 @@ let lastTouch = null, touchPanStart = null;
 
 let pricingCut = [], pricingCrease = [];
 let WOOD_COST = 0.00038;
+// งานเส้นตรงล้วน (ไม่มีดัดใบมีด) ตัดใบมีดตามยาวแล้วเสียบเข้าไม้เลย → ค่าแรงดัดน้อยกว่างานโค้ง
+// จึงถ่วงน้ำหนักค่าแรง/บริหารจัดการ (bladeLenAdd) ที่ 0.8 แทน 1.0 — สอดคล้องกับตัวคูณความโค้ง (โค้งกว้าง=1.0 → แคบ=3.0)
+const STRAIGHT_ONLY_FACTOR = 0.8;   // งานที่ความยาวโค้ง < 2% ของทั้งหมด = เส้นตรงล้วน
+const STRAIGHT_ONLY_CURVE_FRAC = 0.02;
 let allCustomers = [], selectedCust = null;
 let _wlTargetId = null; // ถ้าไม่ null = มาจากหน้าแก้ไข worklist → บันทึกแบบ update งานเดิม
 
@@ -1763,15 +1767,19 @@ function calculate(){
   const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
   const totalBladeMM=cutMM+creaseMM+perfMM;
   // effectiveMM = ความยาวถ่วงน้ำหนักความโค้ง ใช้เฉพาะฐานค่าบริหารจัดการ (bladeLenAdd) ทุกโหมด
-  let straightMM=0,curveWeightedMM=0;
+  let straightMM=0,curveWeightedMM=0,curveRawMM=0;
   lines.forEach(l=>{
     if(l.lineType==='cut'||l.lineType==='crease'||l.lineType==='perf'){
       const lenMM=l.len*svgUnitToMM;
-      if(l.isCurve)curveWeightedMM+=lenMM*curveMultiplier(l.radiusMM);
+      if(l.isCurve){curveWeightedMM+=lenMM*curveMultiplier(l.radiusMM);curveRawMM+=lenMM;}
       else straightMM+=lenMM;
     }
   });
-  const effectiveMM=straightMM+curveWeightedMM;
+  // งานเส้นตรงล้วน (โค้ง < 2% ของความยาวจริง) → ไม่มีการดัดใบมีด → ลดค่าแรงดัดเหลือ 0.8
+  const totalRawMM=straightMM+curveRawMM;
+  const isStraightOnly=totalRawMM>0 && (curveRawMM/totalRawMM)<STRAIGHT_ONLY_CURVE_FRAC;
+  const straightFactor=isStraightOnly?STRAIGHT_ONLY_FACTOR:1;
+  const effectiveMM=(straightMM+curveWeightedMM)*straightFactor;
   const woodArea=woodBox?woodBox.wMM*woodBox.hMM:0;
   const laserAdd=isLaser?Math.round(totalBladeMM/1000*60 + woodArea*0.0008):0;
   const holeInfo=computeHoles();
@@ -1844,7 +1852,7 @@ function calculate(){
   const holeRow=document.getElementById('hole-row');
   if(holeAdd>0){holeRow.style.display='flex';document.getElementById('hole-amt').textContent='+฿'+holeAdd.toLocaleString()+' ('+holeCount+' รู)';}
   else holeRow.style.display='none';
-  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',perfMM>0?'🧵เส้นปรุ':'',holeCount>0?'🕳️รูกลึง'+holeCount:''].filter(Boolean).join(' · ');
+  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',perfMM>0?'🧵เส้นปรุ':'',holeCount>0?'🕳️รูกลึง'+holeCount:'',isStraightOnly?'📏เส้นตรงล้วน ×'+STRAIGHT_ONLY_FACTOR:''].filter(Boolean).join(' · ');
   const bladeLabel=pCut?pCut.blade:'—';
   document.getElementById('price-sub').textContent=`${bladeLabel} · ${custName}${note?' · '+note:''}${extrasLabel?' · '+extrasLabel:''}`;
   showToast(`฿${finalPrice.toLocaleString()} / ชิ้น`,'ok');
