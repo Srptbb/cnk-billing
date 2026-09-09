@@ -5704,6 +5704,26 @@ function rdCashFlow() {
     custTypicalDay[name] = parseInt(bestDay);
   });
 
+  // ===== หา "วันที่รับเช็คปกติ" ของลูกค้าแต่ละเจ้า (จากประวัติ chequeDate ที่เคยรับเช็คจริง) =====
+  // ใช้ประเมินบิลเช็คที่ยังไม่กำหนดวันรับเช็ค
+  var custChequeDays = {};
+  invoices.forEach(function(iv) {
+    if (iv.status === 'cancelled') return;
+    if (iv.payMethod !== 'เช็ค') return;
+    if (!iv.chequeDate) return;
+    var day = parseInt(iv.chequeDate.split('-')[2]);
+    if (!day) return;
+    var name = iv.custName;
+    if (!custChequeDays[name]) custChequeDays[name] = {};
+    custChequeDays[name][day] = (custChequeDays[name][day] || 0) + 1;
+  });
+  var custTypicalChequeDay = {};
+  Object.keys(custChequeDays).forEach(function(name) {
+    var days = custChequeDays[name];
+    var bestDay = Object.keys(days).reduce(function(a,b){ return days[a]>days[b]?a:b; });
+    custTypicalChequeDay[name] = parseInt(bestDay);
+  });
+
   // helper: บวกวันเข้า date string
   function addDays(dateStr, n) {
     var dt = new Date(dateStr + 'T00:00:00');
@@ -5728,13 +5748,45 @@ function rdCashFlow() {
         // เช็ครับแล้วแต่ยังไม่ถึงวันขึ้นเงิน → ยังไม่ติ๊กถูก
         if (dispDate > today) chequeNotYet = true;
       } else {
-        // เช็คยังไม่รับ → ประเมิน: chequeDate เดือนก่อน +30 วัน
-        // ใช้ chequeDate ถ้ามี ไม่งั้น payDate เป็น base
+        // เช็คยังไม่รับ
         var base = iv.chequeDate || iv.payDate;
-        if (!base) return null;
-        dispDate = addDays(base, 30);
-        isEst = true;
-        estNote = 'เช็คเดือนก่อน +30 วัน';
+        if (base) {
+          // กำหนดวันรับเช็คแล้ว → ประเมิน chequeDate เดือนก่อน +30 วัน
+          dispDate = addDays(base, 30);
+          isEst = true;
+          estNote = 'เช็คเดือนก่อน +30 วัน';
+        } else {
+          // ยังไม่กำหนดวันรับเช็ค → ประเมินจากวันรับเช็คปกติของลูกค้า (ประวัติ chequeDate)
+          var typChqDay = custTypicalChequeDay[iv.custName];
+          var baseD = iv.actualDate || iv.date;
+          if (!typChqDay || !baseD) {
+            // ไม่มีประวัติรับเช็ค / ประเมินไม่ได้ → กลุ่มยังไม่กำหนดวันรับ
+            var saleDc = iv.date || iv.actualDate || '';
+            return {
+              custName: iv.custName,
+              id: iv.id,
+              total: Number(iv.total)||0,
+              dispDate: null,
+              saleMon: saleDc ? saleDc.slice(0,7) : '',
+              status: iv.status,
+              isCheque: isCheque,
+              isEst: false,
+              estNote: '',
+              chequeNotYet: false,
+              noSchedule: true
+            };
+          }
+          // เดือนถัดจากวันเปิดบิล ใช้วันรับเช็คปกติ
+          var cbm = parseInt(baseD.split('-')[1]);
+          var cby = parseInt(baseD.split('-')[0]);
+          var cem = cbm + 1, cey = cby;
+          if (cem > 12) { cem = 1; cey++; }
+          var cMaxDay = new Date(cey, cem, 0).getDate();
+          var cUseDay = Math.min(typChqDay, cMaxDay);
+          dispDate = cey+'-'+String(cem).padStart(2,'0')+'-'+String(cUseDay).padStart(2,'0');
+          isEst = true;
+          estNote = 'อิงวันรับเช็คเดิม วันที่ '+typChqDay;
+        }
       }
     } else {
       if (iv.payDate) {
@@ -5749,6 +5801,7 @@ function rdCashFlow() {
           var saleD0 = iv.date || iv.actualDate || '';
           return {
             custName: iv.custName,
+            id: iv.id,
             total: Number(iv.total)||0,
             dispDate: null,
             saleMon: saleD0 ? saleD0.slice(0,7) : '',
@@ -5777,6 +5830,7 @@ function rdCashFlow() {
     var saleDate = iv.date || iv.actualDate || '';
     return {
       custName: iv.custName,
+      id: iv.id,
       total: Number(iv.total)||0,
       dispDate: dispDate,
       saleMon: saleDate ? saleDate.slice(0,7) : '',
@@ -5808,7 +5862,8 @@ function rdCashFlow() {
     var ym = e.dispDate.slice(0,7);
     if (!monthData[ym]) return;
     if (!monthData[ym][e.dispDate]) monthData[ym][e.dispDate] = {};
-    var key = e.custName + (e.isEst ? '|est' : '');
+    // คีย์รายใบ (iv.id) → ไม่ยุบรวมบิลคนละใบแม้ตกวันเดียวกัน
+    var key = 'id' + e.id;
     if (!monthData[ym][e.dispDate][key]) {
       monthData[ym][e.dispDate][key] = {
         custName:e.custName, total:0, saleMon:e.saleMon,
