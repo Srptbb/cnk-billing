@@ -1282,30 +1282,40 @@ function deduplicateLines(T){
   //  - ต้องทับกันจริง > OVL_MIN ถึงจะรวม (แค่ปลายชนกันไม่รวม) → กัน chord ของเส้นโค้งเส้นเดียวกันไม่ถูกกิน
   //  - ช่วง union ที่เป็นเส้นโค้ง จะคง isCurve ไว้ + ใช้รัศมีเล็กสุด (โค้งแคบสุด = ตัวคูณสูงสุด) → ราคาไม่หาย
   const PERP=0.20, ANG=1.0*Math.PI/180, OVL_MIN=0.1;
-  const used=new Array(segs.length).fill(false);
-  const out=[];
-  for(let i=0;i<segs.length;i++){
-    if(used[i])continue;
-    const a=segs[i];
-    const ang=Math.atan2(a.y2-a.y1,a.x2-a.x1), ux=Math.cos(ang), uy=Math.sin(ang);
-    const grp=[i]; used[i]=true;
-    const ta2=(a.x2-a.x1)*ux+(a.y2-a.y1)*uy, aLo=Math.min(0,ta2), aHi=Math.max(0,ta2);
-    for(let j=i+1;j<segs.length;j++){
-      if(used[j])continue;
+  const N=segs.length;
+  // union-find: จับกลุ่มเส้นที่ collinear + ทับกันจริง แบบ "ทรานซิทีฟ"
+  //  (A ทับ B, B ทับ C → รวมทั้งลูกโซ่เป็นกลุ่มเดียว) เก็บเส้นซ้อนครบในรอบเดียว
+  //  ของเดิมเป็น greedy ยึดเส้นแรกต่อรอบ → ลู่เข้าช้า ต้องวนหลายรอบ (parseDXF เรียกรอบเดียวเลยค้าง)
+  const parent=new Array(N); for(let i=0;i<N;i++)parent[i]=i;
+  const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
+  const union=(x,y)=>{ x=find(x); y=find(y); if(x!==y)parent[x]=y; };
+  const dir=segs.map(s=>{ const an=Math.atan2(s.y2-s.y1,s.x2-s.x1); return {ux:Math.cos(an),uy:Math.sin(an),an}; });
+  for(let i=0;i<N;i++){
+    const a=segs[i], A=dir[i];
+    const ta2=(a.x2-a.x1)*A.ux+(a.y2-a.y1)*A.uy, aLo=Math.min(0,ta2), aHi=Math.max(0,ta2);
+    for(let j=i+1;j<N;j++){
+      if(find(i)===find(j))continue; // อยู่กลุ่มเดียวกันแล้ว
       const b=segs[j];
-      let bang=Math.atan2(b.y2-b.y1,b.x2-b.x1);
-      let da=Math.abs(((bang-ang+Math.PI)%(2*Math.PI))-Math.PI); if(da>Math.PI/2)da=Math.PI-da;
+      let da=Math.abs(((dir[j].an-A.an+Math.PI)%(2*Math.PI))-Math.PI); if(da>Math.PI/2)da=Math.PI-da;
       if(da>ANG)continue; // แนวไม่ขนานกัน
-      const perp=(px,py)=>Math.abs((px-a.x1)*(-uy)+(py-a.y1)*ux);
+      const perp=(px,py)=>Math.abs((px-a.x1)*(-A.uy)+(py-a.y1)*A.ux);
       if(perp(b.x1,b.y1)>PERP||perp(b.x2,b.y2)>PERP)continue; // ไม่ได้อยู่บนเส้นเดียวกัน
-      const tb1=(b.x1-a.x1)*ux+(b.y1-a.y1)*uy, tb2=(b.x2-a.x1)*ux+(b.y2-a.y1)*uy;
+      const tb1=(b.x1-a.x1)*A.ux+(b.y1-a.y1)*A.uy, tb2=(b.x2-a.x1)*A.ux+(b.y2-a.y1)*A.uy;
       const ov=Math.min(aHi,Math.max(tb1,tb2))-Math.max(aLo,Math.min(tb1,tb2));
-      if(ov<=OVL_MIN)continue; // แค่ต่อกัน/ปลายชนกัน ไม่ใช่ซ้อนทับ
-      grp.push(j); used[j]=true;
+      if(ov<=OVL_MIN)continue; // แค่ต่อกัน/ปลายชนกัน ไม่ใช่ซ้อนทับ → กัน chord โค้งเส้นเดียวกัน
+      union(i,j);
     }
-    if(grp.length===1){ out.push(a); continue; }
-    // รวมช่วงที่ทับกัน (ไม่เชื่อมช่องว่างจริง)
-    const proj=k=>{const s=segs[k];const t1=(s.x1-a.x1)*ux+(s.y1-a.y1)*uy,t2=(s.x2-a.x1)*ux+(s.y2-a.y1)*uy;return[Math.min(t1,t2),Math.max(t1,t2),s];};
+  }
+  // รวมสมาชิกแต่ละกลุ่ม
+  const groups={};
+  for(let i=0;i<N;i++){ const r=find(i); (groups[r]=groups[r]||[]).push(i); }
+  const out=[];
+  for(const gk in groups){
+    const grp=groups[gk];
+    if(grp.length===1){ out.push(segs[grp[0]]); continue; }
+    // ใช้ทิศของสมาชิกตัวแรกเป็นแกน แล้ว union ช่วงตามแกน (ไม่เชื่อมช่องว่างจริง)
+    const a=segs[grp[0]], A=dir[grp[0]];
+    const proj=k=>{const s=segs[k];const t1=(s.x1-a.x1)*A.ux+(s.y1-a.y1)*A.uy,t2=(s.x2-a.x1)*A.ux+(s.y2-a.y1)*A.uy;return[Math.min(t1,t2),Math.max(t1,t2),s];};
     const iv=grp.map(proj).sort((p,q)=>p[0]-q[0]);
     let cs=iv[0][0], ce=iv[0][1], rep=iv[0][2];
     const pieces=[];
@@ -1317,7 +1327,7 @@ function deduplicateLines(T){
     const anyCurve=grp.some(k=>segs[k].isCurve);
     let rad=1e6; grp.forEach(k=>{if(segs[k].isCurve)rad=Math.min(rad,segs[k].radiusMM);});
     for(const p of pieces){
-      const nx1=a.x1+ux*p[0], ny1=a.y1+uy*p[0], nx2=a.x1+ux*p[1], ny2=a.y1+uy*p[1];
+      const nx1=a.x1+A.ux*p[0], ny1=a.y1+A.uy*p[0], nx2=a.x1+A.ux*p[1], ny2=a.y1+A.uy*p[1];
       const nl=Math.hypot(nx2-nx1,ny2-ny1);
       out.push({x1:nx1,y1:ny1,x2:nx2,y2:ny2,len:nl,lineType:p[2].lineType,isCurve:anyCurve,radiusMM:anyCurve?rad:1e6});
     }
