@@ -5749,12 +5749,11 @@ function rdCashFlow() {
         if (dispDate > today) chequeNotYet = true;
       } else {
         // เช็คยังไม่รับ
-        var base = iv.chequeDate || iv.payDate;
-        if (base) {
-          // กำหนดวันรับเช็คแล้ว → ประเมิน chequeDate เดือนก่อน +30 วัน
-          dispDate = addDays(base, 30);
-          isEst = true;
-          estNote = 'เช็คเดือนก่อน +30 วัน';
+        if (iv.payDate) {
+          // กำหนดวันรับเช็คแล้ว → แสดงที่วันรับเช็คที่กำหนด (ยังไม่รับ = แถบแดง เหมือนบิลโอน)
+          dispDate = iv.payDate;
+          isEst = false;
+          estNote = '';
         } else {
           // ยังไม่กำหนดวันรับเช็ค → ประเมินจากวันรับเช็คปกติของลูกค้า (ประวัติ chequeDate)
           var typChqDay = custTypicalChequeDay[iv.custName];
