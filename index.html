@@ -1752,7 +1752,7 @@ function qpAdd(){
 
 // ===== WORKLIST (ลิสงาน) =====
 var wlData = [];          // rows ของเดือนที่เลือก (ใช้ render)
-var _wlRaw = null;        // cache: rows ทั้งหมดที่ดึงมา (สูงสุด ~6 เดือน) — สลับเดือน/สลับแท็บ ไม่ต้องยิงเซิร์ฟเวอร์ใหม่
+var _wlRaw = (function(){ try { var s = localStorage.getItem('cnk_worklist'); return s ? JSON.parse(s) : null; } catch(e){ return null; } })();  // cache: rows ทั้งหมดที่ดึงมา (สูงสุด ~6 เดือน) — โหลดจาก localStorage ให้เปิดหน้ามาเห็นทันที แล้ว refresh เบื้องหลัง
 var _wlFetching = false;  // กัน background refresh ยิงซ้อน
 var _wlBillingIds = [];   // worklist id ที่กำลังเปิดบิลอยู่ (มาร์ค billed อัตโนมัติเมื่อบันทึกบิล)
 var _wlBillingCust = '';  // ชื่อลูกค้าที่ผูกกับ id ข้างบน (กันมาร์คผิดเจ้า)
@@ -1821,6 +1821,7 @@ function loadWorklist(opts) {
       return;
     }
     _wlRaw = rows;
+    try { localStorage.setItem('cnk_worklist', JSON.stringify(rows)); } catch(e){}
     wlApplyMonthFilter();
     loadDraftedIds();
   }, 6);
