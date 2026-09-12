@@ -3453,6 +3453,7 @@ function prvB(){
 function prtB(id){var b=bills.find(function(b){return b.id===id;});if(b)doPrint(b);}
 function doPrint(bill){
   var isCash=bill.type==='cash';
+  var barColor=isCash?'#27ae60':'#1a1a2e';
   var title=isCash?'ใบส่งสินค้า / ใบเสร็จรับเงิน':'ใบส่งสินค้า';
   var hasImg=bill.items.some(function(it){return it.img&&it.img!=='';});
   var rows='';
@@ -3473,7 +3474,7 @@ function doPrint(bill){
   doc.title='';
   doc.write('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">');
   doc.write('<title>'+h(bill.no)+'</title></head><body style="font-family:Sarabun,sans-serif;line-height:1.8;font-size:25px;background:#fff;color:#1a1a2e;margin:0;padding:0;">');
-  doc.write('<st'+'yle>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 portrait;margin:15mm 15mm 18mm 15mm;@bottom-right{content:"หน้า " counter(page);font-family:Sarabun,sans-serif;font-size:11px;color:#888;}}@media print{html,body{margin:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}html,body{height:auto;}body{font-size:13px;font-family:Sarabun,sans-serif;}.hd{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:2.5px solid #1a1a2e;margin-bottom:12px;flex-shrink:0;}.hd img{height:56px;}.hi{flex:1;}.cn2{font-size:15px;font-weight:700;}.ca2{font-size:12px;color:#555;line-height:1.6;margin-top:2px;}.hr2{text-align:right;white-space:nowrap;}.hr2 h2{font-size:17px;font-weight:700;}.hr2 p{font-size:12px;color:#888;}.cu{background:#f7f8fa;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;flex-shrink:0;}.cv{font-weight:700;font-size:14px;margin-top:2px;}.tbl-wrap{flex:1;overflow:hidden;}table{width:100%;border-collapse:collapse;table-layout:fixed;}thead{background:#1a1a2e;color:#fff;}thead th{padding:9px 10px;font-size:12px;font-weight:600;text-align:left;}tbody td{font-size:13px;vertical-align:middle;padding:8px 10px;word-break:break-word;overflow-wrap:break-word;}tbody td.num{white-space:nowrap;word-break:normal;text-align:right;}tbody td.qty{white-space:nowrap;word-break:normal;text-align:center;}.tr2 td{font-weight:700;font-size:14px;background:#f0f2f5;padding:9px 10px;}.rmk{font-size:12px;color:#888;margin-top:8px;flex-shrink:0;}.sg2{flex-shrink:0;margin-top:80px;padding-top:12px;}.sg2 table{width:100%;border-collapse:collapse;table-layout:fixed;}.sg2 td{text-align:center;padding:0 10px;}.sg-line{border-top:1px solid #333;margin:0 20px;margin-top:30px;padding-top:8px;}.sg-name{font-size:13px;font-weight:600;}.sg-date{font-size:12px;color:#666;margin-top:8px;}.total-section{border-top:1.5px solid #ddd;margin-top:0;}.total-row{display:flex;justify-content:flex-end;padding:6px 10px;gap:40px;}.total-vat{font-size:12px;color:#666;}.total-grand{font-weight:700;font-size:14px;background:#f0f2f5;padding:9px 10px;}</st'+'yle>');
+  doc.write('<st'+'yle>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 portrait;margin:15mm 15mm 18mm 15mm;@bottom-right{content:"หน้า " counter(page);font-family:Sarabun,sans-serif;font-size:11px;color:#888;}}@media print{html,body{margin:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}html,body{height:auto;}body{font-size:13px;font-family:Sarabun,sans-serif;}.hd{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:2.5px solid '+barColor+';margin-bottom:12px;flex-shrink:0;}.hd img{height:56px;}.hi{flex:1;}.cn2{font-size:15px;font-weight:700;}.ca2{font-size:12px;color:#555;line-height:1.6;margin-top:2px;}.hr2{text-align:right;white-space:nowrap;}.hr2 h2{font-size:17px;font-weight:700;color:'+barColor+';}.hr2 p{font-size:12px;color:#888;}.cu{background:#f7f8fa;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;flex-shrink:0;}.cv{font-weight:700;font-size:14px;margin-top:2px;}.tbl-wrap{flex:1;overflow:hidden;}table{width:100%;border-collapse:collapse;table-layout:fixed;}thead{background:'+barColor+';color:#fff;}thead th{padding:9px 10px;font-size:12px;font-weight:600;text-align:left;}tbody td{font-size:13px;vertical-align:middle;padding:8px 10px;word-break:break-word;overflow-wrap:break-word;}tbody td.num{white-space:nowrap;word-break:normal;text-align:right;}tbody td.qty{white-space:nowrap;word-break:normal;text-align:center;}.tr2 td{font-weight:700;font-size:14px;background:#f0f2f5;padding:9px 10px;}.rmk{font-size:12px;color:#888;margin-top:8px;flex-shrink:0;}.sg2{flex-shrink:0;margin-top:80px;padding-top:12px;}.sg2 table{width:100%;border-collapse:collapse;table-layout:fixed;}.sg2 td{text-align:center;padding:0 10px;}.sg-line{border-top:1px solid #333;margin:0 20px;margin-top:30px;padding-top:8px;}.sg-name{font-size:13px;font-weight:600;}.sg-date{font-size:12px;color:#666;margin-top:8px;}.total-section{border-top:1.5px solid #ddd;margin-top:0;}.total-row{display:flex;justify-content:flex-end;padding:6px 10px;gap:40px;}.total-vat{font-size:12px;color:#666;}.total-grand{font-weight:700;font-size:14px;background:#f0f2f5;padding:9px 10px;}</st'+'yle>');
   doc.write('<div class="hd"><img src="'+LG+'" alt=""><div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div><div class="hr2"><h2>'+h(title)+'</h2><p>เลขที่: '+h(bill.no)+'</p><p>วันที่: '+fmtDF(bill.date)+'</p></div></div>');
   doc.write('<div class="cu"><div style="font-size:13px;color:#888;">ลูกค้า</div><div class="cv">'+h(bill.cn)+'</div>');
   if(bill.cc)doc.write('<div style="font-size:13px;color:#666;margin-top:2px;">ผู้ติดต่อ: '+h(bill.cc)+'</div>');
@@ -3862,7 +3863,7 @@ function rdInvList() {
         '<div class="bamt">'+fmt(iv.total)+' &#3647;</div>' +
         '<div class="ba">' +
           '<button class="btn bo bsm" onclick="prtInv('+iv.id+')">พิมพ์</button>' +
-          ((iv.status==='paid'||(iv.status!=='cancelled'&&wantsReceiptWithInvoice(iv.custName)))?'<button class="btn bo bsm" style="color:#0d9488;border-color:#0d9488;" onclick="prtReceipt('+iv.id+')">🧾 ใบเสร็จ'+(iv.status!=='paid'?' <span style="font-size:10px;color:#e67e22;">(ยังไม่จ่าย)</span>':'')+'</button>':'')+
+          ((iv.status==='paid'||(iv.status!=='cancelled'&&wantsReceiptWithInvoice(iv.custName)))?'<button class="btn bo bsm" style="color:#2563eb;border-color:#2563eb;" onclick="prtReceipt('+iv.id+')">🧾 ใบเสร็จ'+(iv.status!=='paid'?' <span style="font-size:10px;color:#e67e22;">(ยังไม่จ่าย)</span>':'')+'</button>':'')+
           (iv.status!=='cancelled'?'<button class="btn bo bsm" style="color:#27ae60;border-color:#27ae60;" onclick="openActualDate('+iv.id+')">'+(iv.actualDate?'📋 แก้วันวางบิลจริง':'📋 วันวางบิลจริง')+'</button>':'')+
           (iv.status!=='cancelled'?'<button class="btn bo bsm" style="color:#8e44ad;border-color:#8e44ad;" onclick="openEditInv('+iv.id+')">✏️ แก้ไข</button>':'')+
           (iv.status==='pending'&&!iv.payDate?'<button class="btn bo bsm" style="color:#2980b9;border-color:#2980b9;" onclick="openPayModal('+iv.id+')">กำหนดจ่าย</button>':'')+
@@ -4020,18 +4021,18 @@ function doPrintReceipt(iv) {
   doc.write('@page{size:A4 portrait;margin:15mm;}');
   doc.write('@media print{body{margin:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}');
   doc.write('body{font-size:13px;line-height:1.6;}');
-  doc.write('.hd{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2.5px solid #0d9488;margin-bottom:14px;}');
+  doc.write('.hd{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2.5px solid #2563eb;margin-bottom:14px;}');
   doc.write('.hd img{height:56px;}.hi{flex:1;}');
   doc.write('.cn2{font-size:15px;font-weight:700;}.ca2{font-size:12px;color:#555;line-height:1.6;margin-top:2px;}');
-  doc.write('.hr2{text-align:right;}.hr2 h2{font-size:20px;font-weight:700;color:#0d9488;}.hr2 p{font-size:12px;color:#888;}');
-  doc.write('.cu{background:#f0fdf9;border-radius:6px;padding:14px;margin-bottom:14px;border-left:4px solid #0d9488;}');
+  doc.write('.hr2{text-align:right;}.hr2 h2{font-size:20px;font-weight:700;color:#2563eb;}.hr2 p{font-size:12px;color:#888;}');
+  doc.write('.cu{background:#eff6ff;border-radius:6px;padding:14px;margin-bottom:14px;border-left:4px solid #2563eb;}');
   doc.write('.cu-label{font-size:11px;color:#888;}.cu-name{font-size:16px;font-weight:700;margin-top:2px;}.cu-addr{font-size:12px;color:#666;margin-top:4px;line-height:1.6;}');
   doc.write('table{width:100%;border-collapse:collapse;}');
-  doc.write('thead{background:#0d9488;color:#fff;}thead th{padding:10px 12px;font-size:12px;font-weight:600;text-align:left;}');
+  doc.write('thead{background:#2563eb;color:#fff;}thead th{padding:10px 12px;font-size:12px;font-weight:600;text-align:left;}');
   doc.write('tbody td{font-size:13px;}');
   doc.write('.tfoot-row td{font-weight:700;font-size:15px;background:#f0fdf9;padding:10px 12px;}');
-  doc.write('.paid-box{margin-top:18px;border:2px solid #0d9488;border-radius:8px;padding:14px 18px;font-size:13px;background:#f0fdf9;display:flex;align-items:center;gap:16px;}');
-  doc.write('.paid-stamp{font-size:22px;font-weight:700;color:#0d9488;border:3px solid #0d9488;border-radius:8px;padding:6px 16px;white-space:nowrap;}');
+  doc.write('.paid-box{margin-top:18px;border:2px solid #2563eb;border-radius:8px;padding:14px 18px;font-size:13px;background:#eff6ff;display:flex;align-items:center;gap:16px;}');
+  doc.write('.paid-stamp{font-size:22px;font-weight:700;color:#2563eb;border:3px solid #2563eb;border-radius:8px;padding:6px 16px;white-space:nowrap;}');
   doc.write('.paid-detail{flex:1;line-height:1.8;}');
   doc.write('.sg2{margin-top:36px;}');
   doc.write('.sg2 table{width:100%;border-collapse:collapse;table-layout:fixed;}');
@@ -6391,18 +6392,18 @@ function doPrintQt(qt) {
   doc.write('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">');
   doc.write('<title></title></head><body style="font-family:Sarabun,sans-serif;font-size:13px;color:#1a1a2e;margin:0;padding:0;">');
   doc.write('<st'+'yle>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 portrait;margin:15mm;}@media print{body{margin:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}');
-  doc.write('.hd{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2.5px solid #0d9488;margin-bottom:14px;}');
+  doc.write('.hd{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2.5px solid #7c3aed;margin-bottom:14px;}');
   doc.write('.hd img{height:56px;}.hi{flex:1;}.cn2{font-size:15px;font-weight:700;}.ca2{font-size:12px;color:#555;line-height:1.6;margin-top:2px;}');
-  doc.write('.hr2{text-align:right;}.hr2 h2{font-size:18px;font-weight:700;color:#0d9488;}.hr2 p{font-size:12px;color:#888;}');
+  doc.write('.hr2{text-align:right;}.hr2 h2{font-size:18px;font-weight:700;color:#7c3aed;}.hr2 p{font-size:12px;color:#888;}');
   doc.write('.cu{background:#f7f8fa;border-radius:6px;padding:14px;margin-bottom:14px;}');
-  doc.write('table{width:100%;border-collapse:collapse;table-layout:fixed;}thead{background:#0d9488;color:#fff;}thead th{padding:9px 10px;font-size:12px;font-weight:600;text-align:left;}tbody td{word-break:break-word;overflow-wrap:break-word;}');
+  doc.write('table{width:100%;border-collapse:collapse;table-layout:fixed;}thead{background:#7c3aed;color:#fff;}thead th{padding:9px 10px;font-size:12px;font-weight:600;text-align:left;}tbody td{word-break:break-word;overflow-wrap:break-word;}');
   doc.write('.tf td{font-weight:700;font-size:15px;background:#f0f2f5;padding:9px 10px;}');
   doc.write('.sg2{margin-top:50px;}.sg-line{border-top:1px solid #333;padding-top:8px;margin:0 16px;margin-top:36px;text-align:center;}');
   doc.write('.sg-name{font-size:13px;font-weight:600;}.sg-sub{font-size:11px;color:#888;margin-top:4px;}');
   doc.write('</st'+'yle>');
   doc.write('<div class="hd"><img src="'+LG+'" alt="CNK">');
   doc.write('<div class="hi"><div class="cn2">'+h(CO.n)+'</div><div class="ca2">'+h(CO.a)+'<br>'+h(CO.t)+'</div></div>');
-  doc.write('<div class="hr2"><h2>ใบเสนอราคา</h2><p>เลขที่: '+h(qt.no)+'</p><p>วันที่: '+fmtDF(qt.date)+'</p><p style="color:#0d9488;">หมดอายุ: '+fmtDF(qt.expireDate)+'</p></div></div>');
+  doc.write('<div class="hr2"><h2>ใบเสนอราคา</h2><p>เลขที่: '+h(qt.no)+'</p><p>วันที่: '+fmtDF(qt.date)+'</p><p style="color:#7c3aed;">หมดอายุ: '+fmtDF(qt.expireDate)+'</p></div></div>');
   doc.write('<div class="cu"><div style="font-size:11px;color:#888;">เรียน</div><div style="font-size:15px;font-weight:700;margin-top:2px;">'+h(qt.cn)+'</div>');
   if(qt.cc) doc.write('<div style="font-size:13px;color:#666;margin-top:2px;">ผู้ติดต่อ: '+h(qt.cc)+'</div>');
   if(qt.ca) doc.write('<div style="font-size:13px;color:#777;margin-top:2px;">'+h(qt.ca)+'</div>');
