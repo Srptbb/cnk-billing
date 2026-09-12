@@ -3052,7 +3052,7 @@ function rdL(){
     }
     var acts=b.status!=='cancelled'?'<button class="btn bo bsm" onclick="opEM('+b.id+')">แก้ไข</button>'+toCashBtn+toCreditBtn+'<button class="btn bo bsm" style="color:#e74c3c;" onclick="canB('+b.id+')">ยกเลิก</button>':'';
     return '<div class="bi'+(b.status==='cancelled'?' cx':'')+'">' +
-      '<div class="bin"><div class="bno">'+h(b.no)+' '+tb+' '+xb+'</div>' +
+      '<div class="bin"><div class="bno"'+(b.type==='cash'?' style="color:#27ae60;"':'')+'>'+h(b.no)+' '+tb+' '+xb+'</div>' +
       '<div class="bm">'+fmtD(b.date)+' | '+h(b.cn)+' | '+h(b.cc||'-')+'</div>' +
       (b.createdBy?'<div class="bm" style="font-size:12px;color:#aaa;">&#128100; '+h(b.createdBy)+'</div>':'') +
       (b.remark?'<div class="bm">'+h(b.remark)+'</div>':'')+'</div>' +
