@@ -1889,19 +1889,36 @@ function saveToWorklist(){
   let url = `${API}?_method=${method}&table=worklist`;
   if(isWlEdit) url += `&id=${encodeURIComponent(id)}`;
   url += `&data=${encodeURIComponent(JSON.stringify(data))}`;
-  setStatus('loading','กำลังบันทึก...');
-  fetch(url)
-    .then(r=>r.json())
-    .then(()=>{
-      setStatus('ok','บันทึกแล้ว');
-      if(isWlEdit){
-        showToast('อัปเดตราคาในลิสงานแล้ว ✓ กำลังกลับไปหน้าลิสงาน...','ok');
-        setTimeout(()=>{ window.location.href='index.html?tab=worklist'; }, 900);
-      } else {
-        showToast('บันทึกลิสงานแล้ว ✓','ok');
-      }
-    })
-    .catch(()=>showToast('บันทึกไม่สำเร็จ','err'));
+  function onOk(){
+    setStatus('ok','บันทึกแล้ว');
+    if(isWlEdit){
+      showToast('อัปเดตราคาในลิสงานแล้ว ✓ กำลังกลับไปหน้าลิสงาน...','ok');
+      setTimeout(()=>{ window.location.href='index.html?tab=worklist'; }, 900);
+    } else {
+      showToast('บันทึกลิสงานแล้ว ✓','ok');
+    }
+  }
+  // retry + backoff กัน Apps Script cold-start/404 ชั่วคราว (เหมือน apiGet ในหน้าหลัก)
+  // ลองสูงสุด 5 ครั้ง (1s,2s,3s,4s,5s) — ล้มจริงค่อยค้างหน้าให้กดใหม่ ไม่เด้งกลับ ไม่เสียผลคำนวณ
+  function attempt(tryN){
+    setStatus('loading', tryN>0 ? ('กำลังบันทึก... (ลองใหม่ '+tryN+')') : 'กำลังบันทึก...');
+    fetch(url)
+      .then(r=>r.text())
+      .then(t=>{
+        var d; try { d = JSON.parse(t); } catch(e){ throw new Error('non-JSON (cold-start?)'); }
+        if(d && d.error) throw new Error(d.error);
+        onOk();
+      })
+      .catch(function(){
+        if(tryN < 5){
+          setTimeout(function(){ attempt(tryN+1); }, 1000*(tryN+1));
+        } else {
+          setStatus('err','บันทึกไม่สำเร็จ');
+          showToast('บันทึกไม่สำเร็จ (เซิร์ฟเวอร์ไม่ตอบ) — กด "บันทึก" อีกครั้งได้เลย','err');
+        }
+      });
+  }
+  attempt(0);
 }
 
 function openBill(){
