@@ -1302,7 +1302,21 @@ function loadAll(){
   showLoading(true);
   // Set timeout to hide loading bar if something fails
   var timeout = setTimeout(function(){ showLoading(false); }, 15000);
-  
+
+  // ── แสดงลิสงานทันทีจาก Supabase โดยไม่รอ Apps Script chain (customers/bills/invoices) ──
+  // worklist ย้ายมา Supabase แล้ว จึงไม่ควรถูกขังอยู่หลังการโหลดตารางอื่นที่อาจ 404/ช้า
+  (function(){
+    try {
+      var _p = new URLSearchParams(window.location.search);
+      if (_p.get('openBill') !== '1') {
+        wlInitMonthSel();
+        wlInitRealtime();                                   // เปิด sync สดทันที
+        showLoading(false);                                 // ปลด overlay ทันที ไม่รอ Apps Script
+        goMain('worklist', document.getElementById('ntab-worklist'));
+      }
+    } catch(e){ console.error('early worklist paint:', e); }
+  })();
+
   // Also sync profiles from Sheets
   loadProfiles(null);
   apiGet('customers',function(d){
@@ -1356,7 +1370,7 @@ function loadAll(){
           genNo();
           // fire ready event + handle URL params
           window.dispatchEvent(new Event('cnk_ready'));
-          wlInitRealtime(); // เปิด sync สดของลิสงาน (Supabase realtime)
+          wlInitRealtime(); // เปิด sync สดของลิสงาน (Supabase realtime) — idempotent
           var params = new URLSearchParams(window.location.search);
           var tab = params.get('tab');
           if(params.get('openBill') === '1') {
@@ -1370,10 +1384,10 @@ function loadAll(){
                 if(note) { var rk = document.getElementById('remark'); if(rk) rk.value = note; }
               }, 300);
             }
-          } else {
-            // ค่าเริ่มต้น: หน้าลิสงาน (รวมกรณี ?tab=worklist)
-            goMain('worklist', document.getElementById('ntab-worklist'));
           }
+          // ไม่ต้อง goMain('worklist') ซ้ำที่นี่ — แสดงไปแล้วตอนต้น (early paint)
+          // ถ้าผู้ใช้ยังอยู่แท็บลิสงาน ก็ refresh ข้อมูลให้อีกรอบเผื่อมีอัปเดต
+          else if(_curMain === 'worklist') { loadWorklist({useCache:true}); }
         });
       }, 3); // โหลดแค่ 3 เดือนล่าสุด
     }, 3); // โหลดแค่ 3 เดือนล่าสุด
