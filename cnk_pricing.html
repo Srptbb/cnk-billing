@@ -434,6 +434,43 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
+// ===== Supabase (pilot: worklist) =====
+const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
+const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+const _SBTEXT=['id','custName','note','jobSource','bladeCut','bladeCrease','status','memo','bladeCount','woodCount'];
+const _SBNUM=['cutMM','creaseMM','woodW','woodH','price','priceBeforeLaser','rawPrice','finalPrice','costPerf','laserAdd','bladeChangeAdd','woodChangeAdd','holeAdd','holeCount','perfMM','perfCount'];
+const _SBBOOL=['laser','bladeChange','woodChange','manual','statusDesigned','statusWorking','statusComplete','statusShipped','statusPaid'];
+const _SBJSONB=['holes','perfs'];
+const _SBTS=['ts'];
+const _SBALL=[].concat(_SBTEXT,_SBNUM,_SBBOOL,_SBJSONB,_SBTS);
+function sbClean(row){
+  const o={};
+  for(const k in row){
+    if(!row.hasOwnProperty(k) || _SBALL.indexOf(k)<0) continue;
+    let v=row[k];
+    if(v===undefined) continue;
+    if(_SBNUM.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:Number(v); if(typeof o[k]==='number'&&isNaN(o[k]))o[k]=null; }
+    else if(_SBBOOL.indexOf(k)>=0){ o[k]=(v===true||v==='true'||v===1||v==='1'); }
+    else if(_SBJSONB.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:v; }
+    else if(_SBTS.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:v; }
+    else { o[k]=(v===null)?null:String(v); }
+  }
+  return o;
+}
+// เขียนงานลง Supabase: update=PATCH เฉพาะคอลัมน์ | save=upsert (คืน promise, throw ถ้าไม่ ok)
+async function sbSaveWorklist(method,id,data){
+  const row=sbClean(data); if(id&&!row.id) row.id=String(id);
+  let url=SB_URL+'/rest/v1/worklist', opt;
+  if(method==='update'){
+    opt={method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify(row)};
+    url+='?id=eq.'+encodeURIComponent(id);
+  } else {
+    opt={method:'POST',headers:{...SB_H,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)};
+  }
+  const r=await fetch(url,opt);
+  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }
+}
 const CC_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiY2NkZjMwZTBlMDliNWMwZWYwYjRiNjg4Yzc2YzI1MzU1YmI2M2I5ZjlkYzQzMjI0MzM1ODEzNmQyNDYyNmJkMDM0ZjcwMzliMTZkYzc1MmYiLCJpYXQiOjE3ODA2MjkyMjguODQyMzM4LCJuYmYiOjE3ODA2MjkyMjguODQyMzQsImV4cCI6NDkzNjMwMjgyOC44MzY3NzQsInN1YiI6Ijc1ODUyMTg4Iiwic2NvcGVzIjpbInRhc2sucmVhZCIsInRhc2sud3JpdGUiXX0.j_PBlExnhq4ovQqGGMVqgfZNDlZoPPXv_ItlAfdxuc41aSjUEOnmT7CFg5v51kgCF2X_yKqE3GV0mFGe5mXlZ3mVGsNcm0T7vAL4WbnqXc22VI96ovsqW7LJnF2ctnNdUuKaBa7F1k2LncAmMqLn0BSOb60lsBeyVhoBTlGJAUj7c8zdUx57jFrgBlTDiMZ03oO17lS6LwV8W0UVJJpUGGh548dyxP_pp7yaVlQZGOYl2B3mFD1ylsxiv9PEm6TyBPRjl9GprZzMfijmIq5DvcCkNR-JaIo0t8Sz97K3zL0Dk2wFSr9kSI_w0udAxQUTAv2EAoh6Vvu7WTzuE25ww7NmFF0mhYiabDz6BJNlPzZogddPXArbPV_M0w_gF6oZ9g7R2i8DxVfT-17uCf7-WI-J3iKw81ZjBZVmYFUiG9HOJAFb2Y-grvMoIT3wkpARkguuDxp0isLg3F-o6G1c48rix3NxlYwHyu2iDtscLqSDwMZOTtf8pHRRf13lQTMh6SlXlXw6yTkE9nuQAsc_1LB26UMbBwaUGybkUG14VcbGF5-DMDGtNHhTgZBeODmpu-Izq5-_O1eJmc60TUayO0VSWWyfNVe7ud_Pz3kAPLtCxiKddH_6KFv34vgJY7gENsRlErhnn_8CL6XInfDKipri46-NWgMi0DbFJWTRF9M';
 const WOOD_PAD = 30;
 
@@ -1886,9 +1923,6 @@ function saveToWorklist(){
   if(!isWlEdit){ data.status='pending'; data.ts=new Date().toISOString(); }
   else { delete data.ts; delete data.status; } // คง ts/สถานะเดิมของงานในลิส
   const method = isWlEdit ? 'update' : 'save';
-  let url = `${API}?_method=${method}&table=worklist`;
-  if(isWlEdit) url += `&id=${encodeURIComponent(id)}`;
-  url += `&data=${encodeURIComponent(JSON.stringify(data))}`;
   function onOk(){
     setStatus('ok','บันทึกแล้ว');
     if(isWlEdit){
@@ -1898,17 +1932,12 @@ function saveToWorklist(){
       showToast('บันทึกลิสงานแล้ว ✓','ok');
     }
   }
-  // retry + backoff กัน Apps Script cold-start/404 ชั่วคราว (เหมือน apiGet ในหน้าหลัก)
+  // เขียนลง Supabase (เร็ว ไม่ cold-start/404) + retry เผื่อเน็ตสะดุด
   // ลองสูงสุด 5 ครั้ง (1s,2s,3s,4s,5s) — ล้มจริงค่อยค้างหน้าให้กดใหม่ ไม่เด้งกลับ ไม่เสียผลคำนวณ
   function attempt(tryN){
     setStatus('loading', tryN>0 ? ('กำลังบันทึก... (ลองใหม่ '+tryN+')') : 'กำลังบันทึก...');
-    fetch(url)
-      .then(r=>r.text())
-      .then(t=>{
-        var d; try { d = JSON.parse(t); } catch(e){ throw new Error('non-JSON (cold-start?)'); }
-        if(d && d.error) throw new Error(d.error);
-        onOk();
-      })
+    sbSaveWorklist(method, id, data)
+      .then(function(){ onOk(); })
       .catch(function(){
         if(tryN < 5){
           setTimeout(function(){ attempt(tryN+1); }, 1000*(tryN+1));
