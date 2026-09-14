@@ -1167,7 +1167,7 @@ function sbWrite(method,table,id,data,cb){
   }).catch(function(e){ console.error('sbWrite '+method+' '+table+' error:',e); if(cb) cb(e); });
 }
 var bills=[];
-var custs=[];
+var custs=(function(){ try { var s=localStorage.getItem('c'); return s?JSON.parse(s):[]; } catch(e){ return []; } })(); // seed จาก cache ให้ค้นหาลูกค้าได้ทันที ไม่ต้องรอ Apps Script
 var ctp='credit',eId=null,eCId=null,iRow=null,rc=0;
 var custSearchQ='';
 
@@ -1319,7 +1319,9 @@ function loadAll(){
 
   // Also sync profiles from Sheets
   loadProfiles(null);
-  apiGet('customers',function(d){
+  apiGet('customers',function(d,failed){
+    // โหลดสำเร็จ → อัปเดต custs + cache | โหลดไม่สำเร็จ (Apps Script 404/ล่ม) → คงลูกค้าจาก cache เดิม
+    if (!failed && d && d.length) {
     custs = d.map(function(c){
       // Force n เป็น string เสมอ
       if (c.n !== undefined) c.n = String(c.n);
@@ -1340,6 +1342,8 @@ function loadAll(){
       }
       return c;
     });
+    try { localStorage.setItem('c', JSON.stringify(custs)); } catch(e){}
+    }
     apiGet('bills',function(d2){
       var sheetsB = d2.map(normalizeBill);
       // Merge with localStorage bills - in case some weren't saved to Sheets yet
@@ -1602,28 +1606,43 @@ function pkF(n){document.getElementById('fs').value=n;document.getElementById('d
 // ===== QUICK PRICE (คำนวณราคาจากความยาวมีด/ไม้ ในหน้าเปิดบิล) =====
 var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpLastResult=null;
 
-function loadQpPricing(cb){
+// แปลง rows → เติม qpPricingCut/Crease + dropdown (ใช้ทั้งจาก cache และจาก server)
+function _qpApplyPricing(rows){
+  var cut=rows.filter(function(r){return String(r.type||'').toLowerCase()!=='crease'&&!String(r.blade||'').toLowerCase().includes('crease')&&r.blade&&r.cost_per_mm;});
+  var crease=rows.filter(function(r){return String(r.type||'').toLowerCase()==='crease'||String(r.blade||'').toLowerCase().includes('crease');});
+  if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return r.blade&&r.cost_per_mm;});
+  qpPricingCut=cut; qpPricingCrease=crease;
+  if(rows[0]&&rows[0].wood_cost_per_mm2) qpWoodCost=parseFloat(rows[0].wood_cost_per_mm2);
+  var sc=document.getElementById('qp-blade-cut');
+  if(sc) sc.innerHTML=cut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('')||'<option value="">— ไม่มีข้อมูล —</option>';
+  var scr=document.getElementById('qp-blade-crease');
+  if(scr){
+    scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+crease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+    var defCrease=crease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
+    if(defCrease>=0)scr.value=String(defCrease);
+  }
+}
+function loadQpPricing(cb,_try){
+  _try=_try||0;
+  // ครั้งแรก: เติมจาก cache ทันที ให้เลือกชนิดมีดได้เลย ไม่ต้องรอ Apps Script
+  if(_try===0 && qpPricingCut.length===0){
+    try { var cs=localStorage.getItem('cnk_qp_pricing'); if(cs){ var cr=JSON.parse(cs); if(Array.isArray(cr)&&cr.length) _qpApplyPricing(cr); } } catch(e){}
+  }
   fetch(API+'?action=getAll&table=pricing')
-    .then(function(r){return r.json();})
-    .then(function(rows){
-      var cut=rows.filter(function(r){return String(r.type||'').toLowerCase()!=='crease'&&!String(r.blade||'').toLowerCase().includes('crease')&&r.blade&&r.cost_per_mm;});
-      var crease=rows.filter(function(r){return String(r.type||'').toLowerCase()==='crease'||String(r.blade||'').toLowerCase().includes('crease');});
-      if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return r.blade&&r.cost_per_mm;});
-      qpPricingCut=cut; qpPricingCrease=crease;
-      if(rows[0]&&rows[0].wood_cost_per_mm2) qpWoodCost=parseFloat(rows[0].wood_cost_per_mm2);
-      var sc=document.getElementById('qp-blade-cut');
-      if(sc) sc.innerHTML=cut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('')||'<option value="">— ไม่มีข้อมูล —</option>';
-      var scr=document.getElementById('qp-blade-crease');
-      if(scr){
-        scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+crease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
-        var defCrease=crease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
-        if(defCrease>=0)scr.value=String(defCrease);
-      }
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var rows; try { rows=JSON.parse(t); } catch(e){ throw new Error('non-JSON (cold-start?)'); }
+      if(!Array.isArray(rows)) throw new Error('not array');
+      _qpApplyPricing(rows);
+      try { localStorage.setItem('cnk_qp_pricing', JSON.stringify(rows)); } catch(e){}
       if(cb) cb();
     })
     .catch(function(){
+      // Apps Script ล่ม/404 ชั่วคราว → retry (1s,2s,3s,4s)
+      if(_try<4){ setTimeout(function(){ loadQpPricing(cb,_try+1); }, 1000*(_try+1)); return; }
+      // ล้มจริง: ถ้ามีข้อมูล cache อยู่แล้วก็ปล่อยให้ใช้ต่อ ไม่ต้องขึ้น error
       var sc=document.getElementById('qp-blade-cut');
-      if(sc) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
+      if(sc && qpPricingCut.length===0) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
       if(cb) cb();
     });
 }
