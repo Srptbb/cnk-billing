@@ -526,27 +526,45 @@ const canvas = document.getElementById('dxf-canvas');
 const ctx = canvas.getContext('2d');
 
 // ── PRICING LOAD ──────────────────────────────────────────────────────────────
-async function apiGet(table) {
-  const r = await fetch(`${API}?action=getAll&table=${table}`);
-  return r.json();
+// retry + ตรวจ non-JSON กัน Apps Script cold-start/404 ชั่วคราว
+async function apiGet(table, _try=0) {
+  try {
+    const r = await fetch(`${API}?action=getAll&table=${table}`);
+    const t = await r.text();
+    let d; try { d = JSON.parse(t); } catch(e){ throw new Error('non-JSON (cold-start?)'); }
+    if(!Array.isArray(d)) throw new Error('not array');
+    return d;
+  } catch(e){
+    if(_try < 5){ await new Promise(rs=>setTimeout(rs, 1000*(_try+1))); return apiGet(table, _try+1); }
+    throw e;
+  }
+}
+
+// แยก rows → pricingCut/Crease + เติม dropdown (ใช้ทั้งจาก cache และ server)
+function applyPricingRows(rows){
+  let cut = rows.filter(r => String(r.type||'').toLowerCase() !== 'crease' && !String(r.blade||'').toLowerCase().includes('crease') && r.blade && r.cost_per_mm);
+  let crease = rows.filter(r => String(r.type||'').toLowerCase() === 'crease' || String(r.blade||'').toLowerCase().includes('crease'));
+  if(cut.length === 0 && crease.length === 0) cut = rows.filter(r => r.blade && r.cost_per_mm);
+  pricingCut = cut;
+  pricingCrease = crease;
+  if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
+  populateSel('blade-cut', pricingCut, false);
+  populateSel('blade-crease', pricingCrease, true);
 }
 
 async function loadPricing() {
+  // เติมจาก cache ทันที ให้เลือกชนิดมีดได้เลย ไม่ต้องรอ Apps Script (แชร์ cache กับหน้าหลัก)
+  try { const cs=localStorage.getItem('cnk_qp_pricing'); if(cs){ const cr=JSON.parse(cs); if(Array.isArray(cr)&&cr.length) applyPricingRows(cr); } } catch(e){}
   try {
     const rows = await apiGet('pricing');
-    // Separate by type column; fallback: name contains 'crease'
-    let cut = rows.filter(r => String(r.type||'').toLowerCase() !== 'crease' && !String(r.blade||'').toLowerCase().includes('crease') && r.blade && r.cost_per_mm);
-    let crease = rows.filter(r => String(r.type||'').toLowerCase() === 'crease' || String(r.blade||'').toLowerCase().includes('crease'));
-    // if type column absent, use all non-crease-named as cut
-    if(cut.length === 0 && crease.length === 0) cut = rows.filter(r => r.blade && r.cost_per_mm);
-    pricingCut = cut;
-    pricingCrease = crease;
-    if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
-    populateSel('blade-cut', pricingCut, false);
-    populateSel('blade-crease', pricingCrease, true);
+    applyPricingRows(rows);
+    try { localStorage.setItem('cnk_qp_pricing', JSON.stringify(rows)); } catch(e){}
   } catch(e) {
-    document.getElementById('blade-cut').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
-    document.getElementById('blade-crease').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+    // ล้มจริง: ถ้ายังไม่มีข้อมูลจาก cache เลยค่อยขึ้น error
+    if(pricingCut.length === 0){
+      document.getElementById('blade-cut').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+      document.getElementById('blade-crease').innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+    }
   }
 }
 
@@ -567,12 +585,17 @@ function populateSel(id, rows, isCrease) {
 }
 
 async function loadCustomers() {
+  // เติมจาก cache ทันที ให้ค้นหาลูกค้าได้เลย
+  try { const cs=localStorage.getItem('cnk_pricing_custs'); if(cs){ const cr=JSON.parse(cs); if(Array.isArray(cr)&&cr.length) allCustomers=cr; } } catch(e){}
   try {
     const rows = await apiGet('customers');
-    allCustomers = rows.filter(r => r.n).map(r => ({
-      n: String(r.n||'').trim(),
-      multiplier: parseFloat(r.multiplier)||1.0
-    }));
+    if(rows && rows.length){
+      allCustomers = rows.filter(r => r.n).map(r => ({
+        n: String(r.n||'').trim(),
+        multiplier: parseFloat(r.multiplier)||1.0
+      }));
+      try { localStorage.setItem('cnk_pricing_custs', JSON.stringify(allCustomers)); } catch(e){}
+    }
   } catch(e){}
 }
 

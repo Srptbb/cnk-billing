@@ -1166,7 +1166,7 @@ function sbWrite(method,table,id,data,cb){
     if(cb) cb();
   }).catch(function(e){ console.error('sbWrite '+method+' '+table+' error:',e); if(cb) cb(e); });
 }
-var bills=[];
+var bills=(function(){ try { var s=localStorage.getItem('b'); return s?JSON.parse(s):[]; } catch(e){ return []; } })(); // seed จาก cache ให้บิลโชว์ทันที ไม่ต้องรอ Apps Script (bills ยังอยู่บน Apps Script ที่ 404 บ่อย)
 var custs=(function(){ try { var s=localStorage.getItem('c'); return s?JSON.parse(s):[]; } catch(e){ return []; } })(); // seed จาก cache ให้ค้นหาลูกค้าได้ทันที ไม่ต้องรอ Apps Script
 var ctp='credit',eId=null,eCId=null,iRow=null,rc=0;
 var custSearchQ='';
@@ -1344,19 +1344,27 @@ function loadAll(){
     });
     try { localStorage.setItem('c', JSON.stringify(custs)); } catch(e){}
     }
-    apiGet('bills',function(d2){
-      var sheetsB = d2.map(normalizeBill);
-      // Merge with localStorage bills - in case some weren't saved to Sheets yet
-      var localB = JSON.parse(localStorage.getItem('b')||'[]');
-      var sheetsIds = {};
-      sheetsB.forEach(function(b){ sheetsIds[b.id]=true; });
-      // Add local bills not yet in Sheets
-      localB.forEach(function(b){
-        if(!sheetsIds[b.id]) sheetsB.push(normalizeBill(b));
-      });
-      bills = sheetsB;
-      apiGet('invoices',function(d3){
-        invoices = d3.map(normalizeInvoice);
+    apiGet('bills',function(d2,billsFailed){
+      // โหลดไม่สำเร็จ (Apps Script 404/ล่ม) → คงบิลจาก cache เดิม ไม่เขียนทับเป็นค่าว่าง
+      if(!billsFailed && d2 && d2.length){
+        var sheetsB = d2.map(normalizeBill);
+        // Merge with localStorage bills - in case some weren't saved to Sheets yet
+        var localB = JSON.parse(localStorage.getItem('b')||'[]');
+        var sheetsIds = {};
+        sheetsB.forEach(function(b){ sheetsIds[b.id]=true; });
+        // Add local bills not yet in Sheets
+        localB.forEach(function(b){
+          if(!sheetsIds[b.id]) sheetsB.push(normalizeBill(b));
+        });
+        bills = sheetsB;
+        try { localStorage.setItem('b', JSON.stringify(bills)); } catch(e){} // อัปเดต cache ให้เป็น mirror เต็ม
+      }
+      apiGet('invoices',function(d3,invFailed){
+        // โหลดไม่สำเร็จ → คงใบวางบิลจาก cache เดิม
+        if(!invFailed && d3 && d3.length){
+          invoices = d3.map(normalizeInvoice);
+          try { localStorage.setItem('inv', JSON.stringify(invoices)); } catch(e){}
+        }
         clearTimeout(timeout);
         showLoading(false);
         // อัพเดต badge บิลค้างวางบิล
@@ -3605,7 +3613,7 @@ function doPrint(bill){
   ifr.contentDocument.title='';setTimeout(function(){ifr.contentWindow.print();setTimeout(function(){document.body.removeChild(ifr);},1000);},600);
 }
 // ===== MODULE 2: INVOICE =====
-var invoices=[];
+var invoices=(function(){ try { var s=localStorage.getItem('inv'); return s?JSON.parse(s):[]; } catch(e){ return []; } })(); // seed จาก cache ให้ใบวางบิลโชว์ทันที
 var selCustId = null;
 
 function acInv(v) {
