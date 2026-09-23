@@ -2017,7 +2017,7 @@ function renderWorklist() {
       +'<td style="padding:10px 12px;font-size:12px;color:#555;">'+bladeStr+'</td>'
       +'<td style="padding:10px 12px;text-align:center;font-size:12px;font-family:monospace;">'+woodStr+'</td>'
       +'<td style="padding:10px 12px;text-align:right;font-family:monospace;font-weight:700;color:#e65100;">'+priceFmt+'</td>'
-      +'<td style="padding:10px 12px;text-align:center;">'+statusBadge+'</td>'
+      +'<td style="padding:10px 12px;text-align:center;cursor:pointer;" title="คลิกเพื่อสลับสถานะ &quot;เปิดบิลแล้ว&quot;" onclick="wlToggleBilled(\''+rid+'\')">'+statusBadge+'</td>'
       +'<td style="padding:8px 12px;text-align:center;white-space:nowrap;">'+wlProgressCell(r)+'</td>'
       +'<td style="padding:10px 12px;text-align:center;white-space:nowrap;">'
       +(canCheck
@@ -2177,6 +2177,29 @@ function wlToggleStatus(id, field, checked) {
   var data = {}; data[field] = checked;
   apiSet('update','worklist',id,data,function(){});
   renderWorklist(); // อัปเดต badge สถานะ + สี checkbox ทันที
+}
+
+// คลิกที่ป้ายสถานะเพื่อมาร์ค/ยกเลิก "เปิดบิลแล้ว" เอง — ครอบคลุมกรณีที่มาร์คอัตโนมัติไม่ทำงาน
+// (เช่น เปิดบิลเองไม่ผ่านปุ่มในลิสงาน หรือคนละคนเปิดบิล)
+function wlToggleBilled(id){
+  var row = wlData.find(function(r){ return String(r.id)===String(id); });
+  if(!row) return;
+  var isBilled = row.status === 'billed';
+  if(isBilled){
+    if(!confirm('ยกเลิกสถานะ "เปิดบิลแล้ว" ของงานนี้?')) return;
+    row.status = 'pending';
+    apiSet('update','worklist',id,{status:'pending'},function(){});
+    toast('ยกเลิกสถานะเปิดบิลแล้ว');
+  } else {
+    row.status = 'billed';
+    apiSet('update','worklist',id,{status:'billed'},function(){});
+    toast('มาร์คเป็น "เปิดบิลแล้ว" ✅');
+  }
+  // อัปเดต cache เต็มด้วย เพื่อให้ค้างสถานะไว้แม้ยังไม่ refresh
+  var raw = _wlRaw && _wlRaw.find(function(r){ return String(r.id)===String(id); });
+  if(raw) raw.status = row.status;
+  try { localStorage.setItem('cnk_worklist', JSON.stringify(_wlRaw||[])); } catch(e){}
+  renderWorklist();
 }
 
 // ===== เพิ่มงานเอง (manual add) / แก้ไขงาน =====
