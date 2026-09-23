@@ -2748,6 +2748,8 @@ function wlOpenDraftModal(btn){
   sel.innerHTML = DRAFT_TECHS.map(function(t){ return '<option value="'+h(t.name)+'">'+h(t.name)+'</option>'; }).join('');
   document.getElementById('dft-cust').textContent = row.custName || '-';
   document.getElementById('dft-job').textContent = _wlStripExtrasSuffix(row.note) || '(ไม่มีชื่องาน)';
+  var _dblade = document.getElementById('dft-blade');
+  if(_dblade){ if(row.bladeCut){ _dblade.textContent = '🔪 '+row.bladeCut; _dblade.style.display=''; } else { _dblade.style.display='none'; } }
   document.getElementById('dft-file-input').value = '';
   document.getElementById('dft-instr-input').value = '';
   document.getElementById('dft-instr').value = '';
@@ -2814,6 +2816,7 @@ function wlSaveDraft(){
     wlId: String(_draftWlRow.id||''),
     custName: _draftWlRow.custName || '',
     jobName: _wlStripExtrasSuffix(_draftWlRow.note) || '',
+    bladeCut: _draftWlRow.bladeCut || '',
     tech: tech,
     fileUrl: _draftFileUrl || '',
     fileName: _draftFileName || '',
@@ -2880,10 +2883,16 @@ function renderDraftTechView(){
     var instr = [];
     if(r.instrText) instr.push(h(r.instrText));
     if(r.instrImgUrl) instr.push('<a href="'+h(r.instrImgUrl)+'" target="_blank" style="color:'+def.color+';">🖼️ รูปคำสั่ง</a>');
+    var _bc = r.bladeCut || (function(){
+      var w = (typeof wlData!=='undefined' && wlData) ? wlData.find(function(x){ return String(x.id)===String(r.wlId); }) : null;
+      return w ? (w.bladeCut||'') : '';
+    })();
+    var bladeCell = _bc ? '<span style="background:'+def.soft+';color:'+def.color+';border-radius:9px;padding:2px 9px;font-size:12px;font-weight:700;white-space:nowrap;">'+h(_bc)+'</span>' : '<span style="color:#ccc;">—</span>';
     return '<tr style="border-bottom:1px solid #f0f2f5;">'
       + '<td style="padding:9px 12px;">'+d+'</td>'
       + '<td style="padding:9px 12px;font-weight:600;">'+h(r.custName||'-')+'</td>'
       + '<td style="padding:9px 12px;">'+h(r.jobName||'-')+'</td>'
+      + '<td style="padding:9px 12px;">'+bladeCell+'</td>'
       + '<td style="padding:9px 12px;">'+fileCell+'</td>'
       + '<td style="padding:9px 12px;font-size:13px;color:#555;">'+(instr.join(' · ')||'<span style="color:#ccc;">—</span>')+'</td>'
       + '<td style="padding:9px 12px;text-align:center;"><span style="color:#e67e22;font-weight:700;">⏳ รอเขียน</span></td>'
@@ -2898,12 +2907,13 @@ function renderDraftTechView(){
     + '<th style="padding:10px 12px;text-align:left;">วันที่</th>'
     + '<th style="padding:10px 12px;text-align:left;">ลูกค้า</th>'
     + '<th style="padding:10px 12px;text-align:left;">งาน</th>'
+    + '<th style="padding:10px 12px;text-align:left;">ชนิดเส้นคม</th>'
     + '<th style="padding:10px 12px;text-align:left;">ไฟล์</th>'
     + '<th style="padding:10px 12px;text-align:left;">คำสั่งพิเศษ</th>'
     + '<th style="padding:10px 12px;text-align:center;">สถานะ</th>'
     + '<th style="padding:10px 12px;text-align:center;">จัดการ</th>'
     + '</tr></thead><tbody>'
-    + (rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:40px 0;">'+h(_draftTechTab||'')+' ยังไม่มีงานในคิว</td></tr>')
+    + (rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:40px 0;">'+h(_draftTechTab||'')+' ยังไม่มีงานในคิว</td></tr>')
     + '</tbody></table></div>';
 }
 
@@ -6630,7 +6640,7 @@ function doPrintQt(qt) {
 <div id="wl-draft-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;padding:24px 26px;width:460px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35);font-family:Sarabun,sans-serif;">
     <div style="font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">📐 ส่งงานเข้าคิวเขียนแบบ</div>
-    <div style="font-size:13px;color:#666;margin-bottom:16px;"><b id="dft-cust" style="color:#1a1a2e;"></b> · <span id="dft-job"></span></div>
+    <div style="font-size:13px;color:#666;margin-bottom:16px;"><b id="dft-cust" style="color:#1a1a2e;"></b> · <span id="dft-job"></span><span id="dft-blade" style="display:none;margin-left:8px;background:#f3ecff;color:#7c3aed;border-radius:10px;padding:2px 9px;font-size:12px;font-weight:700;"></span></div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
         <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">เลือกช่าง *</label>
