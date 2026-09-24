@@ -1060,7 +1060,7 @@ var SB_MIRROR={bills:true}; // ตารางที่ "เขียนคู�
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
 var SB_COLS={
   worklist:{
-    text:['id','custName','note','jobSource','bladeCut','bladeCrease','status','memo','bladeCount','woodCount'],
+    text:['id','custName','note','jobSource','bladeCut','bladeCrease','woodType','status','memo','bladeCount','woodCount'],
     num:['cutMM','creaseMM','woodW','woodH','price','priceBeforeLaser','rawPrice','finalPrice','costPerf','laserAdd','bladeChangeAdd','woodChangeAdd','holeAdd','holeCount','perfMM','perfCount'],
     bool:['laser','bladeChange','woodChange','manual','statusDesigned','statusWorking','statusComplete','statusShipped','statusPaid'],
     jsonb:['holes','perfs'],
@@ -1574,7 +1574,7 @@ function pkF(n){document.getElementById('fs').value=n;document.getElementById('d
 // ===== END PRICING PANEL =====
 
 // ===== QUICK PRICE (คำนวณราคาจากความยาวมีด/ไม้ ในหน้าเปิดบิล) =====
-var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpLastResult=null;
+var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpWoodList=[], qpLastResult=null;
 
 // แปลง rows → เติม qpPricingCut/Crease + dropdown (ใช้ทั้งจาก cache และจาก server)
 function _qpApplyPricing(rows){
@@ -1583,6 +1583,7 @@ function _qpApplyPricing(rows){
   if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return r.blade&&r.cost_per_mm;});
   qpPricingCut=cut; qpPricingCrease=crease;
   if(rows[0]&&rows[0].wood_cost_per_mm2) qpWoodCost=parseFloat(rows[0].wood_cost_per_mm2);
+  qpWoodList=rows.filter(function(r){return String(r.type||'').toLowerCase()==='wood'&&r.blade;});
   var sc=document.getElementById('qp-blade-cut');
   if(sc) sc.innerHTML=cut.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('')||'<option value="">— ไม่มีข้อมูล —</option>';
   var scr=document.getElementById('qp-blade-crease');
@@ -1630,6 +1631,15 @@ function wlPopulateBladeSelects(){
     scr.innerHTML='<option value="">— ไม่มีเส้นพับ —</option>'+qpPricingCrease.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
     var defCrease=qpPricingCrease.findIndex(function(r){return String(r.blade||'').indexOf('ธรรมดา')>=0;});
     if(defCrease>=0) scr.value=String(defCrease);
+  }
+  var sw=document.getElementById('wla-wood-type');
+  if(sw){
+    if(qpWoodList.length){
+      sw.innerHTML=qpWoodList.map(function(r,i){return '<option value="'+i+'">'+h(r.blade)+'</option>';}).join('');
+      sw.value='0';
+    } else {
+      sw.innerHTML='<option value="">— ไม้มาตรฐาน —</option>';
+    }
   }
 }
 
@@ -2206,6 +2216,9 @@ function wlEditRow(btn) {
     var cri = qpPricingCrease.findIndex(function(p){ return p.blade===row.bladeCrease; });
     var crs = document.getElementById('wla-crease-type');
     if(crs) crs.value = cri>=0 ? String(cri) : '';
+    var wi = qpWoodList.findIndex(function(p){ return p.blade===row.woodType; });
+    var ws = document.getElementById('wla-wood-type');
+    if(ws && wi>=0) ws.value = String(wi);
   }
   if(qpPricingCut.length === 0) {
     loadQpPricing(function(){ wlPopulateBladeSelects(); selectBladeValues(); });
@@ -2244,6 +2257,10 @@ function wlEstimatePrice() {
   var creaseMM = parseFloat(document.getElementById('wla-crease-mm').value) || 0;
   var woodW = parseFloat(document.getElementById('wla-wood-w').value) || 0;
   var woodH = parseFloat(document.getElementById('wla-wood-h').value) || 0;
+  var wtEl = document.getElementById('wla-wood-type');
+  var wtIdx = wtEl ? wtEl.value : '';
+  var pWood = (wtIdx!=='' && qpWoodList[wtIdx]) ? qpWoodList[wtIdx] : null;
+  var woodRate = pWood ? (parseFloat(pWood.wood_cost_per_mm2)||qpWoodCost) : qpWoodCost;
   var isLaser = document.getElementById('wla-laser').checked;
   var isBladeChange = document.getElementById('wla-bladechange').checked;
   var isWoodChange = document.getElementById('wla-woodchange').checked;
@@ -2260,7 +2277,7 @@ function wlEstimatePrice() {
   var var1 = pCut ? parseFloat(pCut.var1||1) : 1;
   var costCut = pCut ? cutMM*parseFloat(pCut.cost_per_mm) : 0;
   var costCr = creaseMM*(pCr ? parseFloat(pCr.cost_per_mm) : 0);
-  var costWood = woodW*woodH*qpWoodCost;
+  var costWood = woodW*woodH*woodRate;
   var totalBladeMM = cutMM+creaseMM+perfMM;
   var woodArea = woodW*woodH;
   var laserAdd = isLaser ? Math.round(totalBladeMM/1000*60 + woodArea*0.0008) : 0;
@@ -2297,6 +2314,9 @@ function wlSaveNewJob() {
   var bladeCut = (bcIdx!=='' && qpPricingCut[bcIdx]) ? qpPricingCut[bcIdx].blade : '';
   var crIdx = document.getElementById('wla-crease-type').value;
   var bladeCrease = (crIdx!=='' && qpPricingCrease[crIdx]) ? qpPricingCrease[crIdx].blade : '';
+  var wtEl2 = document.getElementById('wla-wood-type');
+  var wtIdx2 = wtEl2 ? wtEl2.value : '';
+  var woodType = (wtIdx2!=='' && qpWoodList[wtIdx2]) ? qpWoodList[wtIdx2].blade : '';
   var cutMM = parseFloat(document.getElementById('wla-cut-mm').value) || 0;
   var creaseMM = parseFloat(document.getElementById('wla-crease-mm').value) || 0;
   var woodW = parseFloat(document.getElementById('wla-wood-w').value) || 0;
@@ -2322,6 +2342,7 @@ function wlSaveNewJob() {
     note: (jobName + (extras ? (jobName?' ':'')+'('+extras+')' : '')).trim(),
     bladeCut: bladeCut,
     bladeCrease: bladeCrease,
+    woodType: woodType,
     cutMM: cutMM,
     creaseMM: creaseMM,
     woodW: woodW,
@@ -6570,12 +6591,18 @@ function doPrintQt(qt) {
           <input id="wla-crease-mm" type="number" min="0" placeholder="0" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
         </div>
       </div>
-      <div>
-        <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ขนาดไม้ (mm)</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="wla-wood-w" type="number" min="0" placeholder="กว้าง" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
-          <span style="color:#888;font-weight:700;">×</span>
-          <input id="wla-wood-h" type="number" min="0" placeholder="ยาว" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ชนิดไม้</label>
+          <select id="wla-wood-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;background:#fff;"><option value="">— ไม้มาตรฐาน —</option></select>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">ขนาดไม้ (mm)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="wla-wood-w" type="number" min="0" placeholder="กว้าง" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+            <span style="color:#888;font-weight:700;">×</span>
+            <input id="wla-wood-h" type="number" min="0" placeholder="ยาว" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e3eb;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;">
+          </div>
         </div>
       </div>
       <div>

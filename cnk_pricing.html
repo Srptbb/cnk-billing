@@ -357,6 +357,10 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       </div>
     </div>
     <div class="fg">
+      <label>🪵 ชนิดไม้</label>
+      <select id="wood-type" onchange="if(lastResult)calculate();"><option value="">— ไม้มาตรฐาน —</option></select>
+    </div>
+    <div class="fg">
       <label>ชนิดเส้นปรุ <span style="color:var(--text2);font-size:10px;">(1 แบบมีได้หลายชนิด — เลือกชนิดนี้แล้วแตะ/ลากเส้นในโหมด 🧵)</span></label>
       <select id="blade-perf">
         <option value="2x1">2x1 — 55฿/ม.</option>
@@ -438,7 +442,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-V
 const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
 const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-const _SBTEXT=['id','custName','note','jobSource','bladeCut','bladeCrease','status','memo','bladeCount','woodCount'];
+const _SBTEXT=['id','custName','note','jobSource','bladeCut','bladeCrease','woodType','status','memo','bladeCount','woodCount'];
 const _SBNUM=['cutMM','creaseMM','woodW','woodH','price','priceBeforeLaser','rawPrice','finalPrice','costPerf','laserAdd','bladeChangeAdd','woodChangeAdd','holeAdd','holeCount','perfMM','perfCount'];
 const _SBBOOL=['laser','bladeChange','woodChange','manual','statusDesigned','statusWorking','statusComplete','statusShipped','statusPaid'];
 const _SBJSONB=['holes','perfs'];
@@ -491,7 +495,7 @@ let deleteHover = null;
 // Touch pan
 let lastTouch = null, touchPanStart = null;
 
-let pricingCut = [], pricingCrease = [];
+let pricingCut = [], pricingCrease = [], woodList = [];
 let WOOD_COST = 0.00038;
 // งานเส้นตรงล้วน (ไม่มีดัดใบมีด) ตัดใบมีดตามยาวแล้วเสียบเข้าไม้เลย → ค่าแรงดัดน้อยกว่างานโค้ง
 // จึงถ่วงน้ำหนักค่าแรง/บริหารจัดการ (bladeLenAdd) ที่ 0.8 แทน 1.0 — สอดคล้องกับตัวคูณความโค้ง (โค้งกว้าง=1.0 → แคบ=3.0)
@@ -548,8 +552,21 @@ function applyPricingRows(rows){
   pricingCut = cut;
   pricingCrease = crease;
   if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
+  woodList = rows.filter(r => String(r.type||'').toLowerCase() === 'wood' && r.blade);
   populateSel('blade-cut', pricingCut, false);
   populateSel('blade-crease', pricingCrease, true);
+  populateWoodSel();
+}
+
+function populateWoodSel(){
+  const sel = document.getElementById('wood-type');
+  if(!sel) return;
+  if(woodList.length){
+    sel.innerHTML = woodList.map((r,i) => `<option value="${i}">${r.blade}</option>`).join('');
+    sel.value = '0';
+  } else {
+    sel.innerHTML = '<option value="">— ไม้มาตรฐาน —</option>';
+  }
 }
 
 async function loadPricing() {
@@ -1834,7 +1851,11 @@ function calculate(){
   const var1=pCut?parseFloat(pCut.var1||1):1;
   const costCut=pCut?cutMM*parseFloat(pCut.cost_per_mm):0;
   const costCr=creaseMM*(pCr?parseFloat(pCr.cost_per_mm):0);
-  const costWood=woodBox?woodBox.wMM*woodBox.hMM*WOOD_COST:0;
+  const _wtEl=document.getElementById('wood-type');
+  const _wtIdx=_wtEl?_wtEl.value:'';
+  const _pWood=(_wtIdx!==''&&woodList[_wtIdx])?woodList[_wtIdx]:null;
+  const woodRate=_pWood?(parseFloat(_pWood.wood_cost_per_mm2)||WOOD_COST):WOOD_COST;
+  const costWood=woodBox?woodBox.wMM*woodBox.hMM*woodRate:0;
   const totalBladeMM=cutMM+creaseMM+perfMM;
   // effectiveMM = ความยาวถ่วงน้ำหนักความโค้ง ใช้เฉพาะฐานค่าบริหารจัดการ (bladeLenAdd) ทุกโหมด
   let straightMM=0,curveWeightedMM=0,curveRawMM=0;
@@ -1884,6 +1905,7 @@ function calculate(){
     custName, note, jobSource,
     bladeCut: pCut?pCut.blade:'-',
     bladeCrease: pCr?pCr.blade:'-',
+    woodType: _pWood?_pWood.blade:'',
     woodW: woodBox?Math.round(woodBox.wMM):0,
     woodH: woodBox?Math.round(woodBox.hMM):0,
     cutMM: Math.round(cutMM),
