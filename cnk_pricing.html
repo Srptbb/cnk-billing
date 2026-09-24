@@ -349,16 +349,18 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
       <label>ชนิดมีด — เส้นคม</label>
       <select id="blade-cut"><option value="">⏳ กำลังโหลด...</option></select>
     </div>
-    <div class="fg">
-      <label>ชนิดมีด — เส้นพับ <span id="crease-hint" style="color:var(--yellow);font-size:10px;"></span></label>
-      <select id="blade-crease"><option value="">⏳ กำลังโหลด...</option></select>
-      <div class="fnote" id="crease-note" style="display:none;color:var(--yellow);">
-        ⚠️ ยังไม่มีข้อมูลเส้นพับ — เพิ่มแถวใน sheet pricing โดยใส่ column type = crease
+    <div style="display:flex;gap:10px;">
+      <div class="fg" style="flex:1;min-width:0;">
+        <label>ชนิดมีด — เส้นพับ <span id="crease-hint" style="color:var(--yellow);font-size:10px;"></span></label>
+        <select id="blade-crease" style="width:100%;box-sizing:border-box;"><option value="">⏳ กำลังโหลด...</option></select>
+        <div class="fnote" id="crease-note" style="display:none;color:var(--yellow);">
+          ⚠️ ยังไม่มีข้อมูลเส้นพับ — เพิ่มแถวใน sheet pricing โดยใส่ column type = crease
+        </div>
       </div>
-    </div>
-    <div class="fg">
-      <label>🪵 ชนิดไม้</label>
-      <select id="wood-type" onchange="if(lastResult)calculate();"><option value="">— ไม้มาตรฐาน —</option></select>
+      <div class="fg" style="flex:1;min-width:0;">
+        <label>🪵 ชนิดไม้</label>
+        <select id="wood-type" onchange="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;"><option value="">— ไม้มาตรฐาน —</option></select>
+      </div>
     </div>
     <div class="fg">
       <label>ชนิดเส้นปรุ <span style="color:var(--text2);font-size:10px;">(1 แบบมีได้หลายชนิด — เลือกชนิดนี้แล้วแตะ/ลากเส้นในโหมด 🧵)</span></label>
@@ -657,6 +659,11 @@ async function handleFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   setStatus('loading', `กำลังโหลด ${file.name}...`);
   clearAll();
+  // ดึงชื่องานจากชื่อไฟล์ (ตัดนามสกุล) — เติมให้เฉพาะตอนช่องยังว่าง แก้ทับได้
+  const _noteEl = document.getElementById('note');
+  if(_noteEl && !_noteEl.value.trim()){
+    _noteEl.value = file.name.replace(/\.[^.]+$/, '').trim();
+  }
   // ── ROUTING: แต่ละนามสกุลแยก parser อิสระ 100% ───────────────────────
   //   .svg        → parseSVG_illustrator()  (Illustrator export ตรง)
   //   .ai / .pdf  → convertCC → parseSVG_cloudconvert()
