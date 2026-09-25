@@ -6420,7 +6420,7 @@ function doPrintQt(qt) {
   doc.write('<table><thead><tr><th style="width:40%">รายการ</th><th style="width:8%;text-align:center;">จำนวน</th><th style="width:17%;text-align:right;">ราคา/หน่วย</th><th style="width:17%;text-align:right;">รวม</th>'+imgTh+'</tr></thead>');
   doc.write('<tbody>'+rows+'</tbody>');
   doc.write('<tfoot>'+vatR+'<tr class="tf"><td colspan="'+(hasImg?4:3)+'" style="text-align:right;">ยอดรวมสุทธิ</td><td style="text-align:right;">'+fmt(qt.grand)+' บาท</td>'+(hasImg?'<td></td>':'')+'</tr></tfoot></table>');
-  if(qt.remark) doc.write('<div style="font-size:12px;color:#888;margin-top:10px;">หมายเหตุ: '+h(qt.remark)+'</div>');
+  if(qt.remark) doc.write('<div style="font-size:12px;color:#888;margin-top:10px;white-space:pre-line;">หมายเหตุ: '+h(qt.remark)+'</div>');
   doc.write('<div class="sg2"><table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tbody><tr>');
   doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้เสนอราคา</div><div class="sg-sub">วันที่ ............/............/............</div></div></td>');
   doc.write('<td style="width:50%;"><div class="sg-line"><div class="sg-name">ผู้สั่งซื้อ / ผู้อนุมัติ</div><div class="sg-sub">วันที่ ............/............/............</div></div></td>');
