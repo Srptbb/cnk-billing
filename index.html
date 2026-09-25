@@ -1043,7 +1043,7 @@ var API='https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8g
 var SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
 var SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 var SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-var SB_TABLES={worklist:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
+var SB_TABLES={worklist:true,bills:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
 var SB_MIRROR={bills:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
 var SB_COLS={
@@ -1080,13 +1080,20 @@ function sbClean(row,table){
   return o;
 }
 // GET ทั้งตารางจาก Supabase (มี retry กันเน็ตสะดุด)
-function sbGetAll(table,cb,_try){
-  _try=_try||0;
-  fetch(SB_URL+'/rest/v1/'+table+'?select=*',{headers:SB_H})
+// PostgREST จำกัด 1000 แถว/คำขอ — ต้องไล่ทีละหน้าด้วย Range ไม่งั้นข้อมูลหายเงียบ
+function sbGetAll(table,cb,_try,_from,_acc){
+  _try=_try||0; _from=_from||0; _acc=_acc||[];
+  var STEP=1000;
+  fetch(SB_URL+'/rest/v1/'+table+'?select=*',{headers:Object.assign({},SB_H,{'Range':_from+'-'+(_from+STEP-1)})})
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .then(function(d){ cb(Array.isArray(d)?d:[]); })
+    .then(function(d){
+      var page=Array.isArray(d)?d:[];
+      var all=_acc.concat(page);
+      if(page.length>=STEP) sbGetAll(table,cb,0,_from+STEP,all);
+      else cb(all);
+    })
     .catch(function(e){
-      if(_try<4){ setTimeout(function(){ sbGetAll(table,cb,_try+1); }, 800*(_try+1)); }
+      if(_try<4){ setTimeout(function(){ sbGetAll(table,cb,_try+1,_from,_acc); }, 800*(_try+1)); }
       else { console.error('sbGetAll failed:',table,e); cb([],true); }
     });
 }
