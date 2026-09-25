@@ -1566,9 +1566,10 @@ var qpPricingCut=[], qpPricingCrease=[], qpWoodCost=0.00038, qpWoodList=[], qpLa
 
 // แปลง rows → เติม qpPricingCut/Crease + dropdown (ใช้ทั้งจาก cache และจาก server)
 function _qpApplyPricing(rows){
-  var cut=rows.filter(function(r){return String(r.type||'').toLowerCase()!=='crease'&&!String(r.blade||'').toLowerCase().includes('crease')&&r.blade&&r.cost_per_mm;});
-  var crease=rows.filter(function(r){return String(r.type||'').toLowerCase()==='crease'||String(r.blade||'').toLowerCase().includes('crease');});
-  if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return r.blade&&r.cost_per_mm;});
+  var _notBlade=function(r){return ['wood','rubber'].indexOf(String(r.type||'').toLowerCase())>=0;};
+  var cut=rows.filter(function(r){return !_notBlade(r)&&String(r.type||'').toLowerCase()!=='crease'&&!String(r.blade||'').toLowerCase().includes('crease')&&r.blade&&r.cost_per_mm;});
+  var crease=rows.filter(function(r){return !_notBlade(r)&&(String(r.type||'').toLowerCase()==='crease'||String(r.blade||'').toLowerCase().includes('crease'));});
+  if(cut.length===0&&crease.length===0) cut=rows.filter(function(r){return !_notBlade(r)&&r.blade&&r.cost_per_mm;});
   qpPricingCut=cut; qpPricingCrease=crease;
   if(rows[0]&&rows[0].wood_cost_per_mm2) qpWoodCost=parseFloat(rows[0].wood_cost_per_mm2);
   qpWoodList=rows.filter(function(r){return String(r.type||'').toLowerCase()==='wood'&&r.blade;});

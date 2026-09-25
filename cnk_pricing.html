@@ -580,9 +580,10 @@ async function apiGet(table, _try=0) {
 
 // แยก rows → pricingCut/Crease + เติม dropdown (ใช้ทั้งจาก cache และ server)
 function applyPricingRows(rows){
-  let cut = rows.filter(r => String(r.type||'').toLowerCase() !== 'crease' && !String(r.blade||'').toLowerCase().includes('crease') && r.blade && r.cost_per_mm);
-  let crease = rows.filter(r => String(r.type||'').toLowerCase() === 'crease' || String(r.blade||'').toLowerCase().includes('crease'));
-  if(cut.length === 0 && crease.length === 0) cut = rows.filter(r => r.blade && r.cost_per_mm);
+  const _notBlade = r => ['wood','rubber'].indexOf(String(r.type||'').toLowerCase()) >= 0;
+  let cut = rows.filter(r => !_notBlade(r) && String(r.type||'').toLowerCase() !== 'crease' && !String(r.blade||'').toLowerCase().includes('crease') && r.blade && r.cost_per_mm);
+  let crease = rows.filter(r => !_notBlade(r) && (String(r.type||'').toLowerCase() === 'crease' || String(r.blade||'').toLowerCase().includes('crease')));
+  if(cut.length === 0 && crease.length === 0) cut = rows.filter(r => !_notBlade(r) && r.blade && r.cost_per_mm);
   pricingCut = cut;
   pricingCrease = crease;
   if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
