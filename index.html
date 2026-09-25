@@ -1044,7 +1044,7 @@ var SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
 var SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 var SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 var SB_TABLES={worklist:true,bills:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
-var SB_MIRROR={bills:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
+var SB_MIRROR={bills:true,customers:true,invoices:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
 var SB_COLS={
   worklist:{
@@ -1059,6 +1059,20 @@ var SB_COLS={
     num:['sub','discVal','discAmt','vat','grand'],
     bool:['hasVat'],
     jsonb:['items'],
+    ts:['ts']
+  },
+  customers:{
+    text:['id','n','a','c','t','ty','no','tax'],
+    num:['multiplier'],
+    bool:['tax3'],
+    jsonb:[],
+    ts:['ts']
+  },
+  invoices:{
+    text:['id','no','date','custName','custAddr','custTel','discType','remark','status','payMethod','payDate','paidDate','chequeDate','actualDate','payRemark','paidNote'],
+    num:['rawTotal','tax3amt','total','discVal','discAmt'],
+    bool:[],
+    jsonb:['billNos','bills'],
     ts:['ts']
   }
 };
