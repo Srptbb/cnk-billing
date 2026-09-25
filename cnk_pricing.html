@@ -383,35 +383,32 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 
   <div class="section">
     <div class="stitle" onclick="toggleHoleSection()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-      <span>05 รูกลึง (เจาะรู)</span>
+      <span>05 รูกลึง · ยาง · อื่นๆ</span>
       <span id="hole-arrow" style="font-size:12px;color:var(--text2);transition:transform .2s;">▼</span>
     </div>
     <div id="hole-body" style="display:none;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">🕳️ รูกลึง (เจาะรู)</div>
       <div id="hole-list"></div>
       <button class="clr-btn" type="button" onclick="addHoleRow()" style="margin-top:7px;">➕ เพิ่มขนาดรู</button>
       <div class="fnote" style="margin-top:5px;color:var(--text2);">1–5มม = 25฿ · 5.5–9 = 30฿ · 10–12 = 35฿ · 13–14 = 40฿ / รู</div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="stitle">06 ยาง + อื่นๆ</div>
-    <div style="display:flex;gap:10px;">
-      <div class="fg" style="flex:1;min-width:0;">
-        <label>🩹 ชนิดยาง</label>
-        <select id="rubber-type" onchange="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;"><option value="">— ไม่ใส่ยาง —</option></select>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <div class="fg" style="flex:1;min-width:0;">
+          <label>🩹 ชนิดยาง</label>
+          <select id="rubber-type" onchange="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;"><option value="">— ไม่ใส่ยาง —</option></select>
+        </div>
+        <div class="fg" style="flex:1;min-width:0;">
+          <label>ความยาวยาง (mm)</label>
+          <input id="rubber-mm" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+        </div>
       </div>
-      <div class="fg" style="flex:1;min-width:0;">
-        <label>ความยาวยาง (mm)</label>
-        <input id="rubber-mm" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+      <div class="fg">
+        <label>➕ อื่นๆ (รายการที่เพิ่ม)</label>
+        <input id="extra-desc" type="text" placeholder="เช่น ค่าออกแบบ / งานพิเศษ" style="width:100%;box-sizing:border-box;">
       </div>
-    </div>
-    <div class="fg">
-      <label>➕ อื่นๆ (รายการที่เพิ่ม)</label>
-      <input id="extra-desc" type="text" placeholder="เช่น ค่าออกแบบ / งานพิเศษ" style="width:100%;box-sizing:border-box;">
-    </div>
-    <div class="fg">
-      <label>ต้นทุนเพิ่ม (บาท)</label>
-      <input id="extra-cost" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+      <div class="fg">
+        <label>ต้นทุนเพิ่ม (บาท)</label>
+        <input id="extra-cost" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+      </div>
     </div>
   </div>
 
@@ -434,7 +431,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 
   <div class="section">
     <div id="wl-edit-banner" style="display:none;background:#fff7ed;border:1.5px solid #fdba74;color:#9a3412;border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13px;font-weight:600;line-height:1.5;"></div>
-    <div class="stitle">07 ลูกค้า / งาน</div>
+    <div class="stitle">06 ลูกค้า / งาน</div>
     <div class="fg">
       <label>ลูกค้า</label>
       <div class="cust-wrap">
