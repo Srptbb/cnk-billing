@@ -264,6 +264,14 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
           <span class="price-label" style="color:#0891b2;">🕳️ ค่ารูกลึง</span>
           <span class="price-real" id="hole-amt" style="color:#0891b2;">—</span>
         </div>
+        <div class="price-row" id="rubber-row" style="display:none;">
+          <span class="price-label" style="color:#6d4c41;">🩹 ค่ายาง</span>
+          <span class="price-real" id="rubber-amt" style="color:#6d4c41;">—</span>
+        </div>
+        <div class="price-row" id="extra-row" style="display:none;">
+          <span class="price-label" style="color:#455a64;" id="extra-label">➕ อื่นๆ</span>
+          <span class="price-real" id="extra-amt" style="color:#455a64;">—</span>
+        </div>
         <div class="price-row">
           <span class="price-label" style="font-weight:600;color:var(--text);">ราคาปัด ✓</span>
           <span class="price-rounded" id="ptotal">฿—</span>
@@ -374,10 +382,37 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
   </div>
 
   <div class="section">
-    <div class="stitle">05 รูกลึง (เจาะรู)</div>
-    <div id="hole-list"></div>
-    <button class="clr-btn" type="button" onclick="addHoleRow()" style="margin-top:7px;">➕ เพิ่มขนาดรู</button>
-    <div class="fnote" style="margin-top:5px;color:var(--text2);">1–5มม = 25฿ · 5.5–9 = 30฿ · 10–12 = 35฿ · 13–14 = 40฿ / รู</div>
+    <div class="stitle" onclick="toggleHoleSection()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+      <span>05 รูกลึง (เจาะรู)</span>
+      <span id="hole-arrow" style="font-size:12px;color:var(--text2);transition:transform .2s;">▼</span>
+    </div>
+    <div id="hole-body" style="display:none;">
+      <div id="hole-list"></div>
+      <button class="clr-btn" type="button" onclick="addHoleRow()" style="margin-top:7px;">➕ เพิ่มขนาดรู</button>
+      <div class="fnote" style="margin-top:5px;color:var(--text2);">1–5มม = 25฿ · 5.5–9 = 30฿ · 10–12 = 35฿ · 13–14 = 40฿ / รู</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stitle">06 ยาง + อื่นๆ</div>
+    <div style="display:flex;gap:10px;">
+      <div class="fg" style="flex:1;min-width:0;">
+        <label>🩹 ชนิดยาง</label>
+        <select id="rubber-type" onchange="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;"><option value="">— ไม่ใส่ยาง —</option></select>
+      </div>
+      <div class="fg" style="flex:1;min-width:0;">
+        <label>ความยาวยาง (mm)</label>
+        <input id="rubber-mm" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+    <div class="fg">
+      <label>➕ อื่นๆ (รายการที่เพิ่ม)</label>
+      <input id="extra-desc" type="text" placeholder="เช่น ค่าออกแบบ / งานพิเศษ" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div class="fg">
+      <label>ต้นทุนเพิ่ม (บาท)</label>
+      <input id="extra-cost" type="number" min="0" placeholder="0" oninput="if(lastResult)calculate();" style="width:100%;box-sizing:border-box;">
+    </div>
   </div>
 
   <div class="section">
@@ -399,7 +434,7 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 
   <div class="section">
     <div id="wl-edit-banner" style="display:none;background:#fff7ed;border:1.5px solid #fdba74;color:#9a3412;border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13px;font-weight:600;line-height:1.5;"></div>
-    <div class="stitle">06 ลูกค้า / งาน</div>
+    <div class="stitle">07 ลูกค้า / งาน</div>
     <div class="fg">
       <label>ลูกค้า</label>
       <div class="cust-wrap">
@@ -497,7 +532,7 @@ let deleteHover = null;
 // Touch pan
 let lastTouch = null, touchPanStart = null;
 
-let pricingCut = [], pricingCrease = [], woodList = [];
+let pricingCut = [], pricingCrease = [], woodList = [], rubberList = [];
 let WOOD_COST = 0.00038;
 // งานเส้นตรงล้วน (ไม่มีดัดใบมีด) ตัดใบมีดตามยาวแล้วเสียบเข้าไม้เลย → ค่าแรงดัดน้อยกว่างานโค้ง
 // จึงถ่วงน้ำหนักค่าแรง/บริหารจัดการ (bladeLenAdd) ที่ 0.8 แทน 1.0 — สอดคล้องกับตัวคูณความโค้ง (โค้งกว้าง=1.0 → แคบ=3.0)
@@ -555,9 +590,11 @@ function applyPricingRows(rows){
   pricingCrease = crease;
   if(rows[0]?.wood_cost_per_mm2) WOOD_COST = parseFloat(rows[0].wood_cost_per_mm2);
   woodList = rows.filter(r => String(r.type||'').toLowerCase() === 'wood' && r.blade);
+  rubberList = rows.filter(r => String(r.type||'').toLowerCase() === 'rubber' && r.blade);
   populateSel('blade-cut', pricingCut, false);
   populateSel('blade-crease', pricingCrease, true);
   populateWoodSel();
+  populateRubberSel();
 }
 
 function populateWoodSel(){
@@ -569,6 +606,23 @@ function populateWoodSel(){
   } else {
     sel.innerHTML = '<option value="">— ไม้มาตรฐาน —</option>';
   }
+}
+
+function populateRubberSel(){
+  const sel = document.getElementById('rubber-type');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— ไม่ใส่ยาง —</option>' +
+    rubberList.map((r,i) => `<option value="${i}">${r.blade}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+
+function toggleHoleSection(){
+  const b = document.getElementById('hole-body'), a = document.getElementById('hole-arrow');
+  if(!b) return;
+  const open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  if(a) a.style.transform = open ? '' : 'rotate(180deg)';
 }
 
 async function loadPricing() {
@@ -1883,6 +1937,15 @@ function calculate(){
   const holeInfo=computeHoles();
   const holeAdd=holeInfo.holeAdd, holeCount=holeInfo.holeCount;
   if(holeInfo.oob)showToast('มีรูกลึงขนาดนอกช่วง (จะไม่ถูกคิดราคา)','warn');
+  // ยาง: ความยาว(มม.) × ราคาต่อมม. — บวกตรงๆ ไม่คูณ var
+  const _rbEl=document.getElementById('rubber-type');
+  const _rbIdx=_rbEl?_rbEl.value:'';
+  const _pRubber=(_rbIdx!==''&&rubberList[_rbIdx])?rubberList[_rbIdx]:null;
+  const rubberMM=parseFloat(document.getElementById('rubber-mm')?.value)||0;
+  const rubberAdd=_pRubber?Math.round(rubberMM*parseFloat(_pRubber.cost_per_mm||0)):0;
+  // อื่นๆ: ต้นทุนเพิ่มกรอกเอง — บวกตรงๆ ไม่คูณ var
+  const extraDesc=(document.getElementById('extra-desc')?.value||'').trim();
+  const extraCost=parseFloat(document.getElementById('extra-cost')?.value)||0;
   let raw,price,bladeChangeAdd=0,woodChangeAdd=0,finalPrice;
   if(isBladeChange||isWoodChange){
     const bladeLenAdd_mode2=effectiveMM/5000*660;
@@ -1893,13 +1956,13 @@ function calculate(){
     raw=bladeChangeAdd+woodChangeAdd;
     price=roundPrice(raw);
     const laserExtra=isLaser&&!isWoodChange?laserAdd:0;
-    const addOn=laserExtra+holeAdd;
+    const addOn=laserExtra+holeAdd+rubberAdd+extraCost;
     finalPrice=addOn>0?roundPrice(price+addOn):price;
   }else{
     const bladeLenAdd=(effectiveMM/5000)*660;
     raw=(bladeLenAdd+costCut+costCr+costPerf+costWood)*var1*var2;
     price=roundPrice(raw);
-    const addOn=laserAdd+holeAdd;
+    const addOn=laserAdd+holeAdd+rubberAdd+extraCost;
     finalPrice=addOn>0?roundPrice(price+addOn):price;
   }
   const custName=selectedCust&&!selectedCust.isNew?selectedCust.n:'ลูกค้าใหม่';
@@ -1925,6 +1988,8 @@ function calculate(){
     bladeChange: isBladeChange, bladeChangeAdd,
     woodChange: isWoodChange, woodChangeAdd,
     holeAdd, holeCount, holes: holeInfo.holes,
+    rubberType: _pRubber?_pRubber.blade:'', rubberMM: Math.round(rubberMM), rubberAdd,
+    extraDesc, extraCost,
     finalPrice,
     ts: new Date().toISOString()
   };
@@ -1951,7 +2016,17 @@ function calculate(){
   const holeRow=document.getElementById('hole-row');
   if(holeAdd>0){holeRow.style.display='flex';document.getElementById('hole-amt').textContent='+฿'+holeAdd.toLocaleString()+' ('+holeCount+' รู)';}
   else holeRow.style.display='none';
-  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',perfMM>0?'🧵เส้นปรุ':'',holeCount>0?'🕳️รูกลึง'+holeCount:'',isStraightOnly?'📏เส้นตรงล้วน ×'+STRAIGHT_ONLY_FACTOR:''].filter(Boolean).join(' · ');
+  const rubberRow=document.getElementById('rubber-row');
+  if(rubberRow){
+    if(rubberAdd>0){rubberRow.style.display='flex';document.getElementById('rubber-amt').textContent='+฿'+rubberAdd.toLocaleString()+' ('+_pRubber.blade+' '+Math.round(rubberMM)+'มม.)';}
+    else rubberRow.style.display='none';
+  }
+  const extraRow=document.getElementById('extra-row');
+  if(extraRow){
+    if(extraCost>0){extraRow.style.display='flex';document.getElementById('extra-label').textContent='➕ '+(extraDesc||'อื่นๆ');document.getElementById('extra-amt').textContent='+฿'+extraCost.toLocaleString();}
+    else extraRow.style.display='none';
+  }
+  const extrasLabel=[isLaser?'⚡เลเซอร์':'',isBladeChange?'🔪เปลี่ยนมีด':'',isWoodChange?'🪵เปลี่ยนไม้':'',perfMM>0?'🧵เส้นปรุ':'',holeCount>0?'🕳️รูกลึง'+holeCount:'',rubberAdd>0?'🩹ยาง':'',extraCost>0?('➕'+(extraDesc||'อื่นๆ')):'',isStraightOnly?'📏เส้นตรงล้วน ×'+STRAIGHT_ONLY_FACTOR:''].filter(Boolean).join(' · ');
   const bladeLabel=pCut?pCut.blade:'—';
   document.getElementById('price-sub').textContent=`${bladeLabel} · ${custName}${note?' · '+note:''}${extrasLabel?' · '+extrasLabel:''}`;
   showToast(`฿${finalPrice.toLocaleString()} / ชิ้น`,'ok');
@@ -1964,7 +2039,7 @@ function saveToWorklist(){
   if(!lastResult){showToast('คำนวณราคาก่อน','warn');return;}
   const isWlEdit = !!_wlTargetId;
   const id = isWlEdit ? _wlTargetId : 'q_'+Date.now();
-  const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':'',(lastResult.perfMM>0)?'เส้นปรุ':''].filter(Boolean).join('+');
+  const _extras=[lastResult.laser?'ยิงเลเซอร์':'',lastResult.bladeChange?'เปลี่ยนมีด':'',lastResult.woodChange?'เปลี่ยนไม้':'',(lastResult.perfMM>0)?'เส้นปรุ':'',(lastResult.rubberAdd>0)?('ยาง '+lastResult.rubberMM+'มม.'):'',(lastResult.extraCost>0)?(lastResult.extraDesc||'อื่นๆ'):''].filter(Boolean).join('+');
   const data = {
     id, ...lastResult,
     note: lastResult.note+(_extras?'('+_extras+')':''),
