@@ -1077,7 +1077,9 @@ if (!IS_PROD) {
 }
 // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
 // bills_history สลับได้ทันทีโดยไม่ต้องรอดู เพราะไม่มีโค้ดไหนเขียนลงตารางนี้เลย = ไม่มีทางไม่ตรงกัน
-var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true,bills_history:true};
+// customers/invoices ผ่าน reconcile แล้ว: ชีท 124/177 แถว เท่ากับ Supabase ทุกแถวทุกคอลัมน์
+// ต่างแค่ "ชนิด" (ชีทคืน number, Postgres คืนสตริง; '' กับ null) ซึ่งโค้ดครอบ String()/parseFloat() ไว้หมดแล้ว
+var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true,bills_history:true,customers:true,invoices:true};
 // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // quotations/draft_queue เพิ่งย้ายมา ให้เขียนคู่ไว้ก่อน 1-2 วัน แล้วค่อยสลับขาอ่าน
 // (ชีทยังเป็นสำเนาสำรองระหว่างนี้ ถ้า Supabase มีปัญหาก็ยังไม่เสียข้อมูล)
@@ -1174,7 +1176,10 @@ function sbClean(row,table){
 function sbGetAll(table,cb,_try,_from,_acc){
   _try=_try||0; _from=_from||0; _acc=_acc||[];
   var STEP=1000;
-  fetch(SB_URL+'/rest/v1/'+table+'?select=*',{headers:Object.assign({},SB_H,{'Range':_from+'-'+(_from+STEP-1)})})
+  // ต้องมี order= เสมอ: Postgres ไม่รับประกันลำดับถ้าไม่สั่ง พอ bills เกิน 1000 แถว (ตอนนี้ 1010)
+  // การไล่หน้าด้วย Range 2 ครั้งจึงเป็น 2 คำสั่งคนละลำดับได้ ถ้ามีคนแก้บิลคั่นกลาง แถวนั้นถูกเขียนใหม่
+  // ไปท้าย heap แล้วแถวตรงรอยต่อหน้าจะซ้ำ 1 หาย 1 แบบเงียบๆ (id.asc ของ bills = ลำดับเวลาอยู่แล้ว)
+  fetch(SB_URL+'/rest/v1/'+table+'?select=*&order=id.asc',{headers:Object.assign({},SB_H,{'Range':_from+'-'+(_from+STEP-1)})})
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
     .then(function(d){
       var page=Array.isArray(d)?d:[];

@@ -586,7 +586,9 @@ async function sbGetAll(table, _try=0){
   let all=[], from=0;
   try {
     for(;;){
-      const r = await fetch(`${SB_URL}/rest/v1/${table}?select=*`, {headers:{...SB_H,'Range':`${from}-${from+STEP-1}`}});
+      // ต้องสั่ง order= เสมอ ไม่งั้น Postgres ไม่รับประกันลำดับ พอตารางเกิน 1000 แถว
+      // การไล่หน้า 2 คำขอจะซ้ำ/หายตรงรอยต่อได้ ถ้ามีคนแก้แถวคั่นกลาง
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?select=*&order=id.asc`, {headers:{...SB_H,'Range':`${from}-${from+STEP-1}`}});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d = await r.json();
       const page = Array.isArray(d) ? d : [];
