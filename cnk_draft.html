@@ -197,14 +197,26 @@ function logout(){
   document.getElementById('pin-msg').textContent = '';
 }
 
+// PostgREST คืนได้สูงสุด 1000 แถว/คำขอ ตารางนี้ 163 แถวแต่มีแต่จะโตขึ้นเรื่อยๆ
+// และต้องสั่ง order= เสมอ ไม่งั้นพอเกิน 1000 แถว การไล่หน้า 2 คำขอเป็นคนละลำดับได้
+// แถวตรงรอยต่อจะซ้ำ 1 หาย 1 แบบเงียบๆ ถ้ามีคนปิดงานคั่นกลาง — งานที่หายคือคิวของช่าง
+function sbQueue(from, acc){
+  var STEP = 1000;
+  return fetch(SB_URL+'/rest/v1/draft_queue?select=*&order=id.asc',
+      { headers: Object.assign({}, SB_H, { 'Range': from+'-'+(from+STEP-1) }) })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(page){
+      acc = acc.concat(page);
+      return page.length < STEP ? acc : sbQueue(from+STEP, acc);
+    });
+}
 function loadQueue(){
   var el = document.getElementById('list');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-  fetch(API+'?action=getAll&table=draft_queue')
-    .then(function(r){ return r.text(); })
-    .then(function(t){
-      var rows;
-      try{ rows = JSON.parse(t); }catch(e){ throw new Error('bad response'); }
+  // อ่านจาก Supabase แทน Apps Script: หน้านี้เขียนลง Supabase อยู่แล้ว (99c8b9e)
+  // ถ้ายังอ่านจากชีทต่อไป งานที่ปิดไปจะขึ้นกับว่าชีทตามทันไหม ซึ่งเป็นที่มาของ drift รอบก่อน
+  sbQueue(0, [])
+    .then(function(rows){
       if(!Array.isArray(rows)) rows = [];
       _jobs = rows.filter(function(r){
         return r.tech === currentTech && (r.status||'queued') !== 'done';
