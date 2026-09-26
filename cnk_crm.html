@@ -904,6 +904,319 @@ async function sbGetAll(table, _try=0){
     throw e;
   }
 }
+/* ===================== เฟส 4: ย้ายการคำนวณจาก Apps Script มาฝั่งเว็บ =====================
+   6 ฟังก์ชันที่เหลือ (getCrmDashboard/getTargets/getCrmSalesHistory/getMonthBills/
+   getLoyalNewCustomers/getSavedCommissions) เป็นด่านสุดท้ายก่อนปิด Apps Script ได้
+   แปลมาจาก Code_v8.gs ตรงๆ แล้ว diff กับของเดิมทีละฟิลด์จนตรงหมดก่อนเอาขึ้น
+   ปิดกลับได้ทันทีด้วยการตั้ง SB_COMPUTE=false (กลับไปเรียก Apps Script เหมือนเดิม)   */
+const SB_COMPUTE = true;
+
+/* แกนของทั้งเฟส: เวลา
+   ชีทเก็บวันที่เป็น Date ของกรุงเทพ พอผ่าน JSON มาเป็น instant UTC
+   เที่ยงคืน 1 ก.ย. กรุงเทพ = "2026-08-31T17:00:00.000Z" -> ตัด 10 ตัวหน้าได้ 31 ส.ค. ผิดทั้งวันทั้งเดือน
+   ต้องเลื่อน +7 ชม. แล้วอ่าน component แบบ UTC ถึงได้ปฏิทินกรุงเทพเท่าของเดิม
+   เฉพาะค่าที่มีส่วนเวลา (มี T) เท่านั้น — "2026-04-15" เปล่าๆ ห้ามเลื่อน ไม่งั้นเพี้ยนกลับทางตรงข้าม */
+function bkkParts(val){
+  const s = String(val || '');
+  if(!/^\d{4}-\d{2}/.test(s) || s.indexOf('T') < 0) return null;
+  let d = new Date(s);
+  if(isNaN(d.getTime())) return null;
+  d = new Date(d.getTime() + 7*3600*1000);
+  return { y:d.getUTCFullYear(), m:d.getUTCMonth()+1, d:d.getUTCDate() };
+}
+const p2 = n => String(n).padStart(2,'0');
+// คัดลอกตรงจาก Code_v8.gs ห้ามแก้ตรรกะ (ตัวอักษรล่องหน/ช่องว่างเต็มความกว้างต้องเหมือนเดิม)
+function cleanName(s){
+  return String(s || '')
+    .replace(/ /g,' ').replace(/​/g,'').replace(/　/g,' ')
+    .trim().replace(/\s+/g,' ');
+}
+function findMatchedKey(cn, salesMap){
+  if(salesMap[cn]) return cn;
+  const cnLower = cn.toLowerCase();
+  const keys = Object.keys(salesMap);
+  for(let i=0;i<keys.length;i++) if(keys[i].toLowerCase()===cnLower) return keys[i];
+  for(let j=0;j<keys.length;j++){
+    const kLower = keys[j].toLowerCase();
+    if(cnLower.indexOf(kLower)===0 || kLower.indexOf(cnLower)===0) return keys[j];
+  }
+  return null;
+}
+function toYearMonth(val){
+  if(!val) return '';
+  if(val instanceof Date) return val.getFullYear()+'-'+p2(val.getMonth()+1);
+  const bp = bkkParts(val);
+  if(bp) return bp.y+'-'+p2(bp.m);
+  const s = String(val).trim();
+  if(/^\d{4}-\d{2}/.test(s)) return s.slice(0,7);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(m){
+    let y = parseInt(m[3],10);
+    if(y < 100) y += 2500;      // 69 -> 2569
+    if(y > 2400) y -= 543;      // พ.ศ. -> ค.ศ.
+    return y+'-'+p2(parseInt(m[2],10));
+  }
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return d.getFullYear()+'-'+p2(d.getMonth()+1);
+  return '';
+}
+/* d/M/yy (พ.ศ.) เหมือน fmtBillDate เดิม แต่ของเดิมเช็ค instanceof Date ซึ่งฝั่งนี้เป็นสตริงเสมอ
+   ตารางมีวันที่ 2 รูปแบบปนกัน ต้องรับทั้งคู่:
+     - แถวเก่าที่ backfill มาจากชีท = instant "2026-09-16T17:00:00.000Z"
+     - แถวใหม่ที่หน้าเว็บเขียนเองตั้งแต่เปิด dual-write = "2026-09-17" เปล่าๆ
+   รูปแบบหลังไม่มีส่วนเวลา bkkParts จะคืน null ถ้าไม่ดักไว้จะโชว์ ISO ดิบบนตารางค่าคอม */
+function fmtBillDate(val){
+  const bp = bkkParts(val);
+  if(bp) return bp.d+'/'+bp.m+'/'+String(bp.y+543).slice(-2);
+  const m = String(val || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return parseInt(m[3],10)+'/'+parseInt(m[2],10)+'/'+String(parseInt(m[1],10)+543).slice(-2);
+  return String(val || '');
+}
+
+// โหลด 4 ตารางครั้งเดียวต่อการเปิดหน้า — หลายฟังก์ชันใช้ชุดเดียวกัน ไม่ต้องยิงซ้ำ
+// บังคับ order=id ให้ลำดับคงที่: findMatchedKey คืน "คีย์แรกที่เข้าได้" ผลจึงขึ้นกับลำดับ
+// (ตอนนี้ไม่มีชื่อไหนกำกวมเลย แต่ถ้าวันหลังมี อย่างน้อยผลจะไม่สลับไปมาเองแต่ละครั้ง)
+const _c4 = {};
+async function c4(table){
+  if(_c4[table]) return _c4[table];
+  _c4[table] = (async () => {
+    const STEP = 1000; let all = [], from = 0;
+    for(;;){
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?select=*&order=id.asc`,
+        {headers:{...SB_H,'Range':`${from}-${from+STEP-1}`}});
+      if(!r.ok) throw new Error(table+' HTTP '+r.status);
+      const page = await r.json();
+      all = all.concat(Array.isArray(page)?page:[]);
+      if(!Array.isArray(page) || page.length < STEP) return all;
+      from += STEP;
+    }
+  })();
+  return _c4[table];
+}
+const c4reset = () => { for(const k in _c4) delete _c4[k]; };
+
+async function c4MonthBills(month){
+  const bills = await c4('bills');
+  const out = [];
+  bills.forEach(b => {
+    if(b.status === 'cancelled') return;
+    if(toYearMonth(b.date) !== month) return;
+    out.push({ id:String(b.id||''), no:String(b.no||''), date:fmtBillDate(b.date),
+               cn:cleanName(b.cn), grand:Number(b.grand)||0 });
+  });
+  return out;
+}
+// commissions.month ของเดิมถูกชีทแปลงเป็นวันที่ เลยเก็บมาเป็น instant
+// ของใหม่เขียนเป็น "YYYY-MM" ตรงๆ -> อ่านต้องรองรับทั้งสองแบบ ไม่งั้นของเก่าหาย
+const c4ym = v => toYearMonth(v) || String(v||'').slice(0,7);
+async function c4LoyalNew(salesName){
+  const want = cleanName(salesName), set = {};
+  (await c4('commissions')).forEach(r => {
+    if(String(r.rateType||'') !== 'new') return;
+    if(want && cleanName(r.salesName) !== want) return;
+    set[cleanName(r.custName)] = true;
+  });
+  return Object.keys(set);
+}
+async function c4SavedComm(month, salesName){
+  const want = cleanName(salesName), out = [];
+  (await c4('commissions')).forEach(r => {
+    if(c4ym(r.month) !== String(month)) return;
+    if(want && cleanName(r.salesName) !== want) return;
+    out.push({ billId:String(r.billId||''), rateType:String(r.rateType||''), salesName:String(r.salesName||'') });
+  });
+  return out;
+}
+async function c4SalesHistory(custName){
+  const [bills, hist] = await Promise.all([c4('bills'), c4('sales_history')]);
+  const result = [], billSet = {}, billMap = {};
+  bills.forEach(b => {
+    if(b.status === 'cancelled') return;
+    const cn = cleanName(b.cn); if(!cn) return;
+    if(custName && cn !== String(custName).trim()) return;
+    const month = toYearMonth(b.date); if(!month) return;
+    const key = cn+'|'+month;
+    billSet[key] = true;
+    if(!billMap[key]) billMap[key] = { custName:cn, month:month, amount:0, source:'billing' };
+    billMap[key].amount += Number(b.grand)||0;
+  });
+  hist.forEach(r => {
+    const cn = cleanName(r.custName); if(!cn) return;
+    if(custName && cn !== String(custName).trim()) return;
+    const month = toYearMonth(r.month); if(!month) return;
+    if(billSet[cn+'|'+month]) return;
+    result.push({ custName:cn, shop:String(r.shop||'').trim(), month:month, amount:Number(r.amount)||0, source:'manual' });
+  });
+  Object.values(billMap).forEach(v => result.push(v));
+  result.sort((a,b) => a.month < b.month ? -1 : 1);
+  return result;
+}
+async function c4Targets(){
+  const [bills, hist] = await Promise.all([c4('bills'), c4('sales_history')]);
+  const salesMap = {};
+  hist.forEach(r => {
+    const cn = cleanName(r.custName); if(!cn) return;
+    const month = toYearMonth(r.month); if(!month) return;
+    const shop = String(r.shop||'').trim(), amt = Number(r.amount)||0;
+    if(!salesMap[cn]) salesMap[cn] = { shop:shop, months:{} };
+    if(!salesMap[cn].shop && shop) salesMap[cn].shop = shop;
+    if(amt <= 0) return;   // ยอด 0 ไม่บวก แต่ shop เก็บไปแล้ว (ไม่งั้นลูกค้ากลายเป็น CNK)
+    salesMap[cn].months[month] = (salesMap[cn].months[month]||0) + amt;
+  });
+  const billMonths = {};
+  bills.forEach(b => {
+    if(b.status === 'cancelled') return;
+    const cn = cleanName(b.cn); if(!cn) return;
+    const month = toYearMonth(b.date); if(!month) return;
+    const amt = Number(b.grand)||0; if(amt <= 0) return;
+    const mk = findMatchedKey(cn, salesMap) || cn;
+    if(!salesMap[mk]) salesMap[mk] = { shop:'', months:{} };
+    const key = mk+'|'+month;
+    if(!billMonths[key]){ billMonths[key] = 0; salesMap[mk].months[month] = 0; }
+    billMonths[key] += amt;
+    salesMap[mk].months[month] = billMonths[key];
+  });
+  const d = new Date(), thisMonth = d.getFullYear()+'-'+p2(d.getMonth()+1);
+  const targets = {};
+  Object.keys(salesMap).forEach(cn => {
+    const info = salesMap[cn];
+    const amounts = Object.keys(info.months)
+      .filter(m => m !== thisMonth && info.months[m] > 0)
+      .map(m => info.months[m]).sort((a,b) => b-a);
+    if(amounts.length === 0){ if(info.shop) targets[cn] = { shop:info.shop, target:0 }; return; }
+    const top3 = amounts.slice(0,3);
+    targets[cn] = { shop:info.shop, target:Math.round(top3.reduce((s,v)=>s+v,0)/top3.length) };
+  });
+  return targets;
+}
+async function c4Dashboard(){
+  const [bills, hist, logs] = await Promise.all([c4('bills'), c4('sales_history'), c4('crm_logs')]);
+  const today = new Date(), todayDay = today.getDate();
+  const thisMonthStr = today.getFullYear()+'-'+p2(today.getMonth()+1);
+  const prevDate = new Date(today.getFullYear(), today.getMonth()-1, 1);
+  const prevMonthStr = prevDate.getFullYear()+'-'+p2(prevDate.getMonth()+1);
+  const salesMap = {};
+  hist.forEach(r => {
+    const cn = cleanName(r.custName); if(!cn) return;
+    const month = toYearMonth(r.month); if(!month) return;
+    const shop = String(r.shop||'').trim();
+    if(!salesMap[cn]) salesMap[cn] = { shop:shop, months:{} };
+    if(!salesMap[cn].shop) salesMap[cn].shop = shop;
+    salesMap[cn].months[month] = (salesMap[cn].months[month]||0) + (Number(r.amount)||0);
+  });
+  const billThisMonth = {};
+  bills.forEach(b => {
+    if(b.status === 'cancelled') return;
+    const cn = cleanName(b.cn); if(!cn) return;
+    const month = toYearMonth(b.date); if(!month) return;
+    const mk = findMatchedKey(cn, salesMap) || cn;
+    if(!salesMap[mk]) salesMap[mk] = { shop:'', months:{} };
+    if(!salesMap[mk]._billMonths) salesMap[mk]._billMonths = {};
+    if(!salesMap[mk]._billMonths[month]){ salesMap[mk]._billMonths[month] = 0; salesMap[mk].months[month] = 0; }
+    const amt = Number(b.grand)||0;
+    salesMap[mk]._billMonths[month] += amt;
+    salesMap[mk].months[month] = salesMap[mk]._billMonths[month];
+    if(month === thisMonthStr) billThisMonth[mk] = (billThisMonth[mk]||0) + amt;
+  });
+  /* ต่างจาก Apps Script โดยตั้งใจ 2 อย่าง ทั้งคู่ของเดิมผิด:
+     1) ของเดิม r.date เป็น Date -> String() ได้ "Wed May 13 2026..." แล้วเอาไปเทียบ > กัน
+        = เรียงตามชื่อวันในสัปดาห์ (Wed ชนะ Mon เสมอ) "ติดต่อล่าสุด" จึงอาจเป็นครั้งที่เก่ากว่า
+        ฝั่งนี้เป็นสตริง ISO การเทียบ > เรียงตามเวลาจริง
+     2) ของเดิม slice(0,10) ได้ "Wed May 13" แล้วโชว์บนการ์ดดิบๆ -> เปลี่ยนเป็นวันที่จริง */
+  const lastContactMap = {};
+  logs.forEach(r => {
+    const cn = cleanName(r.custName);
+    if(!lastContactMap[cn] || String(r.date) > String(lastContactMap[cn].date)){
+      const bp = bkkParts(r.date);
+      lastContactMap[cn] = { date: bp ? bp.y+'-'+p2(bp.m)+'-'+p2(bp.d) : String(r.date).slice(0,10),
+                             result: r.result };
+    }
+  });
+  const flags = [], allCust = [];
+  Object.keys(salesMap).forEach(cn => {
+    const info = salesMap[cn];
+    const allMonths = Object.keys(info.months).filter(m => m !== '_billMonths').sort();
+    if(allMonths.length === 0) return;
+    const activeMonths = allMonths.filter(m => info.months[m] > 0);
+    if(activeMonths.length === 0) return;
+    const lastActiveMonth = activeMonths[activeMonths.length-1];
+    const peakMonths = activeMonths.filter(m => m !== thisMonthStr);
+    let peakAmount = peakMonths.length > 0
+      ? Math.max.apply(null, peakMonths.map(m => info.months[m]))
+      : Math.max.apply(null, activeMonths.map(m => info.months[m]));
+    if(!isFinite(peakAmount)) peakAmount = 0;
+    const frequency = activeMonths.length / Math.max(allMonths.length, 1);
+    const parts = lastActiveMonth.split('-'), prevParts = prevMonthStr.split('-');
+    const diffMonths = (parseInt(prevParts[0])-parseInt(parts[0]))*12 + (parseInt(prevParts[1])-parseInt(parts[1]));
+    const recentAmount = info.months[prevMonthStr] || 0;
+    let thisMonthActual = billThisMonth[cn] || 0;
+    if(!thisMonthActual){
+      const cnLower = cn.toLowerCase();
+      Object.keys(billThisMonth).forEach(k => { if(k.toLowerCase() === cnLower) thisMonthActual = billThisMonth[k] || 0; });
+    }
+    let status = 'ok', reason = '';
+    if(frequency >= 0.6){
+      if(diffMonths >= 1){
+        if(thisMonthActual > 0) status = 'ok';
+        else { status = 'red'; reason = 'ปกติสั่งทุกเดือน ไม่มียอด '+diffMonths+' เดือน'; }
+      }
+    } else {
+      if(diffMonths >= 2){
+        if(thisMonthActual > 0) status = 'ok';
+        else { status = 'orange'; reason = 'ไม่มียอดมา '+diffMonths+' เดือน'; }
+      }
+    }
+    if(status === 'ok' && frequency >= 0.6 && todayDay >= 15 && thisMonthActual === 0 && diffMonths === 0){
+      status = 'orange';
+      reason = 'ปกติสั่งทุกเดือน แต่เดือนนี้ยังไม่มียอด (ผ่านวันที่ 15 แล้ว)';
+    }
+    allCust.push({ custName:cn, shop:info.shop, status:status, reason:reason,
+      lastMonth:lastActiveMonth, monthsGone:diffMonths, peakAmount:peakAmount,
+      recentAmount:recentAmount, thisMonthActual:thisMonthActual,
+      lastContact: lastContactMap[cn] || null });
+    if(status !== 'ok') flags.push(allCust[allCust.length-1]);
+  });
+  const order = { red:0, orange:1, yellow:2 };
+  flags.sort((a,b) => { const d2 = (order[a.status]||9)-(order[b.status]||9); return d2 !== 0 ? d2 : b.peakAmount-a.peakAmount; });
+  allCust.sort((a,b) => {
+    const sa = order[a.status] !== undefined ? order[a.status] : 9;
+    const sb = order[b.status] !== undefined ? order[b.status] : 9;
+    if(sa !== sb) return sa - sb;
+    return a.custName.localeCompare(b.custName, 'th');
+  });
+  return { flags:flags, allCustomers:allCust, total:flags.length,
+           billThisMonth: Object.keys(billThisMonth).map(cn => ({ custName:cn, amount:billThisMonth[cn] })),
+           generatedAt: today.toISOString() };
+}
+/* บันทึกค่าคอม: ลบของ "เดือน+เซลล์คนนี้" ก่อนแล้วใส่ใหม่ = กดซ้ำได้ ไม่ทับเซลล์อื่น
+   ลบด้วยการไล่หา id เอง ไม่ใช่ month=eq. เพราะแถวเก่าเก็บ month เป็น instant
+   ส่วนแถวใหม่เก็บเป็น "YYYY-MM" ถ้าลบด้วยเงื่อนไขเดียวของเก่าจะค้าง */
+async function c4SaveComm(payload){
+  const month = String(payload.month||''), sales = cleanName(payload.salesName);
+  const cur = await c4('commissions');
+  const kill = cur.filter(r => c4ym(r.month) === month && cleanName(r.salesName) === sales).map(r => String(r.id));
+  for(const id of kill){
+    const r = await fetch(`${SB_URL}/rest/v1/commissions?id=eq.${encodeURIComponent(id)}`, {method:'DELETE', headers:SB_H});
+    if(!r.ok) throw new Error('ลบค่าคอมเดิมไม่สำเร็จ HTTP '+r.status);
+  }
+  const ts = new Date().toISOString();
+  const rows = (payload.rows||[]).map(x => ({
+    id: month+'|'+(x.salesName||'')+'|'+x.billId,
+    month: month, billId:String(x.billId||''), billNo:String(x.billNo||''),
+    custName:String(x.custName||''), amount:Number(x.amount)||0,
+    rate:Number(x.rate)||0, commission:Number(x.commission)||0,
+    rateType:String(x.rateType||''), salesName:String(x.salesName||''), ts:ts
+  }));
+  if(rows.length){
+    const r = await fetch(`${SB_URL}/rest/v1/commissions`, {method:'POST',
+      headers:{...SB_H,'Prefer':'resolution=merge-duplicates,return=minimal'}, body:JSON.stringify(rows)});
+    if(!r.ok) throw new Error('บันทึกค่าคอมไม่สำเร็จ HTTP '+r.status+': '+(await r.text()).slice(0,200));
+  }
+  c4reset();   // รอบหน้าต้องอ่านของใหม่ ไม่ใช่แคชเก่า
+  return { success:true, saved:rows.length };
+}
+/* ===================== จบเฟส 4 ===================== */
+
 // อ่าน crm_logs: Postgres ไม่รับประกันลำดับ ต้องเรียงเองให้เหมือน Apps Script (ล่าสุดก่อน)
 // เพราะหน้ารายการตัด .slice(0,50) ถ้าลำดับสลับจะโชว์บันทึกผิดชุด
 async function loadCrmLogs(){
@@ -1007,11 +1320,12 @@ async function loadAll() {
   document.getElementById('day-pill').textContent = `วันที่ ${day}/${daysInMonth} — ${Math.round(day/daysInMonth*100)}% ของเดือน`;
   document.getElementById('page-sub').textContent = `อัปเดต ${now.toLocaleTimeString('th-TH')}`;
 
+  c4reset();   // กดรีเฟรชต้องได้ของใหม่ ไม่ใช่แคชรอบก่อน
   const [dashData, billData, logData, targetsData] = await Promise.all([
-    apiGet({ action: 'getCrmDashboard' }),
+    SB_COMPUTE ? c4Dashboard() : apiGet({ action: 'getCrmDashboard' }),
     apiGet({ action: 'getAll', table: 'bills', months: 1 }),
     loadCrmLogs(),
-    apiGet({ action: 'getTargets' })
+    SB_COMPUTE ? c4Targets()   : apiGet({ action: 'getTargets' })
   ]);
   // อัปเดต TARGETS จาก API (ชื่อตรงกับ bills แน่นอน)
   if (targetsData && typeof targetsData === 'object' && !Array.isArray(targetsData)) {
@@ -1281,7 +1595,8 @@ async function openCust(name) {
   document.getElementById('modal-cust').classList.add('open');
 
   try {
-    const hist = await apiGet({ action:'getCrmSalesHistory', custName:name });
+    const hist = SB_COMPUTE ? await c4SalesHistory(name)
+                            : await apiGet({ action:'getCrmSalesHistory', custName:name });
     const byM = {};
     (hist||[]).forEach(r=>{ byM[r.month]=(byM[r.month]||0)+r.amount; });
     const months = Object.keys(byM).sort().slice(-10);
@@ -1389,11 +1704,18 @@ async function commLoad() {
   ['comm-save','comm-csv','comm-pdf'].forEach(id=>document.getElementById(id).disabled=true);
   commMsg('','');
   try {
-    const [billRes, loyalRes, savedRes] = await Promise.all([
-      apiGet({ action:'getMonthBills', month: month }),
-      apiGet({ action:'getLoyalNewCustomers', salesName: salesName }),
-      apiGet({ action:'getSavedCommissions', month: month, salesName: salesName })
-    ]);
+    // ฝั่งใหม่คืน array ตรงๆ ส่วน Apps Script ห่อไว้เป็น {customers:[]}/{rows:[]} -> ปรับให้รูปเดียวกัน
+    const [billRes, loyalRes, savedRes] = SB_COMPUTE
+      ? await Promise.all([
+          c4MonthBills(month),
+          c4LoyalNew(salesName).then(customers => ({ customers })),
+          c4SavedComm(month, salesName).then(rows => ({ rows }))
+        ])
+      : await Promise.all([
+          apiGet({ action:'getMonthBills', month: month }),
+          apiGet({ action:'getLoyalNewCustomers', salesName: salesName }),
+          apiGet({ action:'getSavedCommissions', month: month, salesName: salesName })
+        ]);
     commLoyal = new Set((loyalRes.customers||[]).map(s=>String(s).trim()));
     // map: billId -> rateType ที่เคยบันทึกไว้ (เฉพาะเซลล์คนนี้)
     const savedMap = {};
@@ -1502,7 +1824,17 @@ async function commSave() {
   commMsg('กำลังบันทึก...','');
   try {
     const payload = JSON.stringify({ month, salesName, rows });
-    const res = await apiGet({ action:'saveCommissions', data: payload });
+    let res;
+    if (SB_COMPUTE) {
+      // Supabase เป็นแหล่งอ่านแล้ว ต้องเขียนให้สำเร็จก่อนค่อยบอกว่าบันทึกแล้ว
+      res = await c4SaveComm({ month, salesName, rows });
+      // ชีทยังเก็บเป็นสำเนาสำรองไว้ก่อน จนกว่าจะปิด Apps Script จริง
+      // พลาดตรงนี้ไม่ควรทำให้ผู้ใช้เห็นว่าบันทึกไม่สำเร็จ เพราะของจริงลงไปแล้ว
+      apiGet({ action:'saveCommissions', data: payload })
+        .catch(e => console.error('มิเรอร์ค่าคอมลงชีทไม่สำเร็จ:', e));
+    } else {
+      res = await apiGet({ action:'saveCommissions', data: payload });
+    }
     if (res.success) { commMsg('บันทึกแล้ว '+res.saved+' รายการ ✓','ok'); }
     else { commMsg('บันทึกไม่สำเร็จ: '+(res.error||''),'err'); }
   } catch(e) {
