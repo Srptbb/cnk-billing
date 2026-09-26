@@ -827,7 +827,7 @@ const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
 const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 // ตารางที่ย้ายไปอ่านจาก Supabase แล้ว (ให้ตรงกับ SB_TABLES ใน index.html)
-const SB_TABLES={profiles:true};
+const SB_TABLES={profiles:true,crm_logs:true};
 // ตารางที่ dual-write (เขียนทั้ง Apps Script และ Supabase) — มิเรอร์พลาดไม่ทำให้งานหลักล้ม
 const SB_MIRROR={crm_logs:true};
 // สคีมา Supabase: กรองคีย์นอกสคีมา + แปลงชนิดก่อนส่ง (crm_logs เป็น text ทุกคอลัมน์)
