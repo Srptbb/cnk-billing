@@ -1075,8 +1075,13 @@ if (!IS_PROD) {
     document.title = '[STAGING] ' + document.title;
   });
 }
-var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
-var SB_MIRROR={bills:true,customers:true,invoices:true,profiles:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
+// ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
+// bills_history สลับได้ทันทีโดยไม่ต้องรอดู เพราะไม่มีโค้ดไหนเขียนลงตารางนี้เลย = ไม่มีทางไม่ตรงกัน
+var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true,bills_history:true};
+// ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
+// quotations/draft_queue เพิ่งย้ายมา ให้เขียนคู่ไว้ก่อน 1-2 วัน แล้วค่อยสลับขาอ่าน
+// (ชีทยังเป็นสำเนาสำรองระหว่างนี้ ถ้า Supabase มีปัญหาก็ยังไม่เสียข้อมูล)
+var SB_MIRROR={bills:true,customers:true,invoices:true,profiles:true,quotations:true,draft_queue:true};
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
 var SB_COLS={
   worklist:{
@@ -1120,6 +1125,31 @@ var SB_COLS={
     bool:[],
     jsonb:[],
     ts:['ts']
+  },
+  // --- เฟส 2: 5 ตารางสุดท้าย (backfill + reconcile ตรงทุกฟิลด์แล้ว) ---
+  // คอลัมน์มาจากการสำรวจข้อมูลจริงในชีท ไม่ได้เดาจากโค้ด
+  quotations:{
+    text:['id','no','date','expireDate','remark','status','cn','cc','ca','createdBy'],
+    num:['sub','vat','grand'],
+    bool:[],
+    jsonb:['items'],
+    ts:['ts']
+  },
+  draft_queue:{
+    text:['id','wlId','custName','jobName','tech','fileUrl','fileName','instrText','instrImgUrl','status','createdBy','createdAt','doneAt','bladeCut'],
+    num:[],
+    bool:[],
+    jsonb:[],
+    ts:[]
+  },
+  // อ่านอย่างเดียว ไม่มีโค้ดเขียนลงตารางนี้ (เป็นยอดสะสมก่อน ST_LIVE_FROM)
+  // id สังเคราะห์จาก date+customer+sales+qty เพราะชีทไม่มีคีย์ วันเดียวกันยอดเท่ากันมี 68 จุด
+  bills_history:{
+    text:['id','date','customer'],
+    num:['sales','qty'],
+    bool:[],
+    jsonb:[],
+    ts:[]
   }
 };
 // ล้าง/แปลงชนิดค่าเฉพาะคีย์ที่มีจริงใน obj (รองรับทั้ง full-row และ partial update)
@@ -2811,6 +2841,12 @@ function apiSet(method, table, id, data, cb) {
   // ไม่งั้นกดแล้วเงียบหาย ทดสอบหน้านั้นไม่ได้เลย
   if (!IS_PROD && SB_COLS[table]) { sbWrite(method, table, id, data, function(){ if(cb) cb(); }); return; }
   if (!IS_PROD) console.warn('[STAGING] เขียน '+table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
+  // เขียนคู่เหมือน apiPost — เดิม apiSet ไม่มี dual-write ทำให้ draft_queue สลับขาอ่านไม่ได้เลย
+  // เพราะไม่มีช่วงเวลาที่ทั้งสองฝั่งมีข้อมูลตรงกันให้ตรวจก่อน
+  if (IS_PROD && SB_MIRROR[table]) {
+    try { sbWrite(method, table, id, data, null); }
+    catch(e) { console.error('SB mirror error:', table, e); }
+  }
   var url = API + '?_method='+method+'&table='+encodeURIComponent(table)+'&id='+encodeURIComponent(id)+'&data='+encodeURIComponent(JSON.stringify(data));
   gasFetch(url).then(function(r){ return r.json(); }).then(function(){ if(cb) cb(); }).catch(function(){ if(cb) cb(); });
 }
