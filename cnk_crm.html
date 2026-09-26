@@ -823,6 +823,37 @@ tr.dup-row td { background: #fef9c3; }
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
+const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
+const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// ตารางที่ย้ายไปอ่านจาก Supabase แล้ว (ให้ตรงกับ SB_TABLES ใน index.html)
+const SB_TABLES={profiles:true};
+// PostgREST จำกัด 1000 แถว/คำขอ → ไล่ทีละหน้าด้วย Range ไม่งั้นข้อมูลหายเงียบ
+async function sbGetAll(table, _try=0){
+  const STEP=1000;
+  let all=[], from=0;
+  try {
+    for(;;){
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?select=*`, {headers:{...SB_H,'Range':`${from}-${from+STEP-1}`}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d = await r.json();
+      const page = Array.isArray(d) ? d : [];
+      all = all.concat(page);
+      if(page.length < STEP) break;
+      from += STEP;
+    }
+    return all;
+  } catch(e){
+    if(_try < 4){ await new Promise(rs=>setTimeout(rs, 800*(_try+1))); return sbGetAll(table, _try+1); }
+    throw e;
+  }
+}
+async function apiGetTable(table){
+  if(SB_TABLES[table]) return sbGetAll(table);
+  const r = await fetch(`${API}?action=getAll&table=${table}`);
+  const d = await r.json();
+  return Array.isArray(d) ? d : [];
+}
 let BY = 'ผู้ใช้';
 
 // Load displayName from profiles via sessionStorage (shared with index.html)
@@ -843,8 +874,7 @@ function loadUserProfile() {
       if (roleEl) roleEl.textContent = email;
     } else {
       // Fallback: load from profiles sheet
-      fetch(API + '?action=getAll&table=profiles')
-        .then(r => r.json())
+      apiGetTable('profiles')
         .then(profiles => {
           if (profiles && profiles.length) {
             const p = profiles[0];

@@ -1043,8 +1043,8 @@ var API='https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8g
 var SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
 var SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 var SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-var SB_TABLES={worklist:true,bills:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
-var SB_MIRROR={bills:true,customers:true,invoices:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
+var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
+var SB_MIRROR={bills:true,customers:true,invoices:true,profiles:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
 var SB_COLS={
   worklist:{
@@ -1073,6 +1073,20 @@ var SB_COLS={
     num:['rawTotal','tax3amt','total','discVal','discAmt'],
     bool:[],
     jsonb:['billNos','bills'],
+    ts:['ts']
+  },
+  pricing:{
+    text:['id','blade','type'],
+    num:['cost_per_mm','var1','wood_cost_per_mm2','sort'],
+    bool:[],
+    jsonb:[],
+    ts:['ts']
+  },
+  profiles:{
+    text:['id','email','displayName','lastSeen'],
+    num:[],
+    bool:[],
+    jsonb:[],
     ts:['ts']
   }
 };
@@ -1609,23 +1623,25 @@ function loadQpPricing(cb,_try){
   if(_try===0 && qpPricingCut.length===0){
     try { var cs=localStorage.getItem('cnk_qp_pricing'); if(cs){ var cr=JSON.parse(cs); if(Array.isArray(cr)&&cr.length) _qpApplyPricing(cr); } } catch(e){}
   }
-  fetch(API+'?action=getAll&table=pricing')
-    .then(function(r){return r.text();})
-    .then(function(t){
-      var rows; try { rows=JSON.parse(t); } catch(e){ throw new Error('non-JSON (cold-start?)'); }
-      if(!Array.isArray(rows)) throw new Error('not array');
+  // ผ่าน apiGet เพื่อให้ SB_TABLES พาไป Supabase ได้ (เดิมยิง fetch ตรงเลยข้ามสวิตช์นี้ไป)
+  // retry มีอยู่แล้วใน apiGet (5 ครั้ง) และ sbGetAll (4 ครั้ง) จึงไม่ต้องวนซ้ำที่นี่
+  apiGet('pricing', function(rows, failed){
+    if(!failed && Array.isArray(rows) && rows.length){
+      rows = qpSortPricing(rows);
       _qpApplyPricing(rows);
       try { localStorage.setItem('cnk_qp_pricing', JSON.stringify(rows)); } catch(e){}
-      if(cb) cb();
-    })
-    .catch(function(){
-      // Apps Script ล่ม/404 ชั่วคราว → retry (1s,2s,3s,4s)
-      if(_try<4){ setTimeout(function(){ loadQpPricing(cb,_try+1); }, 1000*(_try+1)); return; }
+    } else if(qpPricingCut.length===0){
       // ล้มจริง: ถ้ามีข้อมูล cache อยู่แล้วก็ปล่อยให้ใช้ต่อ ไม่ต้องขึ้น error
       var sc=document.getElementById('qp-blade-cut');
-      if(sc && qpPricingCut.length===0) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
-      if(cb) cb();
-    });
+      if(sc) sc.innerHTML='<option value="">โหลดไม่สำเร็จ</option>';
+    }
+    if(cb) cb();
+  });
+}
+// Postgres ไม่รับประกันลำดับแถว ต้องเรียงเองด้วยคอลัมน์ sort (ชีทใช้ลำดับแถวตามธรรมชาติ)
+function qpSortPricing(rows){
+  if(!rows.length || rows[0].sort===undefined || rows[0].sort===null) return rows;
+  return rows.slice().sort(function(a,b){ return (Number(a.sort)||0)-(Number(b.sort)||0); });
 }
 
 // เติมชนิดมีด/เส้นพับ ในฟอร์มเพิ่มงาน (ใช้ข้อมูลชุดเดียวกับ Quick Price) + ตั้งค่า default
