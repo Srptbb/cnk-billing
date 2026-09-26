@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CNK — ตีราคา</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- ชั้นข้อมูลกลาง (config + สคีมา + sbGetAll/sbWrite) ใช้ร่วมกับทุกหน้า
+     ต้องเป็น plain script และมาก่อนสคริปต์ตัวหลักด้านล่าง -->
+<script src="cnk_db.js?v=20260926"></script>
 <style>
 :root{
   --bg:#f4f5f7;--surf:#fff;--surf2:#f0f1f4;--bdr:#dde1ea;
@@ -471,57 +474,10 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
-// production คือ hostname เดียวเท่านั้น — preview/localhost = staging (ต้องตรงกับ index.html)
-const IS_PROD = (location.hostname === 'cnk-billing.vercel.app');
-// ===== Supabase =====
-const SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
-                       : 'https://yuzezknnslzyyzbrtoxq.supabase.co';
-const SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
-                       : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
-const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-if (!IS_PROD) {
-  document.addEventListener('DOMContentLoaded', function(){
-    const b = document.createElement('div');
-    b.textContent = '⚠️ STAGING — ข้อมูลทดลอง ไม่กระทบของจริง · ' + location.hostname;
-    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#dc2626;color:#fff;text-align:center;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;padding:6px 10px;box-shadow:0 -2px 8px rgba(0,0,0,.25);';
-    document.body.appendChild(b);
-    document.title = '[STAGING] ' + document.title;
-  });
-}
-const _SBTEXT=['id','custName','note','jobSource','bladeCut','bladeCrease','woodType','status','memo','bladeCount','woodCount'];
-const _SBNUM=['cutMM','creaseMM','woodW','woodH','price','priceBeforeLaser','rawPrice','finalPrice','costPerf','laserAdd','bladeChangeAdd','woodChangeAdd','holeAdd','holeCount','perfMM','perfCount'];
-const _SBBOOL=['laser','bladeChange','woodChange','manual','statusDesigned','statusWorking','statusComplete','statusShipped','statusPaid'];
-const _SBJSONB=['holes','perfs'];
-const _SBTS=['ts'];
-const _SBALL=[].concat(_SBTEXT,_SBNUM,_SBBOOL,_SBJSONB,_SBTS);
-function sbClean(row){
-  const o={};
-  for(const k in row){
-    if(!row.hasOwnProperty(k) || _SBALL.indexOf(k)<0) continue;
-    let v=row[k];
-    if(v===undefined) continue;
-    if(_SBNUM.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:Number(v); if(typeof o[k]==='number'&&isNaN(o[k]))o[k]=null; }
-    else if(_SBBOOL.indexOf(k)>=0){ o[k]=(v===true||v==='true'||v===1||v==='1'); }
-    else if(_SBJSONB.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:v; }
-    else if(_SBTS.indexOf(k)>=0){ o[k]=(v===''||v===null)?null:v; }
-    else { o[k]=(v===null)?null:String(v); }
-  }
-  return o;
-}
-// เขียนงานลง Supabase: update=PATCH เฉพาะคอลัมน์ | save=upsert (คืน promise, throw ถ้าไม่ ok)
-async function sbSaveWorklist(method,id,data){
-  const row=sbClean(data); if(id&&!row.id) row.id=String(id);
-  let url=SB_URL+'/rest/v1/worklist', opt;
-  if(method==='update'){
-    opt={method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify(row)};
-    url+='?id=eq.'+encodeURIComponent(id);
-  } else {
-    opt={method:'POST',headers:{...SB_H,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)};
-  }
-  const r=await fetch(url,opt);
-  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }
-}
+// API / IS_PROD / SB_URL / SB_KEY / SB_H / แถบเตือน staging ย้ายไป cnk_db.js แล้ว
+// รวมถึง sbClean + sbSaveWorklist: รายชื่อคอลัมน์ worklist ที่เคยอยู่ที่นี่ (_SBTEXT/_SBNUM/
+// _SBBOOL/_SBJSONB/_SBTS) ตรงกับ SB_COLS.worklist ใน index.html ทุกตัวอยู่แล้ว
+// เลยใช้ sbWrite(method,'worklist',id,data) ของกลางแทน — พฤติกรรมเหมือนเดิม (upsert/PATCH, reject ถ้าไม่ ok)
 const CC_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiY2NkZjMwZTBlMDliNWMwZWYwYjRiNjg4Yzc2YzI1MzU1YmI2M2I5ZjlkYzQzMjI0MzM1ODEzNmQyNDYyNmJkMDM0ZjcwMzliMTZkYzc1MmYiLCJpYXQiOjE3ODA2MjkyMjguODQyMzM4LCJuYmYiOjE3ODA2MjkyMjguODQyMzQsImV4cCI6NDkzNjMwMjgyOC44MzY3NzQsInN1YiI6Ijc1ODUyMTg4Iiwic2NvcGVzIjpbInRhc2sucmVhZCIsInRhc2sud3JpdGUiXX0.j_PBlExnhq4ovQqGGMVqgfZNDlZoPPXv_ItlAfdxuc41aSjUEOnmT7CFg5v51kgCF2X_yKqE3GV0mFGe5mXlZ3mVGsNcm0T7vAL4WbnqXc22VI96ovsqW7LJnF2ctnNdUuKaBa7F1k2LncAmMqLn0BSOb60lsBeyVhoBTlGJAUj7c8zdUx57jFrgBlTDiMZ03oO17lS6LwV8W0UVJJpUGGh548dyxP_pp7yaVlQZGOYl2B3mFD1ylsxiv9PEm6TyBPRjl9GprZzMfijmIq5DvcCkNR-JaIo0t8Sz97K3zL0Dk2wFSr9kSI_w0udAxQUTAv2EAoh6Vvu7WTzuE25ww7NmFF0mhYiabDz6BJNlPzZogddPXArbPV_M0w_gF6oZ9g7R2i8DxVfT-17uCf7-WI-J3iKw81ZjBZVmYFUiG9HOJAFb2Y-grvMoIT3wkpARkguuDxp0isLg3F-o6G1c48rix3NxlYwHyu2iDtscLqSDwMZOTtf8pHRRf13lQTMh6SlXlXw6yTkE9nuQAsc_1LB26UMbBwaUGybkUG14VcbGF5-DMDGtNHhTgZBeODmpu-Izq5-_O1eJmc60TUayO0VSWWyfNVe7ud_Pz3kAPLtCxiKddH_6KFv34vgJY7gENsRlErhnn_8CL6XInfDKipri46-NWgMi0DbFJWTRF9M';
 const WOOD_PAD = 30;
 
@@ -584,28 +540,7 @@ const ctx = canvas.getContext('2d');
 // ถ้า Apps Script cold-start และบน staging มันดึงรายชื่อลูกค้าจริงมาโชว์ (ไม่มี guard !IS_PROD
 // แบบ index.html) ทั้งที่งานเขียนลง DB staging — ตัวคูณราคาเลยมาจากคนละที่กับที่บันทึก
 const SB_TABLES={pricing:true,customers:true};
-// PostgREST จำกัด 1000 แถว/คำขอ → ไล่ทีละหน้าด้วย Range ไม่งั้นข้อมูลหายเงียบ
-async function sbGetAll(table, _try=0){
-  const STEP=1000;
-  let all=[], from=0;
-  try {
-    for(;;){
-      // ต้องสั่ง order= เสมอ ไม่งั้น Postgres ไม่รับประกันลำดับ พอตารางเกิน 1000 แถว
-      // การไล่หน้า 2 คำขอจะซ้ำ/หายตรงรอยต่อได้ ถ้ามีคนแก้แถวคั่นกลาง
-      const r = await fetch(`${SB_URL}/rest/v1/${table}?select=*&order=id.asc`, {headers:{...SB_H,'Range':`${from}-${from+STEP-1}`}});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const d = await r.json();
-      const page = Array.isArray(d) ? d : [];
-      all = all.concat(page);
-      if(page.length < STEP) break;
-      from += STEP;
-    }
-    return all;
-  } catch(e){
-    if(_try < 4){ await new Promise(rs=>setTimeout(rs, 800*(_try+1))); return sbGetAll(table, _try+1); }
-    throw e;
-  }
-}
+// sbGetAll ย้ายไป cnk_db.js แล้ว (ยังคืน promise เหมือนเดิม)
 async function apiGet(table, _try=0) {
   if(SB_TABLES[table]) return sbGetAll(table);
   try {
@@ -2107,7 +2042,7 @@ function saveToWorklist(){
   // ลองสูงสุด 5 ครั้ง (1s,2s,3s,4s,5s) — ล้มจริงค่อยค้างหน้าให้กดใหม่ ไม่เด้งกลับ ไม่เสียผลคำนวณ
   function attempt(tryN){
     setStatus('loading', tryN>0 ? ('กำลังบันทึก... (ลองใหม่ '+tryN+')') : 'กำลังบันทึก...');
-    sbSaveWorklist(method, id, data)
+    sbWrite(method, 'worklist', id, data)
       .then(function(){ onOk(); })
       .catch(function(){
         if(tryN < 5){

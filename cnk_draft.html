@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CNK — คิวเขียนแบบ</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- ชั้นข้อมูลกลาง (config + สคีมา + sbGetAll/sbWrite) ใช้ร่วมกับทุกหน้า
+     ต้องเป็น plain script และมาก่อนสคริปต์ตัวหลักด้านล่าง
+     หน้านี้จะได้แถบเตือน staging มาด้วย ซึ่งเดิมไม่มี — ช่างจะได้รู้ว่าเปิดตัวทดลองอยู่ -->
+<script src="cnk_db.js?v=20260926"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Sarabun',sans-serif;background:#f4f2fa;color:#1a1a2e;-webkit-tap-highlight-color:transparent;}
@@ -120,16 +124,9 @@
 <div id="toast" class="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
+// API / IS_PROD / SB_URL / SB_KEY / SB_H ย้ายไป cnk_db.js แล้ว
 // หน้านี้เคยเขียน draft_queue ลง Apps Script อย่างเดียว ไม่มีมิเรอร์ลง Supabase เหมือน apiSet
 // ผลคือช่างกดปิดงานแล้วชีทเป็น done แต่ Supabase ยังเป็น queued (เจอจริง 2 แถว)
-// ถ้าสลับขาอ่าน draft_queue ไป Supabase ตอนนี้ งานที่ปิดไปแล้วจะโผล่กลับเข้าคิว
-const IS_PROD = location.hostname === 'cnk-billing.vercel.app';
-const SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
-                       : 'https://yuzezknnslzyyzbrtoxq.supabase.co';
-const SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
-                       : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
-const SB_H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
 const DRAFT_TECHS = [
   {name:'ช่างเดี่ยว', pin:'3268', color:'#7c3aed', soft:'#f3ecff', dark:'#6d28d9'},
   {name:'ช่างโพด', pin:'4169', color:'#0891b2', soft:'#e0f5fb', dark:'#0e7490'}
@@ -197,25 +194,14 @@ function logout(){
   document.getElementById('pin-msg').textContent = '';
 }
 
-// PostgREST คืนได้สูงสุด 1000 แถว/คำขอ ตารางนี้ 163 แถวแต่มีแต่จะโตขึ้นเรื่อยๆ
-// และต้องสั่ง order= เสมอ ไม่งั้นพอเกิน 1000 แถว การไล่หน้า 2 คำขอเป็นคนละลำดับได้
-// แถวตรงรอยต่อจะซ้ำ 1 หาย 1 แบบเงียบๆ ถ้ามีคนปิดงานคั่นกลาง — งานที่หายคือคิวของช่าง
-function sbQueue(from, acc){
-  var STEP = 1000;
-  return fetch(SB_URL+'/rest/v1/draft_queue?select=*&order=id.asc',
-      { headers: Object.assign({}, SB_H, { 'Range': from+'-'+(from+STEP-1) }) })
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .then(function(page){
-      acc = acc.concat(page);
-      return page.length < STEP ? acc : sbQueue(from+STEP, acc);
-    });
-}
+// sbQueue ถูกแทนด้วย sbGetAll('draft_queue') ใน cnk_db.js — ไล่หน้าด้วย Range + order=id.asc
+// เหมือนเดิมทุกอย่าง และได้ retry 4 ครั้งเพิ่มมาด้วย (ของเดิมเน็ตสะดุดทีเดียวคือคิวว่าง)
 function loadQueue(){
   var el = document.getElementById('list');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   // อ่านจาก Supabase แทน Apps Script: หน้านี้เขียนลง Supabase อยู่แล้ว (99c8b9e)
   // ถ้ายังอ่านจากชีทต่อไป งานที่ปิดไปจะขึ้นกับว่าชีทตามทันไหม ซึ่งเป็นที่มาของ drift รอบก่อน
-  sbQueue(0, [])
+  sbGetAll('draft_queue')
     .then(function(rows){
       if(!Array.isArray(rows)) rows = [];
       _jobs = rows.filter(function(r){
