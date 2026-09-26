@@ -150,7 +150,7 @@ textarea{resize:vertical;min-height:64px;}
 <div class="sub-bar" id="sub-wangbil">
   <button class="sub-tab act" id="stab-invoice" onclick="goSub('invoice',this,'wangbil')">+ สร้างใบวางบิล</button>
   <button class="sub-tab" id="stab-invlist" onclick="goSub('invlist',this,'wangbil')">รายการวางบิล</button>
-  <button class="sub-tab" id="stab-dashboard" onclick="goSub('dashboard',this,'wangbil')">ภาพรวม</button>
+  <button class="sub-tab" id="stab-dashboard" onclick="goSub('dashboard',this,'wangbil')">&#128176; รับเงิน <span id="receive-badge" style="display:none;background:#e67e22;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
   <button class="sub-tab" id="stab-unbilled" onclick="goSub('unbilled',this,'wangbil')">บิลค้างวางบิล <span id="unbilled-badge" style="display:none;background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
 </div>
 <!-- Sub-tab: ใบเสนอราคา -->
@@ -359,7 +359,7 @@ textarea{resize:vertical;min-height:64px;}
 
 <div id="sec-dashboard" class="sec">
 <div class="card">
-  <div class="ctitle">ภาพรวมการเงิน</div>
+  <div class="ctitle">สรุปใบวางบิล</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
     <div class="fg" style="flex:1;">
       <label>กรองตามเดือน</label>
@@ -389,13 +389,16 @@ textarea{resize:vertical;min-height:64px;}
 
 <div class="card">
   <div class="ctitle" style="justify-content:space-between;">
-    <span>กำหนดชำระเงิน</span>
+    <span>กำหนดชำระเงิน <span id="db-summary" style="font-size:12px;font-weight:400;color:#888;margin-left:8px;"></span></span>
     <div style="display:flex;gap:10px;align-items:center;">
       <button class="btn bo bsm" onclick="exportDash()">&#128190; Export CSV</button>
       <select id="db-filter-month" onchange="rdDash()" style="padding:6px 10px;font-size:13px;border-radius:6px;border:1.5px solid #e0e3eb;width:auto;">
         <option value="">ทุกเดือน</option>
       </select>
       <select id="db-filter-status" onchange="rdDash()" style="padding:6px 10px;font-size:13px;border-radius:6px;border:1.5px solid #e0e3eb;width:auto;">
+        <!-- ตั้งต้น = ยังไม่รับ เพราะเปิดมาทุกเดือน/ทั้งหมดจะได้ 158 แถว แต่ที่ต้องกดจริงมี 11 แถว
+             ที่เหลือคือของที่รับเงินไปแล้วซึ่งไม่ต้องทำอะไรกับมันอีก -->
+        <option value="unreceived" selected>ยังไม่รับ</option>
         <option value="">ทั้งหมด</option>
         <option value="paid">รับแล้ว</option>
         <option value="pending">รอรับ</option>
@@ -717,6 +720,7 @@ textarea{resize:vertical;min-height:64px;}
   <div class="fg" style="margin-bottom:12px;"><label>เบอร์โทร</label><input id="mt2" type="text"></div>
   <div class="fg" style="margin-bottom:12px;"><label>ประเภท</label><select id="mty"><option value="credit">เครดิต</option><option value="cash">เงินสด</option></select></div>
   <div class="fg" style="margin-bottom:12px;"><label>เลขประจำตัวผู้เสียภาษี</label><input id="mtax" type="text" placeholder="13 หลัก (ถ้ามี)"></div>
+  <div class="fg" style="margin-bottom:12px;"><label>ตัวคูณราคา</label><input id="mmul" type="number" step="0.01" min="0" placeholder="1.00"><small style="color:#888;font-size:12px;">ใช้ในหน้าตีราคาและตอนเปิดบิล · 1 = ราคาปกติ, 0.95 = ลด 5%, 1.6 = บวก 60%</small></div>
   <div class="fg" style="margin-bottom:12px;"><label>หมายเหตุ</label><input id="mno" type="text"></div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:#fff3e0;border-radius:8px;">
     <input type="checkbox" id="cm-tax" style="width:18px;height:18px;cursor:pointer;">
@@ -1436,9 +1440,20 @@ function loadAll(){
         var localB = JSON.parse(localStorage.getItem('b')||'[]');
         var sheetsIds = {};
         sheetsB.forEach(function(b){ sheetsIds[b.id]=true; });
-        // Add local bills not yet in Sheets
+        // Add local bills not yet in Sheets — แต่เฉพาะที่เพิ่งสร้างไม่เกิน 48 ชม.
+        // เดิมไม่มีเงื่อนไขเวลา: บิลที่ถูกลบออกจาก DB แล้วยังค้างใน localStorage จะถูกยัดกลับ
+        // ทุกครั้งที่โหลด กลายเป็นบิลผีที่เห็นเครื่องเดียว แก้ไม่ได้ (update ยิงไปหาแถวที่ไม่มี)
+        // และลบไม่ออก — DN-260430-021 คือเคสนี้ ไม่มีอยู่ทั้งใน Supabase และในชีท
+        // id ของบิล = Date.now() ตอนสร้าง (บรรทัด ~3258) เลยใช้เทียบอายุได้ตรงๆ
+        var MAX_LOCAL_AGE = 48*3600*1000;
         localB.forEach(function(b){
-          if(!sheetsIds[b.id]) sheetsB.push(normalizeBill(b));
+          if(sheetsIds[b.id]) return;
+          var age = Date.now() - Number(b.id);
+          if(isNaN(age) || age > MAX_LOCAL_AGE){
+            console.warn('[cache] ทิ้งบิลค้างใน localStorage ที่ไม่มีใน DB:', b.no, b.id);
+            return;
+          }
+          sheetsB.push(normalizeBill(b));
         });
         bills = sheetsB;
         try { localStorage.setItem('b', JSON.stringify(bills)); } catch(e){} // อัปเดต cache ให้เป็น mirror เต็ม
@@ -1461,6 +1476,7 @@ function loadAll(){
           if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
         })();
         updateCashBadge();
+        updateReceiveBadge();
         // Fetch today's bills from Sheets to ensure genNo has accurate max seq
         fetchTodayBills(function(){
           genNo();
@@ -3673,15 +3689,18 @@ function rdC(qstr){
 function opCM(id,pf){
   eCId=id||null;
   document.getElementById('mct').textContent=id?'แก้ไขลูกค้า':'เพิ่มลูกค้าใหม่';
-  if(id){var c=custs.find(function(c){return String(c.id)===String(id);});document.getElementById('mn').value=c.n||'';document.getElementById('ma').value=c.a||'';document.getElementById('mc2').value=c.c||'';document.getElementById('mt2').value=c.t||'';document.getElementById('mty').value=c.ty||'credit';document.getElementById('mno').value=c.no||'';document.getElementById('mtax').value=c.tax||'';document.getElementById('cm-tax').checked=c.tax3||false;}
-  else{['mn','ma','mc2','mt2','mno','mtax'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('mn').value=pf||'';document.getElementById('mty').value='credit';document.getElementById('cm-tax').checked=false;}
+  if(id){var c=custs.find(function(c){return String(c.id)===String(id);});document.getElementById('mn').value=c.n||'';document.getElementById('ma').value=c.a||'';document.getElementById('mc2').value=c.c||'';document.getElementById('mt2').value=c.t||'';document.getElementById('mty').value=c.ty||'credit';document.getElementById('mno').value=c.no||'';document.getElementById('mtax').value=c.tax||'';document.getElementById('mmul').value=(parseFloat(c.multiplier)||1);document.getElementById('cm-tax').checked=c.tax3||false;}
+  else{['mn','ma','mc2','mt2','mno','mtax'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('mn').value=pf||'';document.getElementById('mty').value='credit';document.getElementById('mmul').value=1;document.getElementById('cm-tax').checked=false;}
   document.getElementById('mc').classList.add('on');
   setTimeout(function(){document.getElementById('mn').focus();},100);
 }
 function clCM(){document.getElementById('mc').classList.remove('on');eCId=null;}
 function svC(){
   var n=document.getElementById('mn').value.trim();if(!n){toast('กรุณากรอกชื่อลูกค้า');return;}
-  var data={n:n,a:document.getElementById('ma').value.trim(),c:document.getElementById('mc2').value.trim(),t:document.getElementById('mt2').value.trim(),ty:document.getElementById('mty').value,no:document.getElementById('mno').value.trim(),tax:document.getElementById('mtax').value.trim(),tax3:document.getElementById('cm-tax').checked};
+  var data={n:n,a:document.getElementById('ma').value.trim(),c:document.getElementById('mc2').value.trim(),t:document.getElementById('mt2').value.trim(),ty:document.getElementById('mty').value,no:document.getElementById('mno').value.trim(),tax:document.getElementById('mtax').value.trim(),tax3:document.getElementById('cm-tax').checked,
+    // ตัวคูณราคา: เดิมไม่มีช่องกรอก ต้องไปแก้ในชีท customers เอง — ซึ่งใช้ไม่ได้แล้ว
+    // ตั้งแต่ระบบอ่าน customers จาก Supabase (3ad7b09) แก้ชีทไปก็ไม่มีผลกับราคา
+    multiplier:(parseFloat(document.getElementById('mmul').value)||1)};
   if(eCId){
     console.log('[svC] updating customer eCId=', eCId, 'type=', typeof eCId);
     var cust=custs.find(function(c){return String(c.id)===String(eCId);});
@@ -4568,16 +4587,34 @@ function rdDash() {
   if (filterMonth) {
     rows = rows.filter(function(r){ return r.dateKey && r.dateKey.slice(0,7)===filterMonth; });
   }
-  // Filter by status
-  if (filterStatus) {
+
+  // สรุปจำนวนของเดือนที่เลือก — นับก่อนกรองสถานะ ไม่งั้นตัวเลขจะวิ่งตามตัวกรองเองจนอ่านไม่รู้เรื่อง
+  var cOver=0, cPend=0, cPaid=0, sumOver=0, sumPend=0;
+  rows.forEach(function(r){
+    if (r.status==='paid') cPaid++;
+    else if (r.status==='overdue'){ cOver++; sumOver += r.iv.total||0; }
+    else { cPend++; sumPend += r.iv.total||0; }
+  });
+  var sumEl = document.getElementById('db-summary');
+  if (sumEl) {
+    sumEl.innerHTML = (cOver?'<span style="color:#c0392b;font-weight:700;">เกินกำหนด '+cOver+' ใบ ('+fmt(sumOver)+' ฿)</span> · ':'')
+      + 'รอรับ '+cPend+' ใบ ('+fmt(sumPend)+' ฿) · รับแล้ว '+cPaid+' ใบ';
+  }
+
+  // Filter by status — 'unreceived' = รอรับ + เกินกำหนด (ค่าตั้งต้นของหน้านี้)
+  if (filterStatus === 'unreceived') {
+    rows = rows.filter(function(r){ return r.status !== 'paid'; });
+  } else if (filterStatus) {
     rows = rows.filter(function(r){ return r.status===filterStatus; });
   }
-  // Sort by date
+  // Sort by date — เก่าสุดขึ้นก่อน พอกรองเป็น "ยังไม่รับ" ใบที่เกินกำหนดนานสุดจะอยู่บนสุดเอง
   rows.sort(function(a,b){ return (a.dateKey||'').localeCompare(b.dateKey||''); });
 
   var wrap = document.getElementById('db-table-wrap');
   if (!rows.length) {
-    wrap.innerHTML = '<p style="text-align:center;color:#aaa;padding:30px 0;">ไม่พบข้อมูล</p>';
+    wrap.innerHTML = (filterStatus==='unreceived' && !filterMonth)
+      ? '<p style="text-align:center;color:#27ae60;padding:30px 0;font-weight:600;">&#10004; รับเงินครบทุกใบแล้ว</p>'
+      : '<p style="text-align:center;color:#aaa;padding:30px 0;">ไม่พบข้อมูล</p>';
     return;
   }
 
@@ -4612,18 +4649,25 @@ function rdDash() {
         : r.status==='overdue'
         ? '<span class="bdg bx">เกินกำหนด</span>'
         : '<span class="bdg" style="background:#fff3e0;color:#e65100;">รอรับ</span>';
-      html += '<tr style="border-bottom:1px solid #f0f2f5;">';
-      html += '<td style="padding:10px 12px;font-size:13px;color:#888;">'+fmtD(dk)+'</td>';
+      var isCheque = iv.payMethod === 'เช็ค';
+      html += '<tr style="border-bottom:1px solid #f0f2f5;'+(r.status==='overdue'?'background:#fff5f5;':'')+'">';
+      html += '<td style="padding:10px 12px;font-size:13px;color:#888;">'+fmtD(dk)+(r.status==='overdue'?'<br><span style="font-size:11px;color:#c0392b;">เกิน '+Math.round((new Date(today)-new Date(dk))/86400000)+' วัน</span>':'')+'</td>';
       html += '<td style="padding:10px 12px;font-size:13px;"><strong>'+h(iv.custName)+'</strong> <span style="color:#888;font-size:12px;">('+h(iv.no)+')</span>'+(iv.payRemark?'<br><span style="font-size:11px;color:#aaa;">'+h(iv.payRemark)+'</span>':'')+'</td>';
       html += '<td style="padding:10px 12px;font-size:14px;font-weight:700;text-align:right;">'+fmt(iv.total)+' ฿</td>';
       html += '<td style="padding:10px 12px;font-size:13px;text-align:center;">'+(iv.payMethod?h(iv.payMethod):'-')+'</td>';
       html += '<td style="padding:10px 12px;text-align:center;">'+statusLabel;
-      if (r.status!=='paid') html += '<br><button class="btn bo bsm" style="margin-top:4px;font-size:11px;color:#27ae60;border-color:#27ae60;" onclick="confirmReceive('+iv.id+')">ยืนยันรับเงินแล้ว</button>';
+      if (r.status!=='paid') {
+        // เงินสด/โอน: กดปุ่มเดียวจบ ลงวันที่รับเงิน = วันนี้ (เคสปกติ 90% ของงาน)
+        // เช็ค: ต้องผ่าน modal เพราะต้องกรอกวันสั่งจ่ายเช็คด้วย
+        if (!isCheque) html += '<br><button class="btn bo bsm" style="margin-top:4px;font-size:11px;color:#fff;background:#27ae60;border-color:#27ae60;" onclick="receiveToday('+iv.id+')">&#9989; รับเงินวันนี้</button>';
+        html += '<br><button class="btn bo bsm" style="margin-top:4px;font-size:11px;color:#27ae60;border-color:#27ae60;" onclick="confirmReceive('+iv.id+')">'+(isCheque?'&#9989; ยืนยันรับเงิน':'ระบุวันที่อื่น')+'</button>';
+      }
       html += '</td></tr>';
     });
   });
   html += '</tbody></table>';
   wrap.innerHTML = html;
+  updateReceiveBadge();
 }
 
 
@@ -4637,7 +4681,7 @@ function exportDash() {
     active = active.filter(function(iv){
       var isOverdue = iv.status==='pending' && iv.payDate < today;
       var s = iv.status==='paid'?'paid':(isOverdue?'overdue':'pending');
-      return s===filterStatus;
+      return filterStatus==='unreceived' ? s!=='paid' : s===filterStatus;
     });
   }
   active.sort(function(a,b){ return (a.payDate||'').localeCompare(b.payDate||''); });
@@ -4684,6 +4728,31 @@ function confirmCR(){
 }
 
 function closeCR(){ document.getElementById('m-cr').classList.remove('on'); }
+
+// รับเงินวันนี้แบบคลิกเดียว — ใช้กับเงินสด/โอนเท่านั้น
+// เช็คต้องบันทึกวันสั่งจ่ายด้วย เลยส่งต่อให้ modal เดิม ไม่ลัดขั้นตอน
+function receiveToday(id){
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
+  if (!iv) return;
+  if (iv.payMethod === 'เช็ค') { confirmReceive(id); return; }
+  if (!confirm('บันทึกรับเงิน '+iv.custName+'\n'+iv.no+' — '+fmt(iv.total)+' บาท\nวันที่รับเงิน: '+fmtD(td())+' (วันนี้)')) return;
+  iv.status = 'paid';
+  iv.paidDate = td();
+  localStorage.setItem('inv', JSON.stringify(invoices));
+  apiPost('update','invoices',{status:'paid',paidDate:iv.paidDate},iv.id).catch(function(e){console.error(e);});
+  rdDash(); rdInvList(); toast('บันทึกรับเงินแล้ว');
+}
+
+// badge บนแท็บ "รับเงิน" = ใบวางบิลที่กำหนดวันจ่ายแล้วแต่ยังไม่ได้รับเงิน (ทุกเดือน)
+function updateReceiveBadge(){
+  var badge = document.getElementById('receive-badge');
+  if (!badge) return;
+  var n = invoices.filter(function(iv){
+    return iv.status!=='cancelled' && iv.status!=='paid' && iv.payDate;
+  }).length;
+  badge.textContent = n;
+  badge.style.display = n>0 ? 'inline' : 'none';
+}
 
 function confirmReceive(id) {
   var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
