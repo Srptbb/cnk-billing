@@ -165,6 +165,7 @@ textarea{resize:vertical;min-height:64px;}
   <button class="sub-tab" id="stab-cashflow" onclick="goSub('cashflow',this,'analytics')">💵 กระแสเงินเข้า</button>
   <button class="sub-tab" id="stab-materials" onclick="goSub('materials',this,'analytics')">🪵 วัตถุดิบ</button>
   <button class="sub-tab" id="stab-wht" onclick="goSub('wht',this,'analytics')">🧾 หัก ณ ที่จ่าย</button>
+  <button class="sub-tab" id="stab-pricing-admin" onclick="goSub('pricing-admin',this,'analytics')">💰 ตั้งค่าราคา</button>
 </div>
 <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:#4f8ef7;color:#fff;text-align:center;padding:8px;font-size:13px;font-family:Sarabun,sans-serif;">&#8987; กำลังโหลดข้อมูลจาก Google Sheets...</div>
 <div id="tst"></div>
@@ -582,6 +583,21 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div style="font-size:12px;color:#888;margin-bottom:14px;">คิดจากใบส่งของ (รวมลูกค้าเงินสด) ของลูกค้าที่ตั้งค่าหัก ณ ที่จ่าย 3% · ไม่รวมบิลที่ยกเลิก</div>
   <div id="wht-body"></div>
+</div>
+</div>
+
+<div id="sec-pricing-admin" class="sec">
+<div class="card">
+  <div class="ctitle" style="justify-content:space-between;">
+    <span>💰 ตั้งค่าราคาต้นทุน (มีด / ไม้ / ยาง)</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button onclick="paAddRow()" style="padding:7px 14px;font-size:13px;border-radius:8px;border:none;background:#4f8ef7;color:#fff;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;">+ เพิ่มรายการ</button>
+      <button onclick="paReload()" style="padding:7px 14px;font-size:13px;border-radius:8px;border:1.5px solid #e0e3eb;background:#fff;color:#555;font-family:Sarabun,sans-serif;cursor:pointer;">↻ โหลดใหม่</button>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#888;margin-bottom:6px;">ราคานี้ใช้กับ Quick Price / ลิสงาน / ใบเสนอราคา ทันทีที่กดบันทึก · ชนิด: <b>มีดตัด</b> = ว่าง, <b>เส้นพับ</b> = crease, <b>ไม้</b> = wood, <b>ยาง</b> = rubber</div>
+  <div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:14px;">⚠️ ตารางนี้อ่านจาก Supabase แล้ว — แก้ในชีท Google ไม่มีผลกับเว็บอีกต่อไป ให้แก้ที่นี่เท่านั้น</div>
+  <div id="pa-body"></div>
 </div>
 </div>
 
@@ -1465,6 +1481,7 @@ function _trigLoad(id) {
   if(id==='cashflow') rdCashFlow();
   if(id==='materials') rdMaterials();
   if(id==='wht') rdWHT();
+  if(id==='pricing-admin') rdPricingAdmin();
   if(id==='qt-create'){document.getElementById('qt-date').value=td();document.getElementById('qt-expire').value=qtExpireDate();genQtNo();}
   if(id==='qt-list') rdQtList();
   if(id==='worklist') { wlInitMonthSel(); loadWorklist({useCache:true}); }
@@ -1642,6 +1659,122 @@ function loadQpPricing(cb,_try){
 function qpSortPricing(rows){
   if(!rows.length || rows[0].sort===undefined || rows[0].sort===null) return rows;
   return rows.slice().sort(function(a,b){ return (Number(a.sort)||0)-(Number(b.sort)||0); });
+}
+
+// ===== ตั้งค่าราคา (admin เท่านั้น) =====
+// อ่าน/เขียน Supabase ตรง ไม่ผ่าน Apps Script — ชีท pricing ไม่ใช่ต้นทางแล้ว
+var paRows=[], paBusy=false;
+var PA_TYPES=[['','มีดตัด'],['crease','เส้นพับ'],['wood','ไม้'],['rubber','ยาง']];
+
+function rdPricingAdmin(){
+  if(!isAdmin()) return;
+  var el=document.getElementById('pa-body'); if(!el) return;
+  if(paRows.length){ paRender(); return; }
+  el.innerHTML='<div style="padding:20px;color:#888;">กำลังโหลด...</div>';
+  paReload();
+}
+function paReload(){
+  if(!isAdmin()) return;
+  var el=document.getElementById('pa-body');
+  apiGet('pricing', function(rows, failed){
+    if(failed || !Array.isArray(rows)){
+      if(el) el.innerHTML='<div style="padding:20px;color:#e74c3c;">โหลดไม่สำเร็จ · กด ↻ โหลดใหม่</div>';
+      return;
+    }
+    paRows=qpSortPricing(rows);
+    paRender();
+  });
+}
+function paNum(v){ return (v===null||v===undefined||v==='')?'':String(v); }
+function paRender(){
+  var el=document.getElementById('pa-body'); if(!el) return;
+  var head='<tr>'
+    +'<th style="text-align:left;">ชื่อรายการ</th>'
+    +'<th style="text-align:left;width:110px;">ชนิด</th>'
+    +'<th style="text-align:right;width:120px;">ต้นทุน/มม.</th>'
+    +'<th style="text-align:right;width:110px;">var1</th>'
+    +'<th style="text-align:right;width:140px;">ต้นทุนไม้/มม.²</th>'
+    +'<th style="text-align:right;width:80px;">ลำดับ</th>'
+    +'<th style="width:150px;"></th></tr>';
+  var ist='width:100%;padding:6px 8px;font-size:13px;border-radius:6px;border:1.5px solid #e0e3eb;font-family:Sarabun,sans-serif;';
+  var body=paRows.map(function(r,i){
+    var opts=PA_TYPES.map(function(t){
+      return '<option value="'+t[0]+'"'+(String(r.type||'')===t[0]?' selected':'')+'>'+t[1]+'</option>';
+    }).join('');
+    return '<tr'+(r.__new?' style="background:#f0f9ff;"':'')+'>'
+      +'<td><input id="pa-blade-'+i+'" value="'+h(r.blade||'')+'" style="'+ist+'"></td>'
+      +'<td><select id="pa-type-'+i+'" style="'+ist+'">'+opts+'</select></td>'
+      +'<td><input id="pa-cost-'+i+'" type="number" step="any" value="'+paNum(r.cost_per_mm)+'" style="'+ist+'text-align:right;"></td>'
+      +'<td><input id="pa-var1-'+i+'" type="number" step="any" value="'+paNum(r.var1)+'" style="'+ist+'text-align:right;"></td>'
+      +'<td><input id="pa-wood-'+i+'" type="number" step="any" value="'+paNum(r.wood_cost_per_mm2)+'" style="'+ist+'text-align:right;"></td>'
+      +'<td><input id="pa-sort-'+i+'" type="number" step="1" value="'+paNum(r.sort)+'" style="'+ist+'text-align:right;"></td>'
+      +'<td style="text-align:right;white-space:nowrap;">'
+        +'<button onclick="paSave('+i+')" style="padding:6px 12px;font-size:12px;border-radius:6px;border:none;background:#059669;color:#fff;font-family:Sarabun,sans-serif;cursor:pointer;font-weight:600;">บันทึก</button> '
+        +'<button onclick="paDel('+i+')" style="padding:6px 10px;font-size:12px;border-radius:6px;border:1.5px solid #fecaca;background:#fff;color:#e74c3c;font-family:Sarabun,sans-serif;cursor:pointer;">ลบ</button>'
+      +'</td></tr>';
+  }).join('');
+  el.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    +'<thead style="background:#f7f8fa;color:#666;">'+head+'</thead><tbody>'+body+'</tbody></table></div>'
+    +'<div style="font-size:12px;color:#888;margin-top:10px;">แถวไม้ใช้ <b>ต้นทุนไม้/มม.²</b> · แถวมีด/เส้นพับใช้ <b>ต้นทุน/มม.</b> กับ <b>var1</b> · ลำดับคือลำดับที่โชว์ใน dropdown</div>';
+}
+// id ใหม่: PR-0xx ต่อจากเลขสูงสุดที่มี (ไม่ใช้จำนวนแถว เผื่อเคยลบตรงกลาง)
+function paNextId(){
+  var mx=0;
+  paRows.forEach(function(r){
+    var m=/^PR-(\d+)$/.exec(String(r.id||''));
+    if(m) mx=Math.max(mx, parseInt(m[1],10));
+  });
+  return 'PR-'+String(mx+1).padStart(3,'0');
+}
+function paAddRow(){
+  if(!isAdmin()) return;
+  var mxs=0; paRows.forEach(function(r){ mxs=Math.max(mxs, Number(r.sort)||0); });
+  paRows.push({id:paNextId(), blade:'', type:'', cost_per_mm:'', var1:'', wood_cost_per_mm2:'', sort:mxs+1, __new:true});
+  paRender();
+}
+function paSave(i){
+  if(!isAdmin()||paBusy) return;
+  var r=paRows[i]; if(!r) return;
+  var blade=(document.getElementById('pa-blade-'+i).value||'').trim();
+  if(!blade){ toast('ใส่ชื่อรายการก่อน'); return; }
+  var data={
+    id:String(r.id),
+    blade:blade,
+    type:document.getElementById('pa-type-'+i).value,
+    cost_per_mm:document.getElementById('pa-cost-'+i).value,
+    var1:document.getElementById('pa-var1-'+i).value,
+    wood_cost_per_mm2:document.getElementById('pa-wood-'+i).value,
+    sort:document.getElementById('pa-sort-'+i).value,
+    ts:new Date().toISOString()
+  };
+  paBusy=true;
+  // แถวใหม่ = upsert (save), แถวเดิม = PATCH (update)
+  sbWrite(r.__new?'save':'update','pricing',r.id,data,function(err){
+    paBusy=false;
+    if(err){ toast('บันทึกไม่สำเร็จ: '+err.message); return; }
+    toast('บันทึกแล้ว');
+    paAfterWrite();
+  });
+}
+function paDel(i){
+  if(!isAdmin()||paBusy) return;
+  var r=paRows[i]; if(!r) return;
+  if(r.__new){ paRows.splice(i,1); paRender(); return; }
+  if(!confirm('ลบ "'+(r.blade||r.id)+'" ออกจากตารางราคา?\nงานเก่าที่บันทึกราคาไว้แล้วไม่กระทบ แต่จะเลือกรายการนี้ใหม่ไม่ได้อีก')) return;
+  paBusy=true;
+  sbWrite('delete','pricing',r.id,null,function(err){
+    paBusy=false;
+    if(err){ toast('ลบไม่สำเร็จ: '+err.message); return; }
+    toast('ลบแล้ว');
+    paAfterWrite();
+  });
+}
+// หลังเขียน: ล้าง cache แล้วโหลดใหม่ ให้ dropdown ทุกหน้าเห็นราคาใหม่ทันที
+function paAfterWrite(){
+  try { localStorage.removeItem('cnk_qp_pricing'); } catch(e){}
+  paRows=[];
+  loadQpPricing(function(){ if(typeof wlPopulateBladeSelects==='function') wlPopulateBladeSelects(); });
+  paReload();
 }
 
 // เติมชนิดมีด/เส้นพับ ในฟอร์มเพิ่มงาน (ใช้ข้อมูลชุดเดียวกับ Quick Price) + ตั้งค่า default

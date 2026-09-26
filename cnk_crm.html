@@ -828,6 +828,49 @@ const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
 const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 // ตารางที่ย้ายไปอ่านจาก Supabase แล้ว (ให้ตรงกับ SB_TABLES ใน index.html)
 const SB_TABLES={profiles:true};
+// ตารางที่ dual-write (เขียนทั้ง Apps Script และ Supabase) — มิเรอร์พลาดไม่ทำให้งานหลักล้ม
+const SB_MIRROR={crm_logs:true};
+// สคีมา Supabase: กรองคีย์นอกสคีมา + แปลงชนิดก่อนส่ง (crm_logs เป็น text ทุกคอลัมน์)
+const SB_COLS={ crm_logs:{ text:['id','custId','custName','date','method','result','note','followupDate','by','ts'], num:[], bool:[] } };
+function sbClean(data, table){
+  const c=SB_COLS[table]; if(!c) return data;
+  const o={};
+  for(const k in data){
+    const v=data[k];
+    if(v===undefined) continue;
+    if(c.num.includes(k)){ o[k]=(v===''||v===null)?null:Number(v); if(typeof o[k]==='number'&&isNaN(o[k]))o[k]=null; }
+    else if(c.bool.includes(k)){ o[k]=(v===true||v==='true'||v===1||v==='1'); }
+    else if(c.text.includes(k)){ o[k]=(v===null)?null:String(v); }
+    // คีย์นอกสคีมา = ข้ามไป กัน PostgREST error
+  }
+  return o;
+}
+async function sbWrite(method, table, id, data){
+  let url=SB_URL+'/rest/v1/'+table, opt;
+  if(method==='delete'){
+    opt={method:'DELETE',headers:SB_H};
+    url+='?id=eq.'+encodeURIComponent(id);
+  } else if(method==='update'){
+    opt={method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify(sbClean(data,table))};
+    url+='?id=eq.'+encodeURIComponent(id);
+  } else {
+    const row=sbClean(data,table); if(id&&!row.id) row.id=String(id);
+    opt={method:'POST',headers:{...SB_H,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)};
+  }
+  const r=await fetch(url,opt);
+  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }
+}
+// เขียนผ่าน Apps Script เหมือนเดิม + มิเรอร์ไป Supabase แบบไม่บล็อก
+function apiWrite(params){
+  if(SB_MIRROR[params.table]){
+    try {
+      const data = params.data ? JSON.parse(params.data) : null;
+      sbWrite(params._method, params.table, params.id || (data && data.id), data)
+        .catch(e => console.error('sbWrite '+params._method+' '+params.table+' error:', e));
+    } catch(e){ console.error('sbWrite mirror skipped:', e); }
+  }
+  return apiGet(params);
+}
 // PostgREST จำกัด 1000 แถว/คำขอ → ไล่ทีละหน้าด้วย Range ไม่งั้นข้อมูลหายเงียบ
 async function sbGetAll(table, _try=0){
   const STEP=1000;
@@ -847,6 +890,16 @@ async function sbGetAll(table, _try=0){
     if(_try < 4){ await new Promise(rs=>setTimeout(rs, 800*(_try+1))); return sbGetAll(table, _try+1); }
     throw e;
   }
+}
+// อ่าน crm_logs: Postgres ไม่รับประกันลำดับ ต้องเรียงเองให้เหมือน Apps Script (ล่าสุดก่อน)
+// เพราะหน้ารายการตัด .slice(0,50) ถ้าลำดับสลับจะโชว์บันทึกผิดชุด
+async function loadCrmLogs(){
+  const rows = SB_TABLES.crm_logs
+    ? await sbGetAll('crm_logs')
+    : await apiGet({ action: 'getCrmLogs' });
+  const a = Array.isArray(rows) ? rows.slice() : [];
+  a.sort((x,y) => String(y.ts||y.date||'').localeCompare(String(x.ts||x.date||'')));
+  return a;
 }
 async function apiGetTable(table){
   if(SB_TABLES[table]) return sbGetAll(table);
@@ -922,7 +975,7 @@ async function loadAll() {
   const [dashData, billData, logData, targetsData] = await Promise.all([
     apiGet({ action: 'getCrmDashboard' }),
     apiGet({ action: 'getAll', table: 'bills', months: 1 }),
-    apiGet({ action: 'getCrmLogs' }),
+    loadCrmLogs(),
     apiGet({ action: 'getTargets' })
   ]);
   // อัปเดต TARGETS จาก API (ชื่อตรงกับ bills แน่นอน)
@@ -1161,7 +1214,7 @@ async function saveEditLog() {
     followupDate: document.getElementById('el-followup').value,
   };
   try {
-    await apiGet({ _method:'update', table:'crm_logs', id: id, data: JSON.stringify(data) });
+    await apiWrite({ _method:'update', table:'crm_logs', id: id, data: JSON.stringify(data) });
     closeModal('modal-editlog');
     await loadAll();
   } catch(e) { alert('แก้ไขไม่ได้: '+e.message); }
@@ -1170,7 +1223,7 @@ async function saveEditLog() {
 async function deleteLog(id, custName) {
   if (!confirm('ลบบันทึกการติดต่อของ '+custName+'?')) return;
   try {
-    await apiGet({ _method:'delete', table:'crm_logs', id: id });
+    await apiWrite({ _method:'delete', table:'crm_logs', id: id });
     await loadAll();
   } catch(e) { alert('ลบไม่ได้: '+e.message); }
 }
@@ -1232,7 +1285,7 @@ async function saveLog() {
   _savingLog = true;
   const data = { id:'LOG-'+Date.now(), custName:cn, date:document.getElementById('lf-date').value, method:document.getElementById('lf-method').value, result:document.getElementById('lf-result').value, note:document.getElementById('lf-note').value, followupDate:document.getElementById('lf-followup').value, by:BY, ts:new Date().toISOString() };
   try {
-    await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
+    await apiWrite({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
     document.getElementById('lf-note').value='';
     document.getElementById('lf-followup').value='';
     await loadAll();
@@ -1247,7 +1300,7 @@ async function saveQuickLog() {
   _savingLog = true;
   const data = { id:'LOG-'+Date.now(), custName:currentCust, date:new Date().toISOString().slice(0,10), method:document.getElementById('ql-method').value, result:document.getElementById('ql-result').value, note:document.getElementById('ql-note').value, followupDate:document.getElementById('ql-followup').value, by:BY, ts:new Date().toISOString() };
   try {
-    await apiGet({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
+    await apiWrite({ _method:'save', table:'crm_logs', data:JSON.stringify(data) });
     closeModal('modal-qlog');
     await loadAll();
     alert('บันทึกสำเร็จ!');
@@ -1669,7 +1722,7 @@ async function saveProsContact() {
   const updateData = { status:'contacted', nextFollowup, lastContactNote: note };
   try {
     await Promise.all([
-      apiGet({ _method:'save', table:'crm_logs', data: JSON.stringify(logData) }),
+      apiWrite({ _method:'save', table:'crm_logs', data: JSON.stringify(logData) }),
       apiGet({ _method:'update', table:'prospects', id: _currentProspectId, data: JSON.stringify(updateData) })
     ]);
     closeModal('modal-pros-contact');
