@@ -1501,7 +1501,7 @@ function fetchTodayBills(cb) {
         existingIds[b.id] = true;
       } else {
         // Update existing bill with Sheets version (more authoritative)
-        var idx = bills.findIndex ? bills.findIndex(function(x){return x.id===b.id;}) : -1;
+        var idx = bills.findIndex ? bills.findIndex(function(x){return String(x.id)===String(b.id);}) : -1;
         if (idx >= 0) bills[idx] = normalizeBill(b);
       }
     });
@@ -1560,7 +1560,7 @@ function qkC(){
 }
 function acCt(v){
   var cid=parseInt(document.getElementById('cc').dataset.cid);
-  var c=custs.find(function(c){return c.id===cid;});
+  var c=custs.find(function(c){return String(c.id)===String(cid);});
   var dd=document.getElementById('dd2');
   if(!c||!c.c){dd.classList.remove('on');return;}
   var rawC = typeof c.c === 'string' ? c.c : (Array.isArray(c.c) ? c.c.join(',') : String(c.c||''));
@@ -3112,11 +3112,11 @@ function rdL(){
 }
 function canB(id){
   if(!confirm('ยืนยันยกเลิกบิลนี้?'))return;
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(b){b.status='cancelled';localStorage.setItem('b',JSON.stringify(bills));apiPost('update','bills',{status:'cancelled'},id).catch(function(e){console.error(e);});rdL();toast('ยกเลิกบิลแล้ว');}
 }
 function billToCash(id){
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b)return;
   if(!confirm('เปลี่ยนบิล '+b.no+' เป็นเงินสด?\nเลขบิลยังคงเดิม สถานะจะเปลี่ยนเป็น paid'))return;
   b.type='cash'; b.status='paid';
@@ -3125,7 +3125,7 @@ function billToCash(id){
     .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
 }
 function billToCredit(id){
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b)return;
   if(!confirm('เปลี่ยนบิล '+b.no+' เป็นเครดิต?\nสถานะจะเปลี่ยนเป็น active'))return;
   b.type='credit'; b.status='active';
@@ -3178,7 +3178,7 @@ function rdCashBills(){
   }).join('');
 }
 function markCashPaid(id){
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b)return;
   document.getElementById('cbp-id').value=id;
   document.getElementById('cbp-no').textContent=b.no||'';
@@ -3190,7 +3190,7 @@ function markCashPaid(id){
 function closeCashPaid(){ document.getElementById('m-cbpaid').classList.remove('on'); }
 function confirmCashPaid(){
   var id=Number(document.getElementById('cbp-id').value);
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b){ closeCashPaid(); return; }
   var d=document.getElementById('cbp-date').value;
   if(!d){ toast('กรุณาเลือกวันที่รับเงิน'); return; }
@@ -3201,7 +3201,7 @@ function confirmCashPaid(){
     .catch(function(e){ console.error(e); toast('เกิดข้อผิดพลาด'); });
 }
 function markCashUnpaid(id){
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b)return;
   if(!confirm('ยกเลิกสถานะจ่ายแล้วของบิล '+b.no+'?'))return;
   b.status='active'; b.paidDate='';
@@ -3213,7 +3213,7 @@ function markCashUnpaid(id){
 var _eHasVat=false;
 function opEM(id){
   eId=id;
-  var b=bills.find(function(b){return b.id===id;});
+  var b=bills.find(function(b){return String(b.id)===String(id);});
   if(!b)return;
   document.getElementById('eno').textContent=b.no;
   document.getElementById('en').value=b.cn;
@@ -3376,7 +3376,7 @@ function trigEditImg(i){
 function clEM(){document.getElementById('me').classList.remove('on');eId=null;}
 
 function svE(){
-  var b=bills.find(function(b){return b.id===eId;});if(!b)return;
+  var b=bills.find(function(b){return String(b.id)===String(eId);});if(!b)return;
   b.cn=document.getElementById('en').value.trim();
   b.cc=document.getElementById('ec').value.trim();
   b.remark=document.getElementById('er').value.trim();
@@ -3499,7 +3499,7 @@ function prvB(){
     tax:_cust2?(_cust2.tax||''):'',
     items:items,sub:sub,discVal:discVal,discType:discType,discAmt:discAmt,vat:vat,grand:afterDisc+vat,remark:document.getElementById('br').value.trim()});
 }
-function prtB(id){var b=bills.find(function(b){return b.id===id;});if(b)doPrint(b);}
+function prtB(id){var b=bills.find(function(b){return String(b.id)===String(id);});if(b)doPrint(b);}
 function doPrint(bill){
   var isCash=bill.type==='cash';
   var barColor=isCash?'#27ae60':'#1a1a2e';
@@ -3559,7 +3559,7 @@ function acInv(v) {
 
 function pickInvCust(id) {
   selCustId = id;
-  var c = custs.find(function(c){return c.id===id;});
+  var c = custs.find(function(c){return String(c.id)===String(id);});
   if (!c) return;
   document.getElementById('inv-cname').value = c.n;
   document.getElementById('dd-inv').classList.remove('on');
@@ -3576,7 +3576,7 @@ function genInvNo() {
 }
 
 function loadInvBills(custId) {
-  var c = custs.find(function(c){return c.id===custId;});
+  var c = custs.find(function(c){return String(c.id)===String(custId);});
   // Get bills for this customer that are active and not already in an invoice
   // เอาเฉพาะ billNos ที่วางบิลของลูกค้ารายนี้ (กันเลขบิลชนกันข้ามลูกค้า)
   var invoicedNos = [];
@@ -3644,7 +3644,7 @@ function saveInvoice() {
   var selBills = getSelBills();
   if (!selBills.length) { toast('กรุณาเลือกใบส่งของอย่างน้อย 1 ใบ'); return; }
   var rawTotal = selBills.reduce(function(s,b){return s+b.grand;},0);
-  var c = custs.find(function(c){return c.id===selCustId;});
+  var c = custs.find(function(c){return String(c.id)===String(selCustId);});
   var tax3amt = c.tax3 ? rawTotal*0.03 : 0;
   var discVal = parseFloat(document.getElementById('inv-disc-val').value)||0;
   var discType = document.getElementById('inv-disc-type').value;
@@ -3685,7 +3685,7 @@ function previewInvoice() {
   var selBills = getSelBills();
   if (!selBills.length) { toast('กรุณาเลือกใบส่งของอย่างน้อย 1 ใบ'); return; }
   var rawTotal = selBills.reduce(function(s,b){return s+b.grand;},0);
-  var c = custs.find(function(c){return c.id===selCustId;});
+  var c = custs.find(function(c){return String(c.id)===String(selCustId);});
   var tax3amt = c.tax3 ? rawTotal*0.03 : 0;
   var discVal = parseFloat(document.getElementById('inv-disc-val').value)||0;
   var discType = document.getElementById('inv-disc-type').value;
@@ -3925,7 +3925,7 @@ function rdInvList() {
 }
 
 function prtInv(id) {
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (iv) doPrintInvoice(iv);
 }
 
@@ -4039,7 +4039,7 @@ function wantsReceiptWithInvoice(name) {
 }
 
 function prtReceipt(id) {
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (iv) doPrintReceipt(iv);
 }
 
@@ -4150,7 +4150,7 @@ function doPrintReceipt(iv) {
 var payingId = null;
 function openPayModal(id) {
   payingId = id;
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   document.getElementById('pay-inv-no').textContent = iv.no;
   document.getElementById('pay-inv-cust').textContent = iv.custName + ' — ' + fmt(iv.total) + ' บาท';
@@ -4162,7 +4162,7 @@ function openPayModal(id) {
 }
 function closePayModal(){ document.getElementById('m-pay').classList.remove('on'); payingId=null; }
 function confirmPay(){
-  var iv = invoices.find(function(iv){return iv.id===payingId;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(payingId);});
   if (!iv) return;
   var method = document.querySelector('input[name="paymethod"]:checked');
   if (!method){ toast('กรุณาเลือกวิธีชำระเงิน'); return; }
@@ -4179,7 +4179,7 @@ function confirmPay(){
 
 function cancelInv(id) {
   if (!confirm('ยืนยันยกเลิกใบวางบิลนี้?\nใบส่งของที่รวมไว้จะกลับมาให้วางบิลได้ใหม่')) return;
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   iv.status = 'cancelled';
   localStorage.setItem('inv', JSON.stringify(invoices));
@@ -4192,7 +4192,7 @@ function cancelInv(id) {
 var actualDateId = null;
 function openActualDate(id) {
   actualDateId = id;
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   document.getElementById('ad-inv-no').textContent = iv.no;
   document.getElementById('ad-inv-cust').textContent = iv.custName + ' — ' + fmt(iv.total) + ' บาท';
@@ -4201,7 +4201,7 @@ function openActualDate(id) {
 }
 function closeActualDate(){ document.getElementById('m-actual-date').classList.remove('on'); actualDateId=null; }
 function confirmActualDate(){
-  var iv = invoices.find(function(iv){return iv.id===actualDateId;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(actualDateId);});
   if (!iv) return;
   var d = document.getElementById('ad-date-input').value;
   if (!d){ toast('กรุณาเลือกวันที่'); return; }
@@ -4217,7 +4217,7 @@ var editingInvRaw = 0;
 var editingInvTax3 = 0;
 function openEditInv(id) {
   editingInvId = id;
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   editingInvRaw = iv.rawTotal||0;
   editingInvTax3 = iv.tax3amt||0;
@@ -4248,7 +4248,7 @@ function calcEITotal(){
   document.getElementById('ei-total').textContent = fmt(total) + ' ฿';
 }
 function confirmEditInv(){
-  var iv = invoices.find(function(iv){return iv.id===editingInvId;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(editingInvId);});
   if (!iv) return;
   var discVal = parseFloat(document.getElementById('ei-disc-val').value)||0;
   var discType = document.getElementById('ei-disc-type').value;
@@ -4425,7 +4425,7 @@ function exportDash() {
 
 function confirmCR(){
   var id = parseInt(document.getElementById('cr-id').value);
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   var paidDate = document.getElementById('cr-date').value;
   if (!paidDate){ toast('กรุณาเลือกวันที่รับเงินจริง'); return; }
@@ -4444,7 +4444,7 @@ function confirmCR(){
 function closeCR(){ document.getElementById('m-cr').classList.remove('on'); }
 
 function confirmReceive(id) {
-  var iv = invoices.find(function(iv){return iv.id===id;});
+  var iv = invoices.find(function(iv){return String(iv.id)===String(id);});
   if (!iv) return;
   document.getElementById('cr-inv-no').textContent = iv.no;
   document.getElementById('cr-inv-cust').textContent = iv.custName + ' — ' + fmt(iv.total) + ' บาท';
@@ -6340,7 +6340,7 @@ function _renderQtList() {
 }
 
 function approveQt(id) {
-  var q=quotations.find(function(q){return q.id===id;}); if(!q) return;
+  var q=quotations.find(function(q){return String(q.id)===String(id);}); if(!q) return;
   if(!confirm('อนุมัติใบเสนอราคา '+q.no+'?')) return;
   q.status='approved';
   apiPost('update','quotations',{status:'approved'},id).catch(function(e){console.error(e);});
@@ -6348,7 +6348,7 @@ function approveQt(id) {
 }
 
 function cancelQt(id) {
-  var q=quotations.find(function(q){return q.id===id;}); if(!q) return;
+  var q=quotations.find(function(q){return String(q.id)===String(id);}); if(!q) return;
   if(!confirm('ยกเลิกใบเสนอราคา '+q.no+'?')) return;
   q.status='cancelled';
   apiPost('update','quotations',{status:'cancelled'},id).catch(function(e){console.error(e);});
@@ -6356,7 +6356,7 @@ function cancelQt(id) {
 }
 
 function convertQtToBill(id) {
-  var q=quotations.find(function(q){return q.id===id;}); if(!q) return;
+  var q=quotations.find(function(q){return String(q.id)===String(id);}); if(!q) return;
   if(!confirm('แปลงใบเสนอราคา '+q.no+' เป็นบิล?')) return;
   goMain('songof',document.getElementById('ntab-songof'));
   var createBtn=document.getElementById('stab-create');
@@ -6396,7 +6396,7 @@ function prvQt() {
 }
 
 function prvQtById(id) {
-  var q=quotations.find(function(q){return q.id===id;});
+  var q=quotations.find(function(q){return String(q.id)===String(id);});
   if(q){var cust=custs.find(function(c){return c.n===q.cn;});q.tax=cust&&cust.tax?cust.tax:'';doPrintQt(q);}
 }
 
