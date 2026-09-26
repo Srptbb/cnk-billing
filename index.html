@@ -1079,7 +1079,9 @@ if (!IS_PROD) {
 // bills_history สลับได้ทันทีโดยไม่ต้องรอดู เพราะไม่มีโค้ดไหนเขียนลงตารางนี้เลย = ไม่มีทางไม่ตรงกัน
 // customers/invoices ผ่าน reconcile แล้ว: ชีท 124/177 แถว เท่ากับ Supabase ทุกแถวทุกคอลัมน์
 // ต่างแค่ "ชนิด" (ชีทคืน number, Postgres คืนสตริง; '' กับ null) ซึ่งโค้ดครอบ String()/parseFloat() ไว้หมดแล้ว
-var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true,bills_history:true,customers:true,invoices:true};
+// quotations ก็ผ่าน: 12/12 แถวตรงกัน คอลัมน์ที่ชีทมีแต่ Supabase ไม่มี (custName/custAddr/
+// custTel/items(JSON)) เป็นหัวคอลัมน์รุ่นเก่าที่ว่างครบทุกแถว ของจริงใช้ cn/ca/items
+var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true,bills_history:true,customers:true,invoices:true,quotations:true};
 // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // quotations/draft_queue เพิ่งย้ายมา ให้เขียนคู่ไว้ก่อน 1-2 วัน แล้วค่อยสลับขาอ่าน
 // (ชีทยังเป็นสำเนาสำรองระหว่างนี้ ถ้า Supabase มีปัญหาก็ยังไม่เสียข้อมูล)
