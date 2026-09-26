@@ -1069,6 +1069,10 @@ var SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
 var SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
                      : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
 var SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// Cloudinary มีบัญชีเดียว staging เลยอัปรูปปนเข้าโฟลเดอร์ของจริงมาตลอด
+// แยกเป็นโฟลเดอร์ย่อย staging/ เพื่อให้กวาดทิ้งทีหลังได้โดยไม่แตะรูปบิลจริง
+// (ใช้ preset เดิม เพราะ preset แบบ unsigned ยอมให้ override folder ได้)
+function cldFolder(base){ return IS_PROD ? base : base + '/staging'; }
 // แถบเตือน staging: วางไว้ล่างสุดแบบ fixed เพื่อไม่ไปดัน nav/sub-bar ที่เป็น sticky แล้วเลย์เอาต์เพี้ยน
 if (!IS_PROD) {
   document.addEventListener('DOMContentLoaded', function(){
@@ -1468,10 +1472,9 @@ function loadAll(){
         showLoading(false);
         // อัพเดต badge บิลค้างวางบิล
         (function(){
-          var invoicedPairs = {};
-          invoices.forEach(function(iv){ if(iv.status!=='cancelled')(iv.billNos||[]).forEach(function(no){invoicedPairs[(iv.custName||'')+'|'+no]=true;}); });
+          var idx = invIndex();
           var thisYM = td().slice(0,7);
-          var cnt = bills.filter(function(b){ return b.type==='credit'&&b.status==='active'&&!invoicedPairs[(b.cn||'')+'|'+b.no]&&(b.date||'').slice(0,7)<thisYM; }).length;
+          var cnt = bills.filter(function(b){ return b.type==='credit'&&b.status==='active'&&!billInvoiced(b,idx)&&(b.date||'').slice(0,7)<thisYM; }).length;
           var badge = document.getElementById('unbilled-badge');
           if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
         })();
@@ -1515,6 +1518,38 @@ function td(){
   var m = String(now.getMonth()+1).padStart(2,'0');
   var d = String(now.getDate()).padStart(2,'0');
   return y+'-'+m+'-'+d;
+}
+// ===== บิลใบนี้ถูกรวมเข้าใบวางบิลไปแล้วหรือยัง =====
+// เดิมตอบคำถามนี้อยู่ 4 ที่ ด้วยกุญแจ 2 แบบที่ผิดคนละทาง:
+//   "ชื่อลูกค้า|เลขบิล" (badge บิลค้าง, rdUnbilled) — พังเมื่อลูกค้าเปลี่ยนชื่อบริษัท
+//      เพราะ svC ซิงค์ชื่อใหม่ลงบิลแต่ไม่ลงใบวางบิล บิลที่วางไปแล้วเลยเด้งกลับมาเป็นค้าง
+//   "เลขบิล" เปล่าๆ (rdBillList) — หลวมเกิน เลขบิลชนกันข้ามลูกค้าได้จริง
+//      ในข้อมูลจริงมี DNSL-260618-004 สองใบ คนละลูกค้ากัน
+// ตัวนี้ยึดชื่อ+เลขก่อน ถ้าไม่เจอค่อยยอมให้เลขบิลอย่างเดียวผ่าน เฉพาะเลขที่มีเจ้าของเดียว
+// เลขที่ใช้ซ้ำข้ามลูกค้าจะยังต้องตรงชื่อเท่านั้น ความปลอดภัยเดิมจึงไม่หาย
+function invIndex(){
+  var pairs={}, nos={}, owners={};
+  invoices.forEach(function(iv){
+    if (iv.status === 'cancelled') return;
+    (iv.billNos||[]).forEach(function(no){
+      pairs[(iv.custName||'').trim()+'|'+no] = true;
+      nos[no] = true;
+    });
+  });
+  bills.forEach(function(b){
+    if (!b.no) return;
+    if (!owners[b.no]) owners[b.no] = {};
+    owners[b.no][(b.cn||'').trim()] = true;
+  });
+  return {pairs:pairs, nos:nos, owners:owners};
+}
+// idx ส่งเข้ามาได้เพื่อไม่ต้องสร้างใหม่ทุกแถวตอนวนบิลพันกว่าใบ
+function billInvoiced(b, idx){
+  idx = idx || invIndex();
+  if (idx.pairs[(b.cn||'').trim()+'|'+b.no]) return true;
+  var o = idx.owners[b.no];
+  if (o && Object.keys(o).length > 1) return false;
+  return !!idx.nos[b.no];
 }
 function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function ha(s){return String(s||'').replace(/"/g,'&quot;');}
@@ -2936,7 +2971,7 @@ function draftUpload(input, kind){
   var fd = new FormData();
   fd.append('file', file);
   fd.append('upload_preset', 'cnk_bills');
-  fd.append('folder', 'cnk_draft');
+  fd.append('folder', cldFolder('cnk_draft'));
   var endpoint = kind==='file' ? 'auto/upload' : 'image/upload';
   fetch('https://api.cloudinary.com/v1_1/daxjl6uik/'+endpoint, {method:'POST', body:fd})
     .then(function(r){ return r.json(); })
@@ -3182,7 +3217,7 @@ function uploadImageToDrive(base64DataUrl, filename, rowIdx, tr) {
   var formData = new FormData();
   formData.append('file', blob, filename);
   formData.append('upload_preset', 'cnk_bills');
-  formData.append('folder', 'cnk_bills');
+  formData.append('folder', cldFolder('cnk_bills'));
 
   fetch('https://api.cloudinary.com/v1_1/daxjl6uik/image/upload', {
     method: 'POST',
@@ -3341,8 +3376,7 @@ function rdL(){
     return new Date(b.ts||0) - new Date(a.ts||0);
   });
   // หา billNos ที่อยู่ใน invoice แล้ว (สำหรับซ่อนปุ่มเปลี่ยนเป็นเงินสด)
-  var invoicedNos = [];
-  invoices.forEach(function(iv){ if(iv.status!=='cancelled')(iv.billNos||[]).forEach(function(no){invoicedNos.push(no);}); });
+  var idx = invIndex();
   var c=document.getElementById('bl');
   if(!list.length){c.innerHTML='<p style="text-align:center;color:#aaa;padding:40px 0;">ไม่พบบิล</p>';return;}
   c.innerHTML=list.map(function(b){
@@ -3350,12 +3384,12 @@ function rdL(){
     var xb=b.status==='cancelled'?'<span class="bdg bx">ยกเลิก</span>':'';
     // ปุ่มเปลี่ยนเป็นเงินสด: เฉพาะบิลเครดิต active ที่ยังไม่ได้วางบิล
     var toCashBtn = '';
-    if(b.type==='credit' && b.status==='active' && !invoicedNos.includes(b.no)){
+    if(b.type==='credit' && b.status==='active' && !billInvoiced(b,idx)){
       toCashBtn = '<button class="btn bo bsm" style="color:#27ae60;" onclick="billToCash('+b.id+')">&#128179; เงินสด</button>';
     }
     // ปุ่มเปลี่ยนกลับเป็นเครดิต: เฉพาะบิลเงินสด (ไม่ cancelled) ที่ยังไม่ได้วางบิล
     var toCreditBtn = '';
-    if(b.type==='cash' && b.status!=='cancelled' && !invoicedNos.includes(b.no)){
+    if(b.type==='cash' && b.status!=='cancelled' && !billInvoiced(b,idx)){
       toCreditBtn = '<button class="btn bo bsm" style="color:#8e44ad;" onclick="billToCredit('+b.id+')">&#128203; เครดิต</button>';
     }
     var acts=b.status!=='cancelled'?'<button class="btn bo bsm" onclick="opEM('+b.id+')">แก้ไข</button>'+toCashBtn+toCreditBtn+'<button class="btn bo bsm" style="color:#e74c3c;" onclick="canB('+b.id+')">ยกเลิก</button>':'';
@@ -3614,7 +3648,7 @@ function trigEditImg(i){
       var fd=new FormData();
       fd.append('file',blob,'edit_'+Date.now()+'.jpg');
       fd.append('upload_preset','cnk_bills');
-      fd.append('folder','cnk_bills');
+      fd.append('folder',cldFolder('cnk_bills'));
       fetch('https://api.cloudinary.com/v1_1/daxjl6uik/image/upload',{method:'POST',body:fd})
         .then(function(r){return r.json();})
         .then(function(res){
@@ -3704,6 +3738,8 @@ function svC(){
   if(eCId){
     console.log('[svC] updating customer eCId=', eCId, 'type=', typeof eCId);
     var cust=custs.find(function(c){return String(c.id)===String(eCId);});
+    // เก็บชื่อเดิมไว้ก่อนทับ ใช้ตามหาใบวางบิลเก่าของลูกค้ารายนี้
+    var oldName = cust ? String(cust.n||'').trim() : '';
     if(cust) Object.assign(cust,data);
     localStorage.setItem('c',JSON.stringify(custs));
     apiPost('update','customers',data,eCId).then(function(res){
@@ -3719,12 +3755,17 @@ function svC(){
     });
     localStorage.setItem('b',JSON.stringify(bills));
     // ซิงค์ชื่อ/ที่อยู่ไปยังใบวางบิลเก่า
-    invoices.forEach(function(iv){
-      if(String(iv.custId)===custIdStr){
-        iv.custName=data.n;iv.custAddr=data.a;iv.custTel=data.t;
-        apiPost('update','invoices',{custName:data.n,custAddr:data.a,custTel:data.t},iv.id).catch(function(e){console.error(e);});
-      }
-    });
+    // เดิมจับด้วย iv.custId ซึ่ง saveInvoice ไม่เคยเขียนลงไปเลย loop นี้จึงไม่เคยทำงาน
+    // ผลคือเปลี่ยนชื่อบริษัทแล้วบิลได้ชื่อใหม่ แต่ใบวางบิลยังค้างชื่อเก่า สองฝั่งไม่ตรงกัน
+    // จับด้วยชื่อเดิมแทน ตรงกับที่ saveInvoice เก็บจริง (custName) และไม่ต้องเพิ่มคอลัมน์
+    if(oldName){
+      invoices.forEach(function(iv){
+        if(String(iv.custName||'').trim()===oldName){
+          iv.custName=data.n;iv.custAddr=data.a;iv.custTel=data.t;
+          apiPost('update','invoices',{custName:data.n,custAddr:data.a,custTel:data.t},iv.id).catch(function(e){console.error(e);});
+        }
+      });
+    }
     localStorage.setItem('inv',JSON.stringify(invoices));
   }else{
     data.id=Date.now();custs.push(data);
@@ -3839,16 +3880,9 @@ function genInvNo() {
 function loadInvBills(custId) {
   var c = custs.find(function(c){return String(c.id)===String(custId);});
   // Get bills for this customer that are active and not already in an invoice
-  // เอาเฉพาะ billNos ที่วางบิลของลูกค้ารายนี้ (กันเลขบิลชนกันข้ามลูกค้า)
-  var invoicedNos = [];
-  invoices.forEach(function(iv){
-    if (iv.status !== 'cancelled' && iv.custName === c.n) {
-      iv.billNos.forEach(function(no){ invoicedNos.push(no); });
-    }
-  });
-
+  var idx = invIndex();
   var eligible = bills.filter(function(b){
-    return b.cn === c.n && b.type === 'credit' && b.status === 'active' && !invoicedNos.includes(b.no);
+    return b.cn === c.n && b.type === 'credit' && b.status === 'active' && !billInvoiced(b, idx);
   }).sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
 
   var wrap = document.getElementById('inv-bills-wrap');
@@ -3991,19 +4025,12 @@ function pickInvF(n) {
 
 // ===== บิลค้างวางบิล =====
 function rdUnbilled() {
-  // คำนวณคู่ (ลูกค้า|เลขบิล) ที่อยู่ใน invoice ที่ไม่ถูก cancel แล้ว
-  // ใช้คู่ลูกค้า+เลขบิล กันกรณีเลขบิลชนกันข้ามลูกค้า (เลขซ้ำแต่คนละเจ้า)
-  var invoicedPairs = {};
-  invoices.forEach(function(iv) {
-    if (iv.status !== 'cancelled') {
-      (iv.billNos || []).forEach(function(no) { invoicedPairs[(iv.custName||'')+'|'+no] = true; });
-    }
-  });
+  var idx = invIndex();
 
   // กรองบิลเครดิต active ที่ยังไม่ได้วางบิล ไม่รวมเดือนปัจจุบัน
   var thisYM = td().slice(0, 7); // YYYY-MM
   var unbilled = bills.filter(function(b) {
-    return b.type === 'credit' && b.status === 'active' && !invoicedPairs[(b.cn||'')+'|'+b.no]
+    return b.type === 'credit' && b.status === 'active' && !billInvoiced(b, idx)
       && (b.date || '').slice(0, 7) < thisYM;
   }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
 
@@ -6576,7 +6603,7 @@ function trQtI(i) {
       var fd=new FormData();
       fd.append('file',blob,'qt_'+Date.now()+'.jpg');
       fd.append('upload_preset','cnk_bills');
-      fd.append('folder','cnk_bills');
+      fd.append('folder',cldFolder('cnk_bills'));
       fetch('https://api.cloudinary.com/v1_1/daxjl6uik/image/upload',{method:'POST',body:fd})
         .then(function(r){return r.json();})
         .then(function(res){
