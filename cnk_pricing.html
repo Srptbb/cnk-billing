@@ -579,7 +579,11 @@ const ctx = canvas.getContext('2d');
 // ── PRICING LOAD ──────────────────────────────────────────────────────────────
 // retry + ตรวจ non-JSON กัน Apps Script cold-start/404 ชั่วคราว
 // ตารางที่ย้ายไปอ่านจาก Supabase แล้ว (ให้ตรงกับ SB_TABLES ใน index.html)
-const SB_TABLES={pricing:true};
+// customers: reconcile ผ่านแล้ว 124/124 แถว และ index.html อ่านจาก Supabase ตั้งแต่ 3ad7b09
+// หน้านี้เคยอ่านจาก Apps Script อยู่จุดเดียว ซึ่งมีปัญหา 2 อย่าง: ชื่อลูกค้าที่เพิ่งเพิ่มอาจไม่มา
+// ถ้า Apps Script cold-start และบน staging มันดึงรายชื่อลูกค้าจริงมาโชว์ (ไม่มี guard !IS_PROD
+// แบบ index.html) ทั้งที่งานเขียนลง DB staging — ตัวคูณราคาเลยมาจากคนละที่กับที่บันทึก
+const SB_TABLES={pricing:true,customers:true};
 // PostgREST จำกัด 1000 แถว/คำขอ → ไล่ทีละหน้าด้วย Range ไม่งั้นข้อมูลหายเงียบ
 async function sbGetAll(table, _try=0){
   const STEP=1000;
