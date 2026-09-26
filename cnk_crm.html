@@ -1355,7 +1355,9 @@ async function loadAll() {
   c4reset();   // กดรีเฟรชต้องได้ของใหม่ ไม่ใช่แคชรอบก่อน
   const [dashData, billData, logData, targetsData] = await Promise.all([
     SB_COMPUTE ? c4Dashboard() : apiGet({ action: 'getCrmDashboard' }),
-    apiGet({ action: 'getAll', table: 'bills', months: 1 }),
+    // c4Dashboard() ดึง bills ทั้งตารางมาแคชไว้แล้ว c4('bills') จึงไม่ยิงเน็ตซ้ำ
+    // ของเดิมยิง Apps Script อีกรอบเพื่อใช้แค่ fallback ข้างล่าง
+    SB_COMPUTE ? c4('bills') : apiGet({ action: 'getAll', table: 'bills', months: 1 }),
     loadCrmLogs(),
     SB_COMPUTE ? c4Targets()   : apiGet({ action: 'getTargets' })
   ]);
@@ -1376,7 +1378,11 @@ async function loadAll() {
   if (!billThisMonthArr.length) {
     (Array.isArray(billData) ? billData : []).forEach(b => {
       if (b.status === 'cancelled') return;
-      if (String(b.date||'').slice(0,7) !== thisMonth) return;
+      // bills ที่ backfill มามีรูปแบบ instant ปนอยู่ การ slice(0,7) ตรงๆ ทำให้บิลของวันที่ 1
+      // ตกไปอยู่เดือนก่อนหน้า (2026-08-31T17:00Z ที่จริงคือ 1 ก.ย. ตามเวลากรุงเทพ)
+      const bp = bkkParts(b.date);
+      const bym = bp ? bp.y+'-'+p2(bp.m) : String(b.date||'').slice(0,7);
+      if (bym !== thisMonth) return;
       const cn = String(b.cn||'').trim();
       if (!cn) return;
       actualMap[cn] = (actualMap[cn]||0) + (Number(b.grand)||0);
