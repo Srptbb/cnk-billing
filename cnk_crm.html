@@ -1217,6 +1217,21 @@ async function c4SaveComm(payload){
 }
 /* ===================== จบเฟส 4 ===================== */
 
+/* แปลงวันที่ให้เป็น YYYY-MM-DD ตามปฏิทินกรุงเทพเสมอ
+   crm_logs.date/followupDate มี 2 รูปแบบปนกัน:
+     - แถวเก่าที่มาจากชีท = instant "2026-07-16T17:00:00.000Z"
+     - แถวใหม่ที่หน้าเว็บเขียนเอง = "2026-07-17" (ค่าจาก <input type="date">)
+   ตอน crm_logs สลับมาอ่าน Supabase (08041f2) จุดแสดงผลยังพิมพ์ค่าดิบ ทำให้ขึ้นเป็น ISO เต็มๆ
+   และร้ายกว่านั้นคือ <input type="date"> รับค่า ISO ไม่ได้ -> กดแก้ไขแล้วช่องวันที่ว่าง
+   เซฟทับเมื่อไหร่วันที่หายจริง จึงต้องล้างให้เรียบร้อยตั้งแต่ตอนอ่าน ไม่ใช่ไล่แก้ทีละจุดแสดงผล */
+function ymdBkk(v){
+  if(v === null || v === undefined || v === '') return '';
+  const bp = bkkParts(v);
+  if(bp) return bp.y+'-'+p2(bp.m)+'-'+p2(bp.d);
+  const s = String(v).trim();
+  const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : s;
+}
 // อ่าน crm_logs: Postgres ไม่รับประกันลำดับ ต้องเรียงเองให้เหมือน Apps Script (ล่าสุดก่อน)
 // เพราะหน้ารายการตัด .slice(0,50) ถ้าลำดับสลับจะโชว์บันทึกผิดชุด
 async function loadCrmLogs(){
@@ -1225,7 +1240,8 @@ async function loadCrmLogs(){
     : await apiGet({ action: 'getCrmLogs' });
   const a = Array.isArray(rows) ? rows.slice() : [];
   a.sort((x,y) => String(y.ts||y.date||'').localeCompare(String(x.ts||x.date||'')));
-  return a;
+  // เรียงก่อนค่อยล้าง: ts เป็นเวลาจริงที่ใช้เรียง ส่วน date เป็นค่าที่เอาไปโชว์/ใส่ฟอร์ม
+  return a.map(r => ({ ...r, date: ymdBkk(r.date), followupDate: ymdBkk(r.followupDate) }));
 }
 async function apiGetTable(table){
   if(SB_TABLES[table]) return sbGetAll(table);
