@@ -823,9 +823,22 @@ tr.dup-row td { background: #fef9c3; }
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
-const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
-const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
+// production คือ hostname เดียวเท่านั้น — preview/localhost = staging (ต้องตรงกับ index.html)
+const IS_PROD = (location.hostname === 'cnk-billing.vercel.app');
+const SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
+                       : 'https://yuzezknnslzyyzbrtoxq.supabase.co';
+const SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
+                       : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
 const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+if (!IS_PROD) {
+  document.addEventListener('DOMContentLoaded', function(){
+    const b = document.createElement('div');
+    b.textContent = '⚠️ STAGING — ข้อมูลทดลอง ไม่กระทบของจริง · ' + location.hostname;
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#dc2626;color:#fff;text-align:center;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;padding:6px 10px;box-shadow:0 -2px 8px rgba(0,0,0,.25);';
+    document.body.appendChild(b);
+    document.title = '[STAGING] ' + document.title;
+  });
+}
 // ตารางที่ย้ายไปอ่านจาก Supabase แล้ว (ให้ตรงกับ SB_TABLES ใน index.html)
 const SB_TABLES={profiles:true,crm_logs:true};
 // ตารางที่ dual-write (เขียนทั้ง Apps Script และ Supabase) — มิเรอร์พลาดไม่ทำให้งานหลักล้ม
@@ -963,6 +976,13 @@ const totalWorkDays  = countWorkDays(_y, _m, 1, daysInMonth);
 const remWorkDays    = Math.max(0, totalWorkDays - workedWorkDays);
 
 async function apiGet(params) {
+  // apiGet ตัวนี้ใช้ทั้งอ่านและเขียน (_method) — บน staging ต้องตัดเฉพาะขาเขียน
+  // ไม่งั้นกดบันทึกใน staging แล้วชีทจริงเปลี่ยนตาม
+  if (!IS_PROD && params && params._method) {
+    console.log('[STAGING] บล็อกการเขียน Apps Script:', params._method, params.table, params.id||'');
+    if (!SB_MIRROR[params.table]) console.warn('[STAGING] เขียน '+params.table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
+    return { ok: true, staging: true };
+  }
   const url = API + '?' + new URLSearchParams(params);
   const r = await fetch(url);
   return r.json();

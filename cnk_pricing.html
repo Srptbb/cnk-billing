@@ -472,10 +472,23 @@ header{height:var(--hdr);border-bottom:1px solid var(--bdr);padding:0 16px;
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API = 'https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
-// ===== Supabase (pilot: worklist) =====
-const SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
-const SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
+// production คือ hostname เดียวเท่านั้น — preview/localhost = staging (ต้องตรงกับ index.html)
+const IS_PROD = (location.hostname === 'cnk-billing.vercel.app');
+// ===== Supabase =====
+const SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
+                       : 'https://yuzezknnslzyyzbrtoxq.supabase.co';
+const SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
+                       : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
 const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+if (!IS_PROD) {
+  document.addEventListener('DOMContentLoaded', function(){
+    const b = document.createElement('div');
+    b.textContent = '⚠️ STAGING — ข้อมูลทดลอง ไม่กระทบของจริง · ' + location.hostname;
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#dc2626;color:#fff;text-align:center;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;padding:6px 10px;box-shadow:0 -2px 8px rgba(0,0,0,.25);';
+    document.body.appendChild(b);
+    document.title = '[STAGING] ' + document.title;
+  });
+}
 const _SBTEXT=['id','custName','note','jobSource','bladeCut','bladeCrease','woodType','status','memo','bladeCount','woodCount'];
 const _SBNUM=['cutMM','creaseMM','woodW','woodH','price','priceBeforeLaser','rawPrice','finalPrice','costPerf','laserAdd','bladeChangeAdd','woodChangeAdd','holeAdd','holeCount','perfMM','perfCount'];
 const _SBBOOL=['laser','bladeChange','woodChange','manual','statusDesigned','statusWorking','statusComplete','statusShipped','statusPaid'];

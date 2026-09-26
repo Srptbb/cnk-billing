@@ -1055,10 +1055,26 @@ var LG='data:image/jpeg;base64,/9j/4AAQSkZJRgABAgEBogJYAAD/2wBDAAgGBgcGBQgHBwcJC
 
 var CO={n:'ร้านเจริญนคร ไดแอนด์โมลด์',a:'1/3 ซอยพุทธบูชา 39 แยก 1 แขวงบางมด เขตทุ่งครุ กรุงเทพมหานคร 10140',t:'โทร 097-181-8210'};
 var API='https://script.google.com/macros/s/AKfycbzFPMqVCZ783-LIyxbDjqxroE-VpP8gIVPYh7uTeTAoYReKKmnjdMz5C5lvI3_FMPgT/exec';
-// ===== Supabase (pilot: worklist) =====
-var SB_URL='https://mksaqrbcjuumgafxlznn.supabase.co';
-var SB_KEY='sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7';
+// ===== Environment =====
+// production คือ hostname เดียวเท่านั้น — preview ของ Vercel, localhost, เปิดไฟล์ตรงๆ = staging ทั้งหมด
+// เลือกทางนี้เพราะ "ลืมสลับ" แล้วพลาดไปทาง staging (ไม่มีอะไรเสีย) ดีกว่าพลาดไปเขียนทับของจริง
+var IS_PROD = (location.hostname === 'cnk-billing.vercel.app');
+// ===== Supabase =====
+var SB_URL = IS_PROD ? 'https://mksaqrbcjuumgafxlznn.supabase.co'
+                     : 'https://yuzezknnslzyyzbrtoxq.supabase.co';
+var SB_KEY = IS_PROD ? 'sb_publishable_X3vWm8LmZUIUfgo2Vwgs2A_Fw75Y7j7'
+                     : 'sb_publishable_i42KYa1z_58Xvm2KnSZMwg_ML5bVwzu';
 var SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// แถบเตือน staging: วางไว้ล่างสุดแบบ fixed เพื่อไม่ไปดัน nav/sub-bar ที่เป็น sticky แล้วเลย์เอาต์เพี้ยน
+if (!IS_PROD) {
+  document.addEventListener('DOMContentLoaded', function(){
+    var b = document.createElement('div');
+    b.textContent = '⚠️ STAGING — ข้อมูลทดลอง ไม่กระทบของจริง · ' + location.hostname;
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#dc2626;color:#fff;text-align:center;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;padding:6px 10px;box-shadow:0 -2px 8px rgba(0,0,0,.25);';
+    document.body.appendChild(b);
+    document.title = '[STAGING] ' + document.title;
+  });
+}
 var SB_TABLES={worklist:true,bills:true,pricing:true,profiles:true}; // ตารางที่ READ จาก Supabase แล้ว (นอกนั้นยัง READ จาก Apps Script)
 var SB_MIRROR={bills:true,customers:true,invoices:true,profiles:true}; // ตารางที่ "เขียนคู่" ลง Supabase ด้วย (dual-write) แต่ยัง READ จาก Apps Script
 // คอลัมน์ + ชนิดข้อมูล (ตรงกับสคีมา Postgres) แยกตามตาราง สำหรับล้างค่าก่อนเขียน
@@ -1191,7 +1207,9 @@ function showLoading(on){
 }
 
 function apiGet(table,cb,months,_try){
-  if (SB_TABLES[table]) { sbGetAll(table, cb); return; } // ตารางที่ย้ายมา Supabase
+  // บน staging อ่านจาก Supabase ทุกตารางที่มีสคีมา ไม่ให้ข้อมูลจริงจาก Apps Script ปนเข้ามา
+  // ถ้าอ่านของจริงแต่เขียนลง staging ตัวเลขจะไม่ตรงกันเอง งงกว่าเดิม
+  if (SB_TABLES[table] || (!IS_PROD && SB_COLS[table])) { sbGetAll(table, cb); return; }
   _try = _try || 0;
   var url = API+'?action=getAll&table='+table;
   if (months) url += '&months='+months;
@@ -1233,13 +1251,22 @@ function stripImages(data) {
 
 function apiPost(action,table,data,id){
   var cleanData = stripImages(data);
-  // dual-write: ตารางที่กำลังย้าย → เขียนคู่ลง Supabase ด้วย (fire-and-forget, ไม่กระทบ flow เดิม)
-  if (SB_MIRROR[table]) {
+  // บน staging เขียนลง Supabase ทุกตารางที่มีสคีมา ไม่ใช่แค่ตารางที่ dual-write อยู่
+  // ไม่งั้น staging จะทดสอบได้แค่บางหน้า ส่วนที่เหลือเขียนแล้วหายเฉยๆ
+  var doMirror = IS_PROD ? !!SB_MIRROR[table] : !!SB_COLS[table];
+  if (doMirror) {
     try {
       if (action==='delete') { sbWrite('delete', table, id, {}, null); }
       else if (action==='update') { sbWrite('update', table, id, cleanData, null); }
       else { sbWrite('save', table, (cleanData&&cleanData.id)||id, cleanData, null); }
     } catch(e){ console.error('SB mirror error:', table, e); }
+  }
+  // Apps Script เขียนชีท Google ตัวจริงเสมอ ไม่มีชีทสำรอง → บน staging ต้องตัดทิ้ง
+  // เป็นการกันเชิงโครงสร้าง ไม่ใช่กันด้วยวินัย: ต่อให้เผลอกดอะไรก็เขียนของจริงไม่ได้
+  if (!IS_PROD) {
+    if (!doMirror) console.warn('[STAGING] เขียน '+table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
+    console.log('[STAGING] บล็อกการเขียน Apps Script:', action, table, id||'');
+    return Promise.resolve({ok:true, staging:true});
   }
   var params = '?_method='+action+'&table='+encodeURIComponent(table);
   if (id) params += '&id='+encodeURIComponent(id);
