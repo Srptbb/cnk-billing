@@ -916,7 +916,7 @@ async function loadCrmLogs(){
 }
 async function apiGetTable(table){
   if(SB_TABLES[table]) return sbGetAll(table);
-  const r = await fetch(`${API}?action=getAll&table=${table}`);
+  const r = await gasFetch(`${API}?action=getAll&table=${table}`);
   const d = await r.json();
   return Array.isArray(d) ? d : [];
 }
@@ -975,16 +975,31 @@ const workedWorkDays = countWorkDays(_y, _m, 1, day);
 const totalWorkDays  = countWorkDays(_y, _m, 1, daysInMonth);
 const remWorkDays    = Math.max(0, totalWorkDays - workedWorkDays);
 
-async function apiGet(params) {
-  // apiGet ตัวนี้ใช้ทั้งอ่านและเขียน (_method) — บน staging ต้องตัดเฉพาะขาเขียน
-  // ไม่งั้นกดบันทึกใน staging แล้วชีทจริงเปลี่ยนตาม
-  if (!IS_PROD && params && params._method) {
-    console.log('[STAGING] บล็อกการเขียน Apps Script:', params._method, params.table, params.id||'');
-    if (!SB_MIRROR[params.table]) console.warn('[STAGING] เขียน '+params.table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
-    return { ok: true, staging: true };
+// ===== ประตูเดียวที่วิ่งไป Apps Script =====
+// เดิมการ์ดเช็คแค่ params._method ทำให้ action:'saveCommissions' (ขาเขียนที่ไม่ใช้ _method)
+// หลุดไปเขียนชีทจริงจาก staging ได้ → ย้ายการ์ดลงมาชั้นล่างสุด และใช้ whitelist ของขาอ่าน
+// action ใหม่ที่โผล่มาวันหลังจะถูกบล็อกโดยปริยาย ปลอดภัยกว่าปล่อยหลุด
+function gasIsWrite(url){
+  const q = String(url).indexOf('?');
+  const p = new URLSearchParams(q < 0 ? '' : String(url).slice(q+1));
+  if (p.has('_method')) return true;
+  return !/^get[A-Z]/.test(p.get('action') || '');
+}
+// คืน Response จริง เพื่อให้ใช้แทน fetch ได้ตรงๆ ทั้ง .json() และ .text()
+function gasFetch(url){
+  if (!IS_PROD && gasIsWrite(url)) {
+    console.warn('[STAGING] บล็อกการเขียน Apps Script:', String(url).slice(0,200));
+    return Promise.resolve(new Response('{"ok":true,"staging":true}',
+      {status:200, headers:{'Content-Type':'application/json'}}));
   }
+  return fetch(url);
+}
+
+async function apiGet(params) {
+  if (!IS_PROD && params && params._method && !SB_MIRROR[params.table])
+    console.warn('[STAGING] เขียน '+params.table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
   const url = API + '?' + new URLSearchParams(params);
-  const r = await fetch(url);
+  const r = await gasFetch(url);
   return r.json();
 }
 

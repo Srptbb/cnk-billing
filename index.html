@@ -1206,6 +1206,27 @@ function showLoading(on){
   if(el)el.style.display=on?'block':'none';
 }
 
+// ===== ประตูเดียวที่วิ่งไป Apps Script =====
+// เดิมการ์ด staging อยู่ใน apiPost อย่างเดียว แต่ apiSet (draft_queue) วิ่งอ้อมไปได้
+// → กดบน staging แล้วชีทจริงเปลี่ยนตาม ย้ายการ์ดลงมาชั้นล่างสุดที่เดียวแทน
+// ใช้ whitelist ของ "ขาอ่าน" (action ขึ้นต้น get + ตัวใหญ่) ไม่ใช่ blacklist ของ "ขาเขียน"
+// → action ใหม่ที่โผล่มาวันหลังจะถูกบล็อกโดยปริยาย ปลอดภัยกว่าปล่อยหลุดไปเขียนของจริง
+function gasIsWrite(url){
+  var q = String(url).indexOf('?');
+  var p = new URLSearchParams(q < 0 ? '' : String(url).slice(q+1));
+  if (p.has('_method')) return true;
+  return !/^get[A-Z]/.test(p.get('action') || '');
+}
+// คืน Response จริง เพื่อให้ใช้แทน fetch ได้ตรงๆ ทั้ง .json() และ .text()
+function gasFetch(url){
+  if (!IS_PROD && gasIsWrite(url)) {
+    console.warn('[STAGING] บล็อกการเขียน Apps Script:', String(url).slice(0,200));
+    return Promise.resolve(new Response('{"ok":true,"staging":true}',
+      {status:200, headers:{'Content-Type':'application/json'}}));
+  }
+  return fetch(url);
+}
+
 function apiGet(table,cb,months,_try){
   // บน staging อ่านจาก Supabase ทุกตารางที่มีสคีมา ไม่ให้ข้อมูลจริงจาก Apps Script ปนเข้ามา
   // ถ้าอ่านของจริงแต่เขียนลง staging ตัวเลขจะไม่ตรงกันเอง งงกว่าเดิม
@@ -1213,7 +1234,7 @@ function apiGet(table,cb,months,_try){
   _try = _try || 0;
   var url = API+'?action=getAll&table='+table;
   if (months) url += '&months='+months;
-  fetch(url)
+  gasFetch(url)
     .then(function(r){return r.text();})
     .then(function(t){
       var d;
@@ -1261,18 +1282,12 @@ function apiPost(action,table,data,id){
       else { sbWrite('save', table, (cleanData&&cleanData.id)||id, cleanData, null); }
     } catch(e){ console.error('SB mirror error:', table, e); }
   }
-  // Apps Script เขียนชีท Google ตัวจริงเสมอ ไม่มีชีทสำรอง → บน staging ต้องตัดทิ้ง
-  // เป็นการกันเชิงโครงสร้าง ไม่ใช่กันด้วยวินัย: ต่อให้เผลอกดอะไรก็เขียนของจริงไม่ได้
-  if (!IS_PROD) {
-    if (!doMirror) console.warn('[STAGING] เขียน '+table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
-    console.log('[STAGING] บล็อกการเขียน Apps Script:', action, table, id||'');
-    return Promise.resolve({ok:true, staging:true});
-  }
+  // Apps Script เขียนชีท Google ตัวจริงเสมอ ไม่มีชีทสำรอง → การบล็อกทำที่ gasFetch ชั้นล่าง
+  if (!IS_PROD && !doMirror) console.warn('[STAGING] เขียน '+table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
   var params = '?_method='+action+'&table='+encodeURIComponent(table);
   if (id) params += '&id='+encodeURIComponent(id);
   if (cleanData) params += '&data='+encodeURIComponent(JSON.stringify(cleanData));
-  console.log('[apiPost]', API+params);
-  return fetch(API+params)
+  return gasFetch(API+params)
     .then(function(r){return r.json();})
     .catch(function(e){console.error('apiPost error:',e);return {error:e.message};});
 }
@@ -2792,8 +2807,12 @@ function updateWlBadge() {
 // helper: apiSet สำหรับ update/delete
 function apiSet(method, table, id, data, cb) {
   if (SB_TABLES[table]) { sbWrite(method, table, id, data, function(){ if(cb) cb(); }); return; }
+  // ตารางที่มีสคีมาใน Supabase แต่ยังไม่ได้สลับอ่าน — บน staging ให้เขียนลง Supabase แทน
+  // ไม่งั้นกดแล้วเงียบหาย ทดสอบหน้านั้นไม่ได้เลย
+  if (!IS_PROD && SB_COLS[table]) { sbWrite(method, table, id, data, function(){ if(cb) cb(); }); return; }
+  if (!IS_PROD) console.warn('[STAGING] เขียน '+table+' ไม่ได้ ยังไม่มีสคีมาใน Supabase — ข้อมูลนี้หายไป');
   var url = API + '?_method='+method+'&table='+encodeURIComponent(table)+'&id='+encodeURIComponent(id)+'&data='+encodeURIComponent(JSON.stringify(data));
-  fetch(url).then(function(r){ return r.json(); }).then(function(){ if(cb) cb(); }).catch(function(){ if(cb) cb(); });
+  gasFetch(url).then(function(r){ return r.json(); }).then(function(){ if(cb) cb(); }).catch(function(){ if(cb) cb(); });
 }
 
 // ===== คิวเขียนแบบ (draft queue) — ฝั่งแอดมิน =====
